@@ -29,10 +29,28 @@ import (
 	tterm "github.com/pure-golang/budva-claude/internal/transport/term"
 )
 
+// version прошивается при сборке через -ldflags "-X main.version=<tag>"
+// (Dockerfile build arg VERSION, CI-релизы). "dev" — локальная сборка.
+var version = "dev"
+
 func main() {
+	// Баннер версии до загрузки конфигурации: `engine --version` не требует
+	// env-переменных и не стартует движок. stdout — значение, которое
+	// утверждает scripts/docker-smoke.sh и CI.
+	if versionRequested(os.Args[1:]) {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// versionRequested сообщает, запрошен ли баннер версии первым аргументом.
+// Проверка до envconfig: `--version` не должен падать на required-переменных.
+func versionRequested(args []string) bool {
+	return len(args) > 0 && args[0] == "--version"
 }
 
 func run() error {

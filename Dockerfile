@@ -1,3 +1,10 @@
+# VERSION — тег релиза, прошиваемый в бинарники через -ldflags "-X main.version".
+# По умолчанию "dev" (локальная сборка). CI передаёт тег/v*-строку.
+# Объявлен ДО первого FROM (глобальная область видимости) и повторно
+# объявлен в builder-стадии: ARG до FROM виден только в FROM-строках,
+# внутри стадии его нужно переобъявить.
+ARG VERSION=dev
+
 # Stage 0: Сборка TDLib C++
 FROM dockerhub.timeweb.cloud/library/debian:bookworm AS tdlib-builder
 
@@ -7,14 +14,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone https://github.com/tdlib/td.git /td && \
     cd /td && git checkout 22d49d5
 
+# --parallel: cmake использует все ядра раннера. Коммит TDLib закреплён,
+# поэтому слой детерминирован и полностью попадает в BuildKit-кэш CI.
 RUN cd /td && mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
-    cmake --build . --target prepare_cross_compiling && \
+    cmake --build . --parallel --target prepare_cross_compiling && \
     cd .. && php SplitSource.php && cd build && \
-    cmake --build . --target install
+    cmake --build . --parallel --target install
 
 # Stage 1: Go builder
 FROM dockerhub.timeweb.cloud/library/golang:1.25.9-bookworm AS builder
+
+# Переобъявление глобального ARG — см. комментарий у объявления до FROM.
+ARG VERSION
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev zlib1g-dev && \
@@ -29,9 +41,15 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-RUN CGO_ENABLED=1 go build -a -trimpath -ldflags "-s -w" -o /bin/facade ./cmd/facade
-RUN CGO_ENABLED=1 go build -a -trimpath -ldflags "-s -w" -o /bin/engine ./cmd/engine
-RUN CGO_ENABLED=1 go build -a -trimpath -ldflags "-s -w" -o /bin/stand ./cmd/stand
+# Без -a (форсирующая пересборка всех зависимостей): три бинарника в одном
+# RUN-слое делят общий кэш компиляции — полная сборка выполняется один раз.
+# version прошивается в facade и engine (`--version`); stand значение не
+# печатает, но включён в ту же сборку без специального случая.
+# ${VERSION:-dev} — страховка: если ARG потерян, прошиваем "dev", а не пустую
+# строку (пустой -X затирает дефолт "dev" в var version пустотой).
+RUN CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X main.version=${VERSION:-dev}" -o /bin/facade ./cmd/facade && \
+    CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X main.version=${VERSION:-dev}" -o /bin/engine ./cmd/engine && \
+    CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X main.version=${VERSION:-dev}" -o /bin/stand ./cmd/stand
 
 # Stage 2: Runtime
 FROM dockerhub.timeweb.cloud/library/debian:bookworm-slim
@@ -54,4 +72,5 @@ COPY --from=builder --chown=appuser:appuser /bin/stand /app/stand
 COPY --from=builder --chown=appuser:appuser /app/ruleset.yml /app/ruleset.yml
 COPY --from=builder --chown=appuser:appuser /app/.env.example /app/.env
 
-EXPOSE 7070
+# HTTP (7070, WEBSERVER_PORT) и gRPC (50051, GRPC_PORT).
+EXPOSE 7070 50051
