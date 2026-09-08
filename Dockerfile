@@ -14,13 +14,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone https://github.com/tdlib/td.git /td && \
     cd /td && git checkout 22d49d5
 
-# --parallel: cmake использует все ядра раннера. Коммит TDLib закреплён,
-# поэтому слой детерминирован и полностью попадает в BuildKit-кэш CI.
+# --parallel 2: ограничение параллельности принципиально. Полный --parallel
+# (все ядра, -j4 на стандартном раннере 16GB) регулярно убивает VM на ~87%
+# компиляции: несколько тяжёлых шаблонных файлов (сгенерированные
+# telegram_api*.cpp) в пике потребляют по 1-2GB на g++-процесс, и платформа
+# гасит раннер целиком. -j2 держит пик памяти в бюджет и стоит ~5 минут
+# дополнительного времени сборки.
 RUN cd /td && mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
-    cmake --build . --parallel --target prepare_cross_compiling && \
+    cmake --build . --parallel 2 --target prepare_cross_compiling && \
     cd .. && php SplitSource.php && cd build && \
-    cmake --build . --parallel --target install
+    cmake --build . --parallel 2 --target install
 
 # Stage 1: Go builder
 FROM dockerhub.timeweb.cloud/library/golang:1.25.9-bookworm AS builder
