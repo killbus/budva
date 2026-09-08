@@ -71,6 +71,36 @@ go run ./cmd/stand --up
 go run ./cmd/stand --down
 ```
 
+## Docker
+
+Сборка образа (то же, что использует CI — единственный путь сборки):
+
+```bash
+docker build -t budva:local .
+docker build --build-arg VERSION=v0.1.0 -t budva:v0.1.0 .
+```
+
+Версия прошивается в бинарники (`facade --version` / `engine --version`, без аргументов — `dev`).
+
+Готовые образы публикуются в GHCR по тегу `v*`:
+
+```bash
+docker pull ghcr.io/killbus/budva:latest
+docker run --rm ghcr.io/killbus/budva:latest /app/facade --version
+```
+
+Запуск facade (переменные окружения — как в `.env.example`):
+
+```bash
+docker run -d --name budva-facade \
+  -p 7070:7070 -p 50051:50051 \
+  -e TELEGRAM_API_ID=... -e TELEGRAM_API_HASH=... -e TELEGRAM_PHONE=... \
+  -v budva-data:/app/.data \
+  ghcr.io/killbus/budva:latest /app/facade
+```
+
+Для engine замените команду на `/app/engine`.
+
 ## Правила пересылки
 
 Редактируйте `ruleset.yml` — перезагрузка происходит без перезапуска сервиса. Схема конфига: `sources`, `destinations`, `forwardRules`.

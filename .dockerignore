@@ -22,6 +22,8 @@
 # Tooling metadata
 .agents
 .claude
+.trellis
+.github
 AGENTS.md
 CLAUDE.md
 REPORT-TDLIB.md
