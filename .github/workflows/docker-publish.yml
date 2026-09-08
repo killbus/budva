@@ -29,9 +29,12 @@
 #
 # Deliberately absent (kill list — revisit only on a real signal):
 #   cosign, SBOM, vulnerability scanning, QEMU/emulation, architectures
-#   beyond amd64+arm64. Unlike reproxy, BuildKit caching is NOT on this
-#   list: budva compiles TDLib C++ from source (a ~30-minute layer per
-#   arch), and the pinned TDLib commit makes that layer a stable cache key.
+#   beyond amd64+arm64, BuildKit cache mounts / cache-from / cache-to.
+#   Caching was tried and removed: the gha exporter (mode=max) uploads
+#   GB-scale TDLib layer blobs and stalled the build step for ~48 minutes
+#   twice (runner VM killed, logs lost) — and with cmake --parallel the
+#   TDLib layer builds from scratch in ~5 minutes anyway, so there was
+#   nothing worth that instability.
 
 name: docker-publish
 
@@ -113,12 +116,6 @@ jobs:
           tags: budva:smoke-${{ matrix.arch }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
-          # gha cache: the TDLib layer (pinned commit 22d49d5) and the
-          # go mod download layer are expensive and stable — cache them
-          # in the GitHub Actions cache service. mode=max also caches the
-          # intermediate runtime stage layers.
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           # OCI annotations: revision = commit SHA, version = injected
           # version string, source = repo URL. They land on this arch's
           # image manifest (same placement as every release to date).
@@ -162,8 +159,6 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           annotations: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.meta.outputs.version }}
