@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/09-08-docker-publish/research/reproxy-pattern.md", "reason": "reproxy docker-publish skeleton, budva differences, and code-level evidence for CI smoke feasibility (lazy TDLib start, no-pinger health endpoints, stdin-EOF-safe terminal transport)"}
+{"file": ".trellis/tasks/09-08-docker-publish/prd.md", "reason": "requirements R1-R6 and acceptance criteria AC1-AC6 including dummy-credentials smoke contract"}
+{"file": ".trellis/tasks/09-08-docker-publish/design.md", "reason": "workflow topology (two-leg native matrix, digest-only push, manifest merge), Dockerfile changes (VERSION ldflags, --parallel, no -a, EXPOSE 50051), smoke script design"}

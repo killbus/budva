@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/09-08-docker-publish/prd.md", "reason": "acceptance criteria AC1-AC6 to verify against; out-of-scope list (no cosign/SBOM, no stand --version, no extra arches)"}
+{"file": ".trellis/tasks/09-08-docker-publish/design.md", "reason": "contracts (version banner, smoke script exit codes, GHCR tag rules) and compatibility notes (existing compose smoke must stay green)"}
