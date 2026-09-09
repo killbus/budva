@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend spec index — locate layer-scoped guidelines for reviewing infra changes"}
+{"file": ".trellis/workspace/killbus/warmup-convergence.md", "reason": "Convergence record — acceptance baseline: lazy on-miss + single retry, no caller changes"}
