@@ -1,0 +1,54 @@
+# Executable README: the smallest compose file that runs a full budva
+# deployment (facade API + engine forwarder).
+#
+# The one non-obvious decision here: facade and engine each run their own
+# TDLib client, and TDLib holds an exclusive SQLite lock on its database
+# directory — so each service gets its OWN volume. Sharing one volume would
+# have the second client fail on the lock; this mirrors the bare-metal
+# topology (two processes, two .data trees), not a shared-state fantasy.
+#
+# First-time Telegram authorization is interactive (phone + code from SMS):
+#   docker compose attach engine    # authorize, detach with ^P^Q
+#   docker compose attach facade    # same for the API side
+# stdin_open/tty keep that possible after `docker compose up -d`.
+#
+# No healthcheck: the runtime image ships no HTTP client (curl/wget), and a
+# healthcheck that cannot run is worse than none — the health endpoints are
+# pinned by scripts/docker-smoke.sh at build time instead.
+#
+# ruleset.yml is bind-mounted on purpose: engine watches it with fsnotify
+# (WatchContext), so host-side edits hot-reload without a restart. Caveat:
+# the watcher follows the file's inode — in-place writes (`echo ... >`)
+# reload; replace-style editors (vim, sed -i) swap the inode and the watch
+# goes stale, `touch` the file after such an edit to re-trigger.
+#
+# Local-build variant: replace `image:` with `build: .` (see README).
+
+services:
+  facade:
+    image: ghcr.io/killbus/budva:latest   # pin to a vX.Y.Z tag for real deployments
+    command: ["/app/facade"]
+    env_file: .env
+    ports:
+      - "7070:7070"      # HTTP: GraphQL + /live /ready /healthcheck
+      - "50051:50051"    # gRPC
+    volumes:
+      - facade-data:/app/.data
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  engine:
+    image: ghcr.io/killbus/budva:latest   # pin to a vX.Y.Z tag for real deployments
+    command: ["/app/engine"]
+    env_file: .env
+    volumes:
+      - engine-data:/app/.data            # badger + TDLib session; NOT shared with facade
+      - ./ruleset.yml:/app/ruleset.yml    # bind: hot reload via fsnotify
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+volumes:
+  facade-data:
+  engine-data:

@@ -101,6 +101,16 @@ docker run -d --name budva-facade \
 
 Для engine замените команду на `/app/engine`.
 
+Полное развёртывание (facade + engine) — через compose:
+
+```bash
+cp .env.example .env  # заполнить TELEGRAM_API_ID / API_HASH / PHONE
+docker compose up -d
+docker compose attach engine   # первичная авторизация Telegram (телефон + код)
+```
+
+`docker-compose.yml` смонтирован на отдельные volume для facade и engine (у каждого свой TDLib-клиент и эксклюзивная блокировка SQLite) и на `ruleset.yml` (hot-reload без перезапуска; после replace-редакторов — `touch`). Для локальной сборки замените `image:` на `build: .`.
+
 ## Правила пересылки
 
 Редактируйте `ruleset.yml` — перезагрузка происходит без перезапуска сервиса. Схема конфига: `sources`, `destinations`, `forwardRules`.
