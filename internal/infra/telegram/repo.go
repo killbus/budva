@@ -54,17 +54,27 @@ type Repo struct {
 	// Такой подход заменяет per-call GetListener()/Close() — go-tdlib v0.7.6
 	// имеет гонку в Listener.Close() (panic: send on closed channel).
 	pendingSends sync.Map // map[int64]chan sendResult
+
+	// Состояние ленивого прогрева чатов (см. warmup.go): mutex + cond
+	// дедуплицируют конкурентные LoadChats-бутстрапы, lastWarm реализует
+	// минимальный интервал между прогревами.
+	warmMu       sync.Mutex
+	warmCond     *sync.Cond
+	warmInFlight bool
+	lastWarm     time.Time
 }
 
 // New создаёт Telegram-репозиторий.
 func New(cfg config.TelegramConfig) *Repo {
-	return &Repo{
+	r := &Repo{
 		logger:     slog.Default().With("module", "infra.telegram"),
 		cfg:        cfg,
 		clientDone: make(chan struct{}),
 		updates:    make(chan client.Type, 100),
 		authStates: make(chan domain.AuthStateEvent, 10),
 	}
+	r.initWarmState()
+	return r
 }
 
 // Start инициализирует TDLib-клиент и запускает авторизацию.

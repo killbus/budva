@@ -59,8 +59,12 @@ var (
 // --- Операции с сообщениями ---
 
 // SendMessage отправляет сообщение.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
 func (r *Repo) SendMessage(req *client.SendMessageRequest) (*client.Message, error) {
 	msg, err := r.clientAdapter.SendMessage(req)
+	if err != nil && r.warmOnChatNotFound(err, "SendMessage", req.ChatId) {
+		msg, err = r.clientAdapter.SendMessage(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("send message: %w", err)
 	}
@@ -68,8 +72,12 @@ func (r *Repo) SendMessage(req *client.SendMessageRequest) (*client.Message, err
 }
 
 // SendMessageAlbum отправляет медиа-альбом.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
 func (r *Repo) SendMessageAlbum(req *client.SendMessageAlbumRequest) (*client.Messages, error) {
 	msgs, err := r.clientAdapter.SendMessageAlbum(req)
+	if err != nil && r.warmOnChatNotFound(err, "SendMessageAlbum", req.ChatId) {
+		msgs, err = r.clientAdapter.SendMessageAlbum(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("send message album: %w", err)
 	}
@@ -77,8 +85,12 @@ func (r *Repo) SendMessageAlbum(req *client.SendMessageAlbumRequest) (*client.Me
 }
 
 // ForwardMessages пересылает сообщения.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
 func (r *Repo) ForwardMessages(req *client.ForwardMessagesRequest) (*client.Messages, error) {
 	msgs, err := r.clientAdapter.ForwardMessages(req)
+	if err != nil && r.warmOnChatNotFound(err, "ForwardMessages", req.ChatId) {
+		msgs, err = r.clientAdapter.ForwardMessages(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("forward messages: %w", err)
 	}
@@ -86,8 +98,12 @@ func (r *Repo) ForwardMessages(req *client.ForwardMessagesRequest) (*client.Mess
 }
 
 // GetMessage возвращает сообщение.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
 func (r *Repo) GetMessage(req *client.GetMessageRequest) (*client.Message, error) {
 	msg, err := r.clientAdapter.GetMessage(req)
+	if err != nil && r.warmOnChatNotFound(err, "GetMessage", req.ChatId) {
+		msg, err = r.clientAdapter.GetMessage(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get message: %w", err)
 	}
@@ -95,8 +111,12 @@ func (r *Repo) GetMessage(req *client.GetMessageRequest) (*client.Message, error
 }
 
 // GetMessages возвращает сообщения batch-ом.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
 func (r *Repo) GetMessages(req *client.GetMessagesRequest) (*client.Messages, error) {
 	msgs, err := r.clientAdapter.GetMessages(req)
+	if err != nil && r.warmOnChatNotFound(err, "GetMessages", req.ChatId) {
+		msgs, err = r.clientAdapter.GetMessages(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get messages: %w", err)
 	}
@@ -133,8 +153,12 @@ func (r *Repo) DeleteMessages(req *client.DeleteMessagesRequest) (*client.Ok, er
 // --- Операции со ссылками ---
 
 // GetMessageLink возвращает публичную ссылку на сообщение.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
 func (r *Repo) GetMessageLink(req *client.GetMessageLinkRequest) (*client.MessageLink, error) {
 	link, err := r.clientAdapter.GetMessageLink(req)
+	if err != nil && r.warmOnChatNotFound(err, "GetMessageLink", req.ChatId) {
+		link, err = r.clientAdapter.GetMessageLink(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get message link: %w", err)
 	}
@@ -142,8 +166,13 @@ func (r *Repo) GetMessageLink(req *client.GetMessageLinkRequest) (*client.Messag
 }
 
 // GetMessageLinkInfo парсит ссылку и возвращает информацию о сообщении.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// В запросе нет chat_id (парсится URL) — в логе наблюдаемости будет 0.
 func (r *Repo) GetMessageLinkInfo(req *client.GetMessageLinkInfoRequest) (*client.MessageLinkInfo, error) {
 	info, err := r.clientAdapter.GetMessageLinkInfo(req)
+	if err != nil && r.warmOnChatNotFound(err, "GetMessageLinkInfo", 0) {
+		info, err = r.clientAdapter.GetMessageLinkInfo(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get message link info: %w", err)
 	}
@@ -182,8 +211,12 @@ func (r *Repo) LoadChats(req *client.LoadChatsRequest) (*client.Ok, error) {
 }
 
 // GetChatHistory возвращает историю сообщений чата.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
 func (r *Repo) GetChatHistory(req *client.GetChatHistoryRequest) (*client.Messages, error) {
 	msgs, err := r.clientAdapter.GetChatHistory(req)
+	if err != nil && r.warmOnChatNotFound(err, "GetChatHistory", req.ChatId) {
+		msgs, err = r.clientAdapter.GetChatHistory(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get chat history: %w", err)
 	}
@@ -191,8 +224,12 @@ func (r *Repo) GetChatHistory(req *client.GetChatHistoryRequest) (*client.Messag
 }
 
 // GetChat возвращает информацию о чате.
+// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
 func (r *Repo) GetChat(req *client.GetChatRequest) (*client.Chat, error) {
 	chat, err := r.clientAdapter.GetChat(req)
+	if err != nil && r.warmOnChatNotFound(err, "GetChat", req.ChatId) {
+		chat, err = r.clientAdapter.GetChat(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("get chat: %w", err)
 	}
