@@ -1,0 +1,125 @@
+# Static analysis + unit tests on push to main and PRs targeting main.
+#
+# Why this exists: the repo is developed on Windows, where go-tdlib
+# (cgo-only, linux/darwin build tags) cannot be compiled at all — the
+# spec-required `go vet` + `go test` validation has no local channel on
+# the primary dev machine. This workflow is that channel: Linux, against
+# real TDLib headers and static libs.
+#
+# TDLib sourcing: go-tdlib's default build (no `libtdjson` tag) links the
+# STATIC libraries from fixed cgo paths — `-I/usr/local/include
+# -L/usr/local/lib`, the same layout the Dockerfile's tdlib-builder stage
+# installs. Building them from source takes ~20-25 min, too slow for every
+# push, so the installed tree (include/td/ + lib/libtd* only, NOT the
+# ~15GB build dir) is packaged into /tmp/tdlib.tar.zst and cached under key
+# tdlib-<commit>-amd64. The commit pin (22d49d5) MUST stay in lockstep with
+# the Dockerfile's tdlib-builder stage: both build the same library, and
+# when one moves both move and the cache key moves with them.
+#
+# cache is split into restore + save (not the plain combined action): the
+# save runs right after the tarball exists, BEFORE vet/test — a red run
+# must not re-pay the 20-25 min cold build on the next run. The combined
+# action only saves in its post-step on green jobs.
+#
+# The cold-cache build is the Dockerfile's exact recipe: --parallel 2 —
+# full-core builds OOM the 16GB runner ~87% into the compile (see
+# docker-ci-guidelines; that lesson is paid for). Two deviations the
+# Dockerfile never needs (container runs as root, runner does not):
+# `sudo` on the install target and on the tarball extract — /usr/local is
+# root-owned on a hosted runner.
+#
+# Test scope: ./internal/... only. test/bdd needs a live Telegram account
+# (LiveStack), test/smoke is a //go:build smoke compose stack, cmd/ holds
+# main packages without tests. vet runs over ./... (the spec's validation
+# command); build tags exclude the smoke package automatically.
+#
+# Deliberately absent (kill list — revisit only on a real signal):
+#   arm64 leg (no arch-specific code in the repo), race detector,
+#   golangci-lint, coverage upload, and running tests inside the Docker
+#   image (docker-publish's gha-cache ban would make that a 20+ min full
+#   TDLib rebuild on every push).
+
+name: ci-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          # go.mod pins the toolchain (go 1.25.9); go-version-file reads it.
+          go-version-file: go.mod
+          # Module + build cache keyed on go.sum — self-healing, zero knobs.
+          cache: true
+
+      - name: Install TDLib build deps
+        # The Dockerfile tdlib-builder apt list (gperf included: TDLib's
+        # CMake needs it), plus zstd for the cache tarball. On a cache hit
+        # only zstd matters; the rest is for the cold build.
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+            cmake g++ gperf libssl-dev zlib1g-dev php-cli git make ca-certificates zstd
+
+      - name: Restore TDLib
+        id: tdlib
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: /tmp/tdlib.tar.zst
+          key: tdlib-22d49d5-amd64
+
+      - name: Unpack TDLib
+        if: steps.tdlib.outputs.cache-hit == 'true'
+        run: |
+          # sudo: /usr/local is root-owned on a hosted runner. Static libs
+          # resolve at link time, so ldconfig is belt-and-braces only.
+          sudo tar -I zstd -xf /tmp/tdlib.tar.zst -C /usr/local
+          sudo ldconfig
+
+      - name: Build TDLib (cold cache)
+        # Verbatim Dockerfile recipe (pin + --parallel 2), with the one
+        # runner-only deviation: sudo on the install target (writes into
+        # root-owned /usr/local). The build dir stays in /tmp — outside
+        # the workspace and outside the cache.
+        if: steps.tdlib.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/tdlib/td.git /tmp/td
+          cd /tmp/td && git checkout 22d49d5
+          mkdir build && cd build && \
+            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+            cmake --build . --parallel 2 --target prepare_cross_compiling && \
+            cd .. && php SplitSource.php && cd build && \
+            sudo cmake --build . --parallel 2 --target install
+          # cd first: the lib/libtd* glob must resolve against /usr/local
+          # (the shell expands it, tar's -C does not).
+          cd /usr/local && tar -I zstd -cf /tmp/tdlib.tar.zst include/td lib/libtd*
+          sudo ldconfig
+
+      - name: Save TDLib
+        # Before vet/test on purpose: the expensive artifact must be
+        # cached even when the run goes red (a reserve race with a
+        # concurrent run logs a warning, never fails the step).
+        if: steps.tdlib.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: /tmp/tdlib.tar.zst
+          key: tdlib-22d49d5-amd64
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./internal/...
