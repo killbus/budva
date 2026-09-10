@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/zelenin/go-tdlib/client"
@@ -183,8 +182,18 @@ func (r *Repo) currentTable() *sessionReadiness {
 // TDLib-сессии) и фиксирует наблюдаемость: поколение + число списанных
 // сертификатов. Вызывается из runAuthLoop в той же критической секции, где
 // перезаписывается clientAdapter (фактическая граница сессии — R-risk-2).
+//
+// atomic.Pointer.Swap возвращает только СТАРУЮ таблицу (один указатель, не
+// generic-пара), поэтому число списанных сертификатов считается по её
+// содержимому: длина карты до замены.
 func (r *Repo) swapSessionTable() {
-	_, invalidated := r.readiness.Swap(newSessionReadiness())
+	old := r.readiness.Swap(newSessionReadiness())
+	invalidated := 0
+	if old != nil {
+		old.mu.Lock()
+		invalidated = len(old.ready)
+		old.mu.Unlock()
+	}
 	if invalidated > 0 {
 		r.logger.Info("TDLib session changed, warmup certificates invalidated",
 			slog.Int("invalidated_entries", invalidated),
