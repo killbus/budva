@@ -270,7 +270,7 @@ func TestWithReady_HotPathSuccess(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 1, calls)
 		assertEntryClosed(t, r, 10, "successful fn must close the certificate")
-		assert.Zero(t, m, "mock expectations must be empty (no LoadChats)")
+		m.AssertNotCalled(t, "LoadChats", mock.Anything)
 	})
 }
 
@@ -333,7 +333,7 @@ func TestWithReady_ColdMissEdgeReleases(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, signaled, "edge must close the waiter's entry")
 		assert.Equal(t, 2, calls, "fn: first probe + retry after edge")
-		assert.Zero(t, m, "edge path must not drive LoadChats")
+		m.AssertNotCalled(t, "LoadChats", mock.Anything)
 	})
 }
 
@@ -519,6 +519,9 @@ func TestSessionSwap_StaleCertificateNotHonored(t *testing.T) {
 		r.swapSessionTable()
 
 		// Сессия 2: chat не готов; старый сертификат учитывать нельзя.
+		// Окно сессии 2 содержит один LoadChats-драйв (первый тик; второй
+		// тик внутри warmMinInterval — rate-limit).
+		expectLoadChatsOnce(m)
 		notFound := chatNotFoundErr()
 		var calls int
 		err = r.withReady(context.Background(), 10, func() error {
@@ -531,7 +534,6 @@ func TestSessionSwap_StaleCertificateNotHonored(t *testing.T) {
 		require.ErrorAs(t, err, &notReady)
 		assert.GreaterOrEqual(t, calls, 1, "fn must run under the new session")
 		assert.Equal(t, 2, notReady.Drives, "timing deterministic in the fresh table")
-		_ = m
 	})
 }
 
@@ -793,152 +795,203 @@ func TestWarmChatsOnce_LoadChatsAlwaysFails(t *testing.T) {
 
 // --- Обёртки (table-driven) ---
 
+// wrapperCases — общая таблица всех 9 обёрток wait-for-ready: вызов с
+// chat 10 и контекст ошибки обёртки. Используется тестами miss-ретрая
+// и контекста ошибок.
+var wrapperCases = []struct {
+	name    string
+	act     func(r *Repo) error
+	errText string
+}{
+	{
+		name: "ForwardMessages",
+		act: func(r *Repo) error {
+			_, err := r.ForwardMessages(&client.ForwardMessagesRequest{ChatId: 10, FromChatId: 20})
+			return err
+		},
+		errText: "forward messages:",
+	},
+	{
+		name: "SendMessage",
+		act: func(r *Repo) error {
+			_, err := r.SendMessage(&client.SendMessageRequest{ChatId: 10})
+			return err
+		},
+		errText: "send message:",
+	},
+	{
+		name: "SendMessageAlbum",
+		act: func(r *Repo) error {
+			_, err := r.SendMessageAlbum(&client.SendMessageAlbumRequest{ChatId: 10})
+			return err
+		},
+		errText: "send message album:",
+	},
+	{
+		name: "GetMessage",
+		act: func(r *Repo) error {
+			_, err := r.GetMessage(&client.GetMessageRequest{ChatId: 10, MessageId: 1})
+			return err
+		},
+		errText: "get message:",
+	},
+	{
+		name: "GetMessages",
+		act: func(r *Repo) error {
+			_, err := r.GetMessages(&client.GetMessagesRequest{ChatId: 10, MessageIds: []int64{1}})
+			return err
+		},
+		errText: "get messages:",
+	},
+	{
+		name: "GetChatHistory",
+		act: func(r *Repo) error {
+			_, err := r.GetChatHistory(&client.GetChatHistoryRequest{ChatId: 10})
+			return err
+		},
+		errText: "get chat history:",
+	},
+	{
+		name: "GetMessageLink",
+		act: func(r *Repo) error {
+			_, err := r.GetMessageLink(&client.GetMessageLinkRequest{ChatId: 10, MessageId: 1})
+			return err
+		},
+		errText: "get message link:",
+	},
+	{
+		name: "GetMessageLinkInfo",
+		act: func(r *Repo) error {
+			_, err := r.GetMessageLinkInfo(&client.GetMessageLinkInfoRequest{Url: "https://t.me/c/10/1"})
+			return err
+		},
+		errText: "get message link info:",
+	},
+	{
+		name: "GetChat",
+		act: func(r *Repo) error {
+			_, err := r.GetChat(&client.GetChatRequest{ChatId: 10})
+			return err
+		},
+		errText: "get chat:",
+	},
+}
+
+// arrangeAllMiss настраивает все 9 методов мока как вечный miss («Chat not
+// found»): окно обёртки доживает до deadline. Неиспользуемые методы — .Maybe().
+func arrangeAllMiss(m *mocks.ClientAdapter) {
+	m.EXPECT().ForwardMessages(mock.Anything).RunAndReturn(func(_ *client.ForwardMessagesRequest) (*client.Messages, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().SendMessageAlbum(mock.Anything).RunAndReturn(func(_ *client.SendMessageAlbumRequest) (*client.Messages, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetMessages(mock.Anything).RunAndReturn(func(_ *client.GetMessagesRequest) (*client.Messages, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetChatHistory(mock.Anything).RunAndReturn(func(_ *client.GetChatHistoryRequest) (*client.Messages, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetMessageLink(mock.Anything).RunAndReturn(func(_ *client.GetMessageLinkRequest) (*client.MessageLink, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetMessageLinkInfo(mock.Anything).RunAndReturn(func(_ *client.GetMessageLinkInfoRequest) (*client.MessageLinkInfo, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetChat(mock.Anything).RunAndReturn(func(_ *client.GetChatRequest) (*client.Chat, error) {
+		return nil, chatNotFoundErr()
+	}).Maybe()
+}
+
+// arrangeRetrySucceeds настраивает все 9 методов мока: первый вызов — miss,
+// последующие — успех. Неиспользуемые методы — .Maybe().
+func arrangeRetrySucceeds(m *mocks.ClientAdapter) {
+	var mu sync.Mutex
+	calls := 0
+	retrySucceeds := func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		return calls > 1
+	}
+
+	m.EXPECT().ForwardMessages(mock.Anything).RunAndReturn(func(_ *client.ForwardMessagesRequest) (*client.Messages, error) {
+		if retrySucceeds() {
+			return &client.Messages{}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
+		if retrySucceeds() {
+			return &client.Message{Id: 1}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().SendMessageAlbum(mock.Anything).RunAndReturn(func(_ *client.SendMessageAlbumRequest) (*client.Messages, error) {
+		if retrySucceeds() {
+			return &client.Messages{}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
+		if retrySucceeds() {
+			return &client.Message{Id: 1}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetMessages(mock.Anything).RunAndReturn(func(_ *client.GetMessagesRequest) (*client.Messages, error) {
+		if retrySucceeds() {
+			return &client.Messages{}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetChatHistory(mock.Anything).RunAndReturn(func(_ *client.GetChatHistoryRequest) (*client.Messages, error) {
+		if retrySucceeds() {
+			return &client.Messages{}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetMessageLink(mock.Anything).RunAndReturn(func(_ *client.GetMessageLinkRequest) (*client.MessageLink, error) {
+		if retrySucceeds() {
+			return &client.MessageLink{Link: "https://t.me/c/10/1"}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetMessageLinkInfo(mock.Anything).RunAndReturn(func(_ *client.GetMessageLinkInfoRequest) (*client.MessageLinkInfo, error) {
+		if retrySucceeds() {
+			return &client.MessageLinkInfo{}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+	m.EXPECT().GetChat(mock.Anything).RunAndReturn(func(_ *client.GetChatRequest) (*client.Chat, error) {
+		if retrySucceeds() {
+			return &client.Chat{Id: 10}, nil
+		}
+		return nil, chatNotFoundErr()
+	}).Maybe()
+}
+
 // TestAllWrappers_MissDrivesLoadChatsAndRetries — table-driven проверка всех
 // 9 обёрток: miss → тик с LoadChats-бутстрапом → retry успешен.
 func TestAllWrappers_MissDrivesLoadChatsAndRetries(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name string
-		act  func(r *Repo) error
-	}{
-		{
-			name: "ForwardMessages",
-			act: func(r *Repo) error {
-				_, err := r.ForwardMessages(&client.ForwardMessagesRequest{ChatId: 10, FromChatId: 20})
-				return err
-			},
-		},
-		{
-			name: "SendMessage",
-			act: func(r *Repo) error {
-				_, err := r.SendMessage(&client.SendMessageRequest{ChatId: 10})
-				return err
-			},
-		},
-		{
-			name: "SendMessageAlbum",
-			act: func(r *Repo) error {
-				_, err := r.SendMessageAlbum(&client.SendMessageAlbumRequest{ChatId: 10})
-				return err
-			},
-		},
-		{
-			name: "GetMessage",
-			act: func(r *Repo) error {
-				_, err := r.GetMessage(&client.GetMessageRequest{ChatId: 10, MessageId: 1})
-				return err
-			},
-		},
-		{
-			name: "GetMessages",
-			act: func(r *Repo) error {
-				_, err := r.GetMessages(&client.GetMessagesRequest{ChatId: 10, MessageIds: []int64{1}})
-				return err
-			},
-		},
-		{
-			name: "GetChatHistory",
-			act: func(r *Repo) error {
-				_, err := r.GetChatHistory(&client.GetChatHistoryRequest{ChatId: 10})
-				return err
-			},
-		},
-		{
-			name: "GetMessageLink",
-			act: func(r *Repo) error {
-				_, err := r.GetMessageLink(&client.GetMessageLinkRequest{ChatId: 10, MessageId: 1})
-				return err
-			},
-		},
-		{
-			name: "GetMessageLinkInfo",
-			act: func(r *Repo) error {
-				_, err := r.GetMessageLinkInfo(&client.GetMessageLinkInfoRequest{Url: "https://t.me/c/10/1"})
-				return err
-			},
-		},
-		{
-			name: "GetChat",
-			act: func(r *Repo) error {
-				_, err := r.GetChat(&client.GetChatRequest{ChatId: 10})
-				return err
-			},
-		},
-	}
-	for _, tt := range tests {
+	for _, tt := range wrapperCases {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			synctest.Test(t, func(t *testing.T) {
-				// Arrange
+				// Arrange: каждая обёртка получает miss на первом вызове
+				// и успех на retry.
 				r, m := newWarmupRepo(t)
 				expectLoadChatsOnce(m)
-
-				// Каждая обёртка получает miss на первом вызове и успех на retry.
-				var mu sync.Mutex
-				calls := 0
-				retrySucceeds := func() bool {
-					mu.Lock()
-					defer mu.Unlock()
-					calls++
-					return calls > 1
-				}
-
-				m.EXPECT().ForwardMessages(mock.Anything).RunAndReturn(func(_ *client.ForwardMessagesRequest) (*client.Messages, error) {
-					if retrySucceeds() {
-						return &client.Messages{}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
-					if retrySucceeds() {
-						return &client.Message{Id: 1}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().SendMessageAlbum(mock.Anything).RunAndReturn(func(_ *client.SendMessageAlbumRequest) (*client.Messages, error) {
-					if retrySucceeds() {
-						return &client.Messages{}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
-					if retrySucceeds() {
-						return &client.Message{Id: 1}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetMessages(mock.Anything).RunAndReturn(func(_ *client.GetMessagesRequest) (*client.Messages, error) {
-					if retrySucceeds() {
-						return &client.Messages{}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetChatHistory(mock.Anything).RunAndReturn(func(_ *client.GetChatHistoryRequest) (*client.Messages, error) {
-					if retrySucceeds() {
-						return &client.Messages{}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetMessageLink(mock.Anything).RunAndReturn(func(_ *client.GetMessageLinkRequest) (*client.MessageLink, error) {
-					if retrySucceeds() {
-						return &client.MessageLink{Link: "https://t.me/c/10/1"}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetMessageLinkInfo(mock.Anything).RunAndReturn(func(_ *client.GetMessageLinkInfoRequest) (*client.MessageLinkInfo, error) {
-					if retrySucceeds() {
-						return &client.MessageLinkInfo{}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetChat(mock.Anything).RunAndReturn(func(_ *client.GetChatRequest) (*client.Chat, error) {
-					if retrySucceeds() {
-						return &client.Chat{Id: 10}, nil
-					}
-					return nil, chatNotFoundErr()
-				}).Maybe()
+				arrangeRetrySucceeds(m)
 
 				// Act
 				err := tt.act(r)
@@ -1036,121 +1089,15 @@ func TestAllWrappers_NonMatchingErrorsPassthrough(t *testing.T) {
 func TestAllWrappers_WrappedErrorContext(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		act     func(r *Repo) error
-		errText string
-	}{
-		{
-			name: "ForwardMessages",
-			act: func(r *Repo) error {
-				_, err := r.ForwardMessages(&client.ForwardMessagesRequest{ChatId: 10, FromChatId: 20})
-				return err
-			},
-			errText: "forward messages:",
-		},
-		{
-			name: "SendMessage",
-			act: func(r *Repo) error {
-				_, err := r.SendMessage(&client.SendMessageRequest{ChatId: 10})
-				return err
-			},
-			errText: "send message:",
-		},
-		{
-			name: "SendMessageAlbum",
-			act: func(r *Repo) error {
-				_, err := r.SendMessageAlbum(&client.SendMessageAlbumRequest{ChatId: 10})
-				return err
-			},
-			errText: "send message album:",
-		},
-		{
-			name: "GetMessage",
-			act: func(r *Repo) error {
-				_, err := r.GetMessage(&client.GetMessageRequest{ChatId: 10, MessageId: 1})
-				return err
-			},
-			errText: "get message:",
-		},
-		{
-			name: "GetMessages",
-			act: func(r *Repo) error {
-				_, err := r.GetMessages(&client.GetMessagesRequest{ChatId: 10, MessageIds: []int64{1}})
-				return err
-			},
-			errText: "get messages:",
-		},
-		{
-			name: "GetChatHistory",
-			act: func(r *Repo) error {
-				_, err := r.GetChatHistory(&client.GetChatHistoryRequest{ChatId: 10})
-				return err
-			},
-			errText: "get chat history:",
-		},
-		{
-			name: "GetMessageLink",
-			act: func(r *Repo) error {
-				_, err := r.GetMessageLink(&client.GetMessageLinkRequest{ChatId: 10, MessageId: 1})
-				return err
-			},
-			errText: "get message link:",
-		},
-		{
-			name: "GetMessageLinkInfo",
-			act: func(r *Repo) error {
-				_, err := r.GetMessageLinkInfo(&client.GetMessageLinkInfoRequest{Url: "https://t.me/c/10/1"})
-				return err
-			},
-			errText: "get message link info:",
-		},
-		{
-			name: "GetChat",
-			act: func(r *Repo) error {
-				_, err := r.GetChat(&client.GetChatRequest{ChatId: 10})
-				return err
-			},
-			errText: "get chat:",
-		},
-	}
-	for _, tt := range tests {
+	for _, tt := range wrapperCases {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			synctest.Test(t, func(t *testing.T) {
-				// Arrange
+				// Arrange: все вызовы — miss (окно до deadline).
 				r, m := newWarmupRepo(t)
 				expectLoadChatsOnce(m)
-
-				// Все вызовы — miss (окно до deadline).
-				m.EXPECT().ForwardMessages(mock.Anything).RunAndReturn(func(_ *client.ForwardMessagesRequest) (*client.Messages, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().SendMessageAlbum(mock.Anything).RunAndReturn(func(_ *client.SendMessageAlbumRequest) (*client.Messages, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetMessages(mock.Anything).RunAndReturn(func(_ *client.GetMessagesRequest) (*client.Messages, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetChatHistory(mock.Anything).RunAndReturn(func(_ *client.GetChatHistoryRequest) (*client.Messages, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetMessageLink(mock.Anything).RunAndReturn(func(_ *client.GetMessageLinkRequest) (*client.MessageLink, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetMessageLinkInfo(mock.Anything).RunAndReturn(func(_ *client.GetMessageLinkInfoRequest) (*client.MessageLinkInfo, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
-				m.EXPECT().GetChat(mock.Anything).RunAndReturn(func(_ *client.GetChatRequest) (*client.Chat, error) {
-					return nil, chatNotFoundErr()
-				}).Maybe()
+				arrangeAllMiss(m)
 
 				// Act
 				err := tt.act(r)

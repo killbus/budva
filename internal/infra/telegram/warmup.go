@@ -229,14 +229,18 @@ func isChatNotFound(err error) bool {
 //
 // Состояние машины (конвергенция 6-го раунда экспертной сессии):
 //
-//  1. Быстрый путь: сертификат уже закрыт → fn один раз, без ожидания.
-//  2. Первый вызов fn — и горячий путь (уже готов), и первый зонд.
-//     Не-«Chat not found» ошибка — passthrough, окно не открывается.
-//  3. Ожидание: select {ready-канал, тик (драйв warmChatsOnce + retry),
+//  1. Первый вызов fn — единственный оракул и первый зонд: и горячий путь
+//     (chat уже готов), и холодный miss проходят через него. Не-«Chat not
+//     found» ошибка — passthrough, окно не открывается.
+//  2. Ожидание: select {ready-канал, тик (драйв warmChatsOnce + retry),
 //     deadline}. Каждое пробуждение заново читает ТЕКУЩУЮ таблицу:
 //     если сессия сменилась, старый сертификат не засчитывается (см.
 //     sessionReadiness). fn остаётся единственным оракулом.
-//  4. Deadline → ChatNotReadyError (число драйвов + последняя ошибка);
+//     Edge-пробуждение с последующим miss опровергает сертификат — он
+//     удаляется, иначе select каждой итерации немедленно просыпается на
+//     его закрытом канале (hot-loop fn-вызовов до deadline: диалог мог
+//     покинуть карту после закрытия — chat удалён/покинут).
+//  3. Deadline → ChatNotReadyError (число драйвов + последняя ошибка);
 //     сертификат закрывается «неудачей» и удаляется.
 //
 // Подписка (getOrInsert) обязана предшествовать первому драйву: иначе
@@ -244,12 +248,6 @@ func isChatNotFound(err error) bool {
 func (r *Repo) withReady(ctx context.Context, chatID int64, fn func() error) error {
 	table := r.currentTable()
 	entry := table.getOrInsert(chatID)
-
-	// Быстрый путь: держатель сертификата — O(1) без fn-ов.
-	select {
-	case <-entry.ready:
-	default:
-	}
 
 	err := fn()
 	if err == nil {
@@ -280,10 +278,12 @@ func (r *Repo) withReady(ctx context.Context, chatID int64, fn func() error) err
 		case <-ctx.Done():
 			// Отмена вызывающего — не «не готов»: удаляем entry, чтобы
 			// следующие waiter-ы не унаследовали открытый сертификат.
-			table.closeFailed(chatID)
+			// Текущая таблица, не захваченная: после смены сессии именно
+			// в ней живёт entry, на которой ждёт этот waiter.
+			r.currentTable().closeFailed(chatID)
 			return ctx.Err()
 		case <-deadline.C:
-			table.closeFailed(chatID)
+			r.currentTable().closeFailed(chatID)
 			warmTimeouts.Add(context.Background(), 1)
 			warmReadiness.Add(context.Background(), 1, metric.WithAttributes(outcomeAttr(outcomeTimeout)))
 			return &ChatNotReadyError{ChatID: chatID, Drives: drives, LastErr: lastErr}
@@ -310,6 +310,16 @@ func (r *Repo) withReady(ctx context.Context, chatID int64, fn func() error) err
 			return ferr
 		} else {
 			lastErr = ferr
+			// Сертификат, опровергнутый оракулом (закрыт, но fn всё ещё
+			// «Chat not found»), удаляется: select следующей итерации иначе
+			// немедленно просыпается на нём же — hot-loop fn-вызовов до
+			// deadline. closeFailed также отпускает других waiter-ов; их
+			// retry и дальнейшие тики продолжат по свежей entry.
+			select {
+			case <-curEntry.ready:
+				cur.closeFailed(chatID)
+			default:
+			}
 		}
 	}
 }
