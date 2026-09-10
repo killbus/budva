@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/zelenin/go-tdlib/client"
@@ -56,69 +57,94 @@ var (
 	_ clientAdapter = (*Repo)(nil)
 )
 
+// Обёртки ниже при «400 Chat not found» входят в withReady: в ограниченном
+// окне ждут материализации chat (LoadChats-драйв + updateNewChat-edge) и
+// повторяют вызов. Тело каждого вызова вынесено в withChatReady — форма
+// одинаковая, меняется только сам вызов и контекст ошибки.
+
+// withChatReady выполняет call внутри withReady и навешивает контекст
+// обёртки на ошибку (строки контекста зафиксированы тестами).
+func (r *Repo) withChatReady(chatID int64, errContext string, call func() error) error {
+	err := r.withReady(context.Background(), chatID, call)
+	if err != nil {
+		return fmt.Errorf("%s: %w", errContext, err)
+	}
+	return nil
+}
+
 // --- Операции с сообщениями ---
 
 // SendMessage отправляет сообщение.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) SendMessage(req *client.SendMessageRequest) (*client.Message, error) {
-	msg, err := r.clientAdapter.SendMessage(req)
-	if err != nil && r.warmOnChatNotFound(err, "SendMessage", req.ChatId) {
-		msg, err = r.clientAdapter.SendMessage(req)
-	}
+	var msg *client.Message
+	err := r.withChatReady(req.ChatId, "send message", func() error {
+		var e error
+		msg, e = r.clientAdapter.SendMessage(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("send message: %w", err)
+		return nil, err
 	}
 	return msg, nil
 }
 
 // SendMessageAlbum отправляет медиа-альбом.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) SendMessageAlbum(req *client.SendMessageAlbumRequest) (*client.Messages, error) {
-	msgs, err := r.clientAdapter.SendMessageAlbum(req)
-	if err != nil && r.warmOnChatNotFound(err, "SendMessageAlbum", req.ChatId) {
-		msgs, err = r.clientAdapter.SendMessageAlbum(req)
-	}
+	var msgs *client.Messages
+	err := r.withChatReady(req.ChatId, "send message album", func() error {
+		var e error
+		msgs, e = r.clientAdapter.SendMessageAlbum(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("send message album: %w", err)
+		return nil, err
 	}
 	return msgs, nil
 }
 
 // ForwardMessages пересылает сообщения.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) ForwardMessages(req *client.ForwardMessagesRequest) (*client.Messages, error) {
-	msgs, err := r.clientAdapter.ForwardMessages(req)
-	if err != nil && r.warmOnChatNotFound(err, "ForwardMessages", req.ChatId) {
-		msgs, err = r.clientAdapter.ForwardMessages(req)
-	}
+	var msgs *client.Messages
+	err := r.withChatReady(req.FromChatId, "forward messages", func() error {
+		var e error
+		msgs, e = r.clientAdapter.ForwardMessages(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("forward messages: %w", err)
+		return nil, err
 	}
 	return msgs, nil
 }
 
 // GetMessage возвращает сообщение.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) GetMessage(req *client.GetMessageRequest) (*client.Message, error) {
-	msg, err := r.clientAdapter.GetMessage(req)
-	if err != nil && r.warmOnChatNotFound(err, "GetMessage", req.ChatId) {
-		msg, err = r.clientAdapter.GetMessage(req)
-	}
+	var msg *client.Message
+	err := r.withChatReady(req.ChatId, "get message", func() error {
+		var e error
+		msg, e = r.clientAdapter.GetMessage(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get message: %w", err)
+		return nil, err
 	}
 	return msg, nil
 }
 
 // GetMessages возвращает сообщения batch-ом.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) GetMessages(req *client.GetMessagesRequest) (*client.Messages, error) {
-	msgs, err := r.clientAdapter.GetMessages(req)
-	if err != nil && r.warmOnChatNotFound(err, "GetMessages", req.ChatId) {
-		msgs, err = r.clientAdapter.GetMessages(req)
-	}
+	var msgs *client.Messages
+	err := r.withChatReady(req.ChatId, "get messages", func() error {
+		var e error
+		msgs, e = r.clientAdapter.GetMessages(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get messages: %w", err)
+		return nil, err
 	}
 	return msgs, nil
 }
@@ -153,28 +179,34 @@ func (r *Repo) DeleteMessages(req *client.DeleteMessagesRequest) (*client.Ok, er
 // --- Операции со ссылками ---
 
 // GetMessageLink возвращает публичную ссылку на сообщение.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) GetMessageLink(req *client.GetMessageLinkRequest) (*client.MessageLink, error) {
-	link, err := r.clientAdapter.GetMessageLink(req)
-	if err != nil && r.warmOnChatNotFound(err, "GetMessageLink", req.ChatId) {
-		link, err = r.clientAdapter.GetMessageLink(req)
-	}
+	var link *client.MessageLink
+	err := r.withChatReady(req.ChatId, "get message link", func() error {
+		var e error
+		link, e = r.clientAdapter.GetMessageLink(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get message link: %w", err)
+		return nil, err
 	}
 	return link, nil
 }
 
 // GetMessageLinkInfo парсит ссылку и возвращает информацию о сообщении.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
-// В запросе нет chat_id (парсится URL) — в логе наблюдаемости будет 0.
+// На холодной БД — wait-for-ready (см. warmup.go).
+// В запросе нет chat_id (парсится URL) — ключ 0: все link-запросы делят
+// одну ячейку готовности. Корректность не страдает (fn — единственный
+// оракул), деградирует только гранулярность ожидания.
 func (r *Repo) GetMessageLinkInfo(req *client.GetMessageLinkInfoRequest) (*client.MessageLinkInfo, error) {
-	info, err := r.clientAdapter.GetMessageLinkInfo(req)
-	if err != nil && r.warmOnChatNotFound(err, "GetMessageLinkInfo", 0) {
-		info, err = r.clientAdapter.GetMessageLinkInfo(req)
-	}
+	var info *client.MessageLinkInfo
+	err := r.withChatReady(0, "get message link info", func() error {
+		var e error
+		info, e = r.clientAdapter.GetMessageLinkInfo(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get message link info: %w", err)
+		return nil, err
 	}
 	return info, nil
 }
@@ -211,27 +243,31 @@ func (r *Repo) LoadChats(req *client.LoadChatsRequest) (*client.Ok, error) {
 }
 
 // GetChatHistory возвращает историю сообщений чата.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) GetChatHistory(req *client.GetChatHistoryRequest) (*client.Messages, error) {
-	msgs, err := r.clientAdapter.GetChatHistory(req)
-	if err != nil && r.warmOnChatNotFound(err, "GetChatHistory", req.ChatId) {
-		msgs, err = r.clientAdapter.GetChatHistory(req)
-	}
+	var msgs *client.Messages
+	err := r.withChatReady(req.ChatId, "get chat history", func() error {
+		var e error
+		msgs, e = r.clientAdapter.GetChatHistory(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get chat history: %w", err)
+		return nil, err
 	}
 	return msgs, nil
 }
 
 // GetChat возвращает информацию о чате.
-// При «Chat not found» на холодной БД — LoadChats-бутстрап и один retry (см. warmup.go).
+// На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) GetChat(req *client.GetChatRequest) (*client.Chat, error) {
-	chat, err := r.clientAdapter.GetChat(req)
-	if err != nil && r.warmOnChatNotFound(err, "GetChat", req.ChatId) {
-		chat, err = r.clientAdapter.GetChat(req)
-	}
+	var chat *client.Chat
+	err := r.withChatReady(req.ChatId, "get chat", func() error {
+		var e error
+		chat, e = r.clientAdapter.GetChat(req)
+		return e
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get chat: %w", err)
+		return nil, err
 	}
 	return chat, nil
 }

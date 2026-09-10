@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,10 +19,16 @@ import (
 	"github.com/pure-golang/budva-claude/internal/infra/telegram/mocks"
 )
 
-// warmup_test.go — тесты ленивого прогрева чатов (см. warmup.go).
+// warmup_test.go — тесты wait-for-ready прогрева чатов (см. warmup.go).
 //
-// Гонки и тайминги покрыты через testing/synctest: rate-limit-интервал
-// warmMinInterval проходит виртуально, без реальных sleep.
+// Гонки и тайминги покрыты через testing/synctest: окно wait-for-ready
+// (секунды) и rate-limit warmMinInterval (30s) проходят виртуально, без
+// реальных sleep.
+//
+// Метрики (T4) — smoke через исполнение путей: otel-meter без exporter-а —
+// no-op, значения счётчиков ненаблюдаемы; все тесты below проходят через
+// вызовы warmMisses/warmReadiness/warmTimeouts — отсутствие паники и есть
+// smoke-контракт до подключения exporter-а.
 
 // --- isChatNotFound ---
 
@@ -87,14 +94,113 @@ func TestIsChatNotFound(t *testing.T) {
 	}
 }
 
-// --- warmup helpers ---
+// --- sessionReadiness ---
 
-// newWarmupRepo создаёт Repo с подключённым моком clientAdapter.
-func newWarmupRepo(t *testing.T) (*Repo, *mocks.ClientAdapter) {
+func TestSessionReadiness_GetOrInsertReturnsSameEntry(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	table := newSessionReadiness()
+
+	// Act
+	e1 := table.getOrInsert(10)
+	e2 := table.getOrInsert(10)
+
+	// Assert: повторный getOrInsert возвращает ТОТ ЖЕ entry (подписка одна).
+	assert.Same(t, e1, e2)
+}
+
+func TestSessionReadiness_SignalIdempotent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	table := newSessionReadiness()
+
+	// Assert: неизвестный chat — signal false, entry не создаётся.
+	assert.False(t, table.signal(10))
+	_, ok := table.ready[10]
+	assert.False(t, ok, "signal must not create entries")
+
+	// Act: первый сигнал закрывает, повторный — no-op.
+	table.getOrInsert(10)
+	assert.True(t, table.signal(10))
+	assert.False(t, table.signal(10), "re-signal must be idempotent")
+
+	// Закрытый канал остаётся level-сигналом.
+	select {
+	case <-table.getOrInsert(10).ready:
+	default:
+		t.Fatal("entry must be closed after signal")
+	}
+}
+
+func TestSessionReadiness_CloseFailedClosesAndDeletes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: waiter ждёт на entry.
+	table := newSessionReadiness()
+	e := table.getOrInsert(10)
+	done := make(chan struct{})
+	go func() {
+		<-e.ready
+		close(done)
+	}()
+
+	// Act
+	table.closeFailed(10)
+
+	// Assert: waiter разблокирован, entry удалена.
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("waiter was not released by closeFailed")
+	}
+	_, ok := table.ready[10]
+	assert.False(t, ok, "entry must be deleted after closeFailed")
+
+	// Повторный closeFailed — no-op; signal после удаления — false.
+	assert.NotPanics(t, func() { table.closeFailed(10) })
+	assert.False(t, table.signal(10))
+}
+
+// TestSessionReadiness_SignalFloodNonBlocking — поток из 300 signal-ов
+// (в т.ч. повторы и неизвестные chat-ы) не блокируется и не паникует:
+// signal — только lock + close, никогда send.
+func TestSessionReadiness_SignalFloodNonBlocking(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	table := newSessionReadiness()
+	const n = 300
+	for i := 0; i < n; i++ {
+		table.getOrInsert(int64(i))
+	}
+
+	// Act + Assert: цикл завершается — значит, ни один signal не заблокировался.
+	signaled := 0
+	for i := 0; i < n; i++ {
+		if table.signal(int64(i)) {
+			signaled++
+		}
+	}
+	assert.Equal(t, n, signaled)
+
+	for i := 0; i < n; i++ {
+		table.signal(int64(i))     // повтор — no-op
+		table.signal(int64(n + i)) // неизвестный — no-op
+	}
+	_, ok := table.ready[int64(n)]
+	assert.False(t, ok, "signal must not create entries for unknown chats")
+}
+
+// --- withReady ---
+
+// newWarmupRepoCfg создаёт Repo с моком clientAdapter и заданным конфигом.
+func newWarmupRepoCfg(t *testing.T, cfg config.TelegramConfig) (*Repo, *mocks.ClientAdapter) {
 	t.Helper()
 
 	m := mocks.NewClientAdapter(t)
-	r := New(config.TelegramConfig{})
+	r := New(cfg)
 	r.clientAdapter = m
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
@@ -104,9 +210,20 @@ func newWarmupRepo(t *testing.T) (*Repo, *mocks.ClientAdapter) {
 	return r, m
 }
 
+// newWarmupRepo создаёт Repo с моком clientAdapter и дефолтным конфигом
+// (окно 5s/tick 500ms — под synctest виртуальны).
+func newWarmupRepo(t *testing.T) (*Repo, *mocks.ClientAdapter) {
+	t.Helper()
+	return newWarmupRepoCfg(t, config.TelegramConfig{})
+}
+
 // chatNotFoundErr — каноничная TDLib-ошибка «400 Chat not found».
 // go-tdlib возвращает ResponseError значением (buildResponseError),
 // а код/сообщение лежат во вложенном поле Err.
+//
+// Дисциплина shared-инстанса: errors.Is сравнивает ResponseError по
+// указателю Err — для assert.ErrorIs все вызовы мока должны возвращать
+// ОДИН экземпляр, созданный вне замыкания.
 func chatNotFoundErr() error {
 	return client.ResponseError{Err: &client.Error{Code: 400, Message: "Chat not found"}}
 }
@@ -121,110 +238,371 @@ func expectLoadChatsOnce(m *mocks.ClientAdapter) *mock.Call {
 	}).Times(1)
 }
 
-// TestWarmOnChatNotFound_MissTriggersLoadChatsAndRetry — базовый сценарий:
-// miss → LoadChats ×1 → retry успешен.
-func TestWarmOnChatNotFound_MissTriggersLoadChatsAndRetry(t *testing.T) {
+// assertEntryClosed проверяет, что сертификат chat в текущей таблице закрыт.
+func assertEntryClosed(t *testing.T, r *Repo, chatID int64, msg string) {
+	t.Helper()
+	e, ok := r.currentTable().ready[chatID]
+	require.True(t, ok, "entry must exist in current table")
+	select {
+	case <-e.ready:
+	default:
+		t.Fatal(msg)
+	}
+}
+
+// TestWithReady_HotPathSuccess — успешный fn закрывает сертификат; LoadChats
+// не вызывается (горячий путь — ни окна, ни драйва).
+func TestWithReady_HotPathSuccess(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange: LoadChats не ожидается вовсе — строгий мок уронит тест при вызове.
+		r, m := newWarmupRepo(t)
+		var calls int
+
+		// Act
+		err := r.withReady(context.Background(), 10, func() error {
+			calls++
+			return nil
+		})
+
+		// Assert
+		require.NoError(t, err)
+		assert.Equal(t, 1, calls)
+		assertEntryClosed(t, r, 10, "successful fn must close the certificate")
+		assert.Zero(t, m, "mock expectations must be empty (no LoadChats)")
+	})
+}
+
+// TestWithReady_FastPathClosedEntry — уже закрытый сертификат (второй waiter):
+// fn выполняется ровно один раз (оракул), без окна и без LoadChats-драйва.
+func TestWithReady_FastPathClosedEntry(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange: сертификат закрыт заранее (эмуляция чужого fn-успеха).
+		r, _ := newWarmupRepo(t)
+		table := r.currentTable()
+		table.getOrInsert(10)
+		table.signal(10)
+		var calls int
+
+		// Act
+		err := r.withReady(context.Background(), 10, func() error {
+			calls++
+			return nil
+		})
+
+		// Assert: O(1) hit — один fn, ни одного LoadChats.
+		require.NoError(t, err)
+		assert.Equal(t, 1, calls)
+	})
+}
+
+// TestWithReady_ColdMissEdgeReleases — холодный miss, затем edge
+// (updateNewChat-сигнал той же таблицы) будит waiter: fn повторён, успех.
+// Edge-путь не требует LoadChats-драйва вовсе.
+func TestWithReady_ColdMissEdgeReleases(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange: LoadChats не ожидается — edge приходит раньше первого тика.
+		r, m := newWarmupRepo(t)
+		notFound := chatNotFoundErr()
+		var calls int
+		fn := func() error {
+			calls++
+			if calls == 1 {
+				return notFound
+			}
+			return nil
+		}
+
+		// Фоновый «listener»: после ухода waiter-а в select шлёт edge.
+		table := r.currentTable()
+		var signaled bool
+		go func() {
+			synctest.Wait()
+			signaled = table.signal(10)
+		}()
+
+		// Act
+		err := r.withReady(context.Background(), 10, fn)
+
+		// Assert
+		require.NoError(t, err)
+		assert.True(t, signaled, "edge must close the waiter's entry")
+		assert.Equal(t, 2, calls, "fn: first probe + retry after edge")
+		assert.Zero(t, m, "edge path must not drive LoadChats")
+	})
+}
+
+// TestWithReady_TickDrivesLoadChatsAndRetries — холодный miss без edge:
+// тик запускает LoadChats-бутстрап (ровно один, rate-limit), retry успешен.
+func TestWithReady_TickDrivesLoadChatsAndRetries(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
 		// Arrange
 		r, m := newWarmupRepo(t)
-		var calls int
-		m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
-			calls++
-			if calls == 1 {
-				return nil, chatNotFoundErr()
-			}
-			return &client.Message{Id: 1}, nil
-		})
 		expectLoadChatsOnce(m)
+		notFound := chatNotFoundErr()
+		var calls int
 
 		// Act
-		msg, err := r.GetMessage(&client.GetMessageRequest{ChatId: 10, MessageId: 5})
+		err := r.withReady(context.Background(), 10, func() error {
+			calls++
+			if calls == 1 {
+				return notFound
+			}
+			return nil
+		})
 
-		// Assert
+		// Assert: fn 1 (miss) + fn 2 (после тика с бутстрапом).
 		require.NoError(t, err)
-		assert.Equal(t, int64(1), msg.Id)
 		assert.Equal(t, 2, calls)
 	})
 }
 
-// TestWarmOnChatNotFound_MissRetryFails — miss → LoadChats ×1 → retry снова
-// падает → ошибка заворачивается с контекстом обёртки.
-func TestWarmOnChatNotFound_MissRetryFails(t *testing.T) {
+// TestWithReady_DeadlineChatNotReadyError — chat так и не материализовался:
+// по deadline — ChatNotReadyError с числом драйвов и последней TDLib-ошибкой;
+// сертификат закрыт «неудачей» и удалён из таблицы.
+//
+// Окно 1.2s / тик 500ms — детерминированно: тики на 0.5s и 1.0s, deadline
+// на 1.2s (следующий тик 1.5s не наступает) → ровно 2 драйва, 3 fn.
+func TestWithReady_DeadlineChatNotReadyError(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
 		// Arrange
-		r, m := newWarmupRepo(t)
-		// Один экземпляр ошибки на оба вызова мока: errors.Is сравнивает
-		// ResponseError по указателю Err, свежая аллокация не совпала бы.
-		notFound := chatNotFoundErr()
-		m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
-			return nil, notFound
-		}).Times(2)
+		r, m := newWarmupRepoCfg(t, config.TelegramConfig{
+			WarmupDeadline: 1200 * time.Millisecond,
+			WarmupTicker:   500 * time.Millisecond,
+		})
 		expectLoadChatsOnce(m)
+		notFound := chatNotFoundErr()
+		var calls int
 
 		// Act
-		msg, err := r.GetMessage(&client.GetMessageRequest{ChatId: 10, MessageId: 5})
+		err := r.withReady(context.Background(), 10, func() error {
+			calls++
+			return notFound
+		})
 
 		// Assert
 		require.Error(t, err)
-		assert.Nil(t, msg)
-		assert.Contains(t, err.Error(), "get message:")
+		var notReady *ChatNotReadyError
+		require.ErrorAs(t, err, &notReady)
+		assert.Equal(t, int64(10), notReady.ChatID)
+		assert.Equal(t, 2, notReady.Drives, "ticks at 0.5s and 1.0s within the 1.2s window")
+		// Unwrap отдаёт последнюю TDLib-ошибку (общий экземпляр).
 		assert.ErrorIs(t, err, notFound)
+		assert.Equal(t, 3, calls, "initial probe + one fn per tick")
+		// Сертификат удалён: следующие waiter-ы не унаследуют его.
+		_, ok := r.currentTable().ready[10]
+		assert.False(t, ok, "failed certificate must be deleted from the table")
 	})
 }
 
-// TestWarmOnChatNotFound_NonMatchingErrorsPassthrough — ошибки, не являющиеся
-// «Chat not found» (иной текст при 400 / код 429 / plain error), не запускают
-// прогрев: ни LoadChats, ни повторного вызова.
-func TestWarmOnChatNotFound_NonMatchingErrorsPassthrough(t *testing.T) {
+// TestWithReady_MidWaitNonMatchingError — ошибка, НЕ являющаяся «Chat not
+// found», в середине окна: немедленный passthrough без маскировки
+// not-ready-семантикой; сертификат удалён (второй вызов не унаследует).
+func TestWithReady_MidWaitNonMatchingError(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name string
-		err  error
-	}{
-		{
-			name: "code_400_other_message",
-			err:  client.ResponseError{Err: &client.Error{Code: 400, Message: "MESSAGE_ID_INVALID"}},
-		},
-		{
-			name: "code_429",
-			err:  client.ResponseError{Err: &client.Error{Code: 429, Message: "Too Many Requests: retry after 5"}},
-		},
-		{
-			name: "plain_error",
-			err:  errors.New("transport broken"),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			synctest.Test(t, func(t *testing.T) {
-				// Arrange
-				r, m := newWarmupRepo(t)
-				var calls int
-				m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
-					calls++
-					return nil, tt.err
-				})
-				// LoadChats не ожидается вовсе: mockery уронит тест при вызове.
-
-				// Act
-				msg, err := r.GetMessage(&client.GetMessageRequest{ChatId: 10, MessageId: 5})
-
-				// Assert
-				require.Error(t, err)
-				assert.Nil(t, msg)
-				assert.ErrorIs(t, err, tt.err)
-				assert.Equal(t, 1, calls)
-			})
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		r, m := newWarmupRepoCfg(t, config.TelegramConfig{
+			WarmupDeadline: 1200 * time.Millisecond,
+			WarmupTicker:   500 * time.Millisecond,
 		})
-	}
+		expectLoadChatsOnce(m)
+		notFound := chatNotFoundErr()
+		broken := errors.New("transport broken")
+		var calls int
+
+		// Act
+		err := r.withReady(context.Background(), 10, func() error {
+			calls++
+			if calls == 1 {
+				return notFound
+			}
+			return broken
+		})
+
+		// Assert: ошибка — именно broken, на первом же тике (0.5s);
+		// LoadChats ровно один, дальнейших тиков нет.
+		require.ErrorIs(t, err, broken)
+		assert.NotErrorIs(t, err, notFound)
+		assert.Equal(t, 2, calls)
+		_, ok := r.currentTable().ready[10]
+		assert.False(t, ok, "entry must be deleted on non-matching error")
+	})
 }
+
+// TestWithReady_CtxCancelled — отмена вызывающего: не «не готов» — ctx.Err()
+// наружу, сертификат удалён, LoadChats не запускается.
+func TestWithReady_CtxCancelled(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: LoadChats не ожидается. ctx уже отменён.
+	r, _ := newWarmupRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	notFound := chatNotFoundErr()
+	var calls int
+
+	// Act
+	err := r.withReady(ctx, 10, func() error {
+		calls++
+		return notFound
+	})
+
+	// Assert: первый fn проходит до select, отмена ловится в окне.
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, calls)
+	_, ok := r.currentTable().ready[10]
+	assert.False(t, ok, "cancelled wait must not leave an open certificate")
+}
+
+// TestWithReady_SubscriptionBeforeDrive — подписка обязана предшествовать
+// первому LoadChats-драйву: иначе edge от его пагинации ушёл бы в никуда.
+// Мок LoadChats сам проверяет наличие entry в текущей таблице.
+func TestWithReady_SubscriptionBeforeDrive(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		r, m := newWarmupRepoCfg(t, config.TelegramConfig{
+			WarmupDeadline: 1200 * time.Millisecond,
+			WarmupTicker:   500 * time.Millisecond,
+		})
+		m.EXPECT().LoadChats(mock.Anything).RunAndReturn(func(_ *client.LoadChatsRequest) (*client.Ok, error) {
+			_, ok := r.currentTable().ready[10]
+			require.True(t, ok, "waiter entry must be registered before the first LoadChats drive")
+			return nil, errors.New("Too Much Requests: chat list is empty")
+		}).Times(1)
+		notFound := chatNotFoundErr()
+
+		// Act: runs to deadline; подписка проверена моком на каждом драйве.
+		err := r.withReady(context.Background(), 10, func() error {
+			return notFound
+		})
+
+		// Assert
+		var notReady *ChatNotReadyError
+		require.ErrorAs(t, err, &notReady)
+	})
+}
+
+// --- Session swap (R-risk-2, седьмой раунд) ---
+
+// TestSessionSwap_StaleCertificateNotHonored — сертификат, выданный под
+// «клиентом A» (сессия 1), не спасает сессию 2: после swapSessionTable
+// (та же критическая секция, что перезапись clientAdapter) waiter обязан
+// снова вызвать fn и получить его вердикт. Регрессия «карта переиспользована»
+// дала бы ложный успех без fn — тест падает, т.к. fn всегда не готов.
+func TestSessionSwap_StaleCertificateNotHonored(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange: сессия 1 — fn успешен, сертификат закрыт.
+		r, m := newWarmupRepoCfg(t, config.TelegramConfig{
+			WarmupDeadline: 1200 * time.Millisecond,
+			WarmupTicker:   500 * time.Millisecond,
+		})
+		err := r.withReady(context.Background(), 10, func() error { return nil })
+		require.NoError(t, err)
+		assertEntryClosed(t, r, 10, "session 1 certificate must be closed")
+
+		// Act: смена сессии (swapSessionTable — точка :324 runAuthLoop).
+		r.swapSessionTable()
+
+		// Сессия 2: chat не готов; старый сертификат учитывать нельзя.
+		notFound := chatNotFoundErr()
+		var calls int
+		err = r.withReady(context.Background(), 10, func() error {
+			calls++
+			return notFound
+		})
+
+		// Assert: НЕ успех — fn-оракул отработал в новом поколении.
+		var notReady *ChatNotReadyError
+		require.ErrorAs(t, err, &notReady)
+		assert.GreaterOrEqual(t, calls, 1, "fn must run under the new session")
+		assert.Equal(t, 2, notReady.Drives, "timing deterministic in the fresh table")
+		_ = m
+	})
+}
+
+// TestSessionSwap_NewSessionCertifiesFresh — после смены сессии успешный fn
+// выдаёт НОВЫЙ сертификат в новой таблице (горячий путь нового поколения).
+func TestSessionSwap_NewSessionCertifiesFresh(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		r, _ := newWarmupRepo(t)
+		require.NoError(t, r.withReady(context.Background(), 10, func() error { return nil }))
+
+		// Act
+		r.swapSessionTable()
+		err := r.withReady(context.Background(), 10, func() error { return nil })
+
+		// Assert
+		require.NoError(t, err)
+		assertEntryClosed(t, r, 10, "session 2 must certify in its own table")
+	})
+}
+
+// TestSessionSwap_MidWaitReanchorsToCurrentTable — waiter, вошедший в окно
+// до смены сессии, после пробуждения перечитывает ТЕКУЩУЮ таблицу: edge
+// нового поколения его выпускает. Регрессия «waiter остался на старом
+// entry» дождался бы deadline, несмотря на закрытый сертификат новой таблицы.
+func TestSessionSwap_MidWaitReanchorsToCurrentTable(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange: fn готов только с третьего вызова.
+		r, m := newWarmupRepo(t)
+		expectLoadChatsOnce(m)
+		notFound := chatNotFoundErr()
+		var mu sync.Mutex
+		var calls int
+		fn := func() error {
+			mu.Lock()
+			calls++
+			n := calls
+			mu.Unlock()
+			if n <= 2 {
+				return notFound
+			}
+			return nil
+		}
+
+		// Фон: пока waiter стоит в select — меняем сессию и закрываем
+		// сертификат chat 10 в НОВОЙ таблице.
+		go func() {
+			synctest.Wait()
+			r.swapSessionTable()
+			table := r.currentTable()
+			table.getOrInsert(10)
+			table.signal(10)
+		}()
+
+		// Act
+		err := r.withReady(context.Background(), 10, fn)
+
+		// Assert: успех — waiter переанкорился и увидел edge новой таблицы.
+		require.NoError(t, err)
+		mu.Lock()
+		total := calls
+		mu.Unlock()
+		assert.Equal(t, 3, total, "probe, post-tick retry, retry after new-table edge")
+	})
+}
+
+// --- warmChatsOnce (через обёртку GetChat) ---
 
 // TestWarmChatsOnce_ConcurrentMissesSingleBootstrap — конкурентные miss-ы (10
 // goroutine) дают ровно один LoadChats-бутстрап; все miss-ы получают свой retry
@@ -413,9 +791,11 @@ func TestWarmChatsOnce_LoadChatsAlwaysFails(t *testing.T) {
 	})
 }
 
-// TestAllWrappers_RetryOnChatNotFound — table-driven проверка всех 9 обёрток:
-// miss → retry после LoadChats-бутстрапа.
-func TestAllWrappers_RetryOnChatNotFound(t *testing.T) {
+// --- Обёртки (table-driven) ---
+
+// TestAllWrappers_MissDrivesLoadChatsAndRetries — table-driven проверка всех
+// 9 обёрток: miss → тик с LoadChats-бутстрапом → retry успешен.
+func TestAllWrappers_MissDrivesLoadChatsAndRetries(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -570,8 +950,89 @@ func TestAllWrappers_RetryOnChatNotFound(t *testing.T) {
 	}
 }
 
-// TestAllWrappers_WrappedErrorContext — при повторном miss ошибка каждой
-// обёртки сохраняет исходный контекст ( «...: Chat not found»).
+// TestAllWrappers_AllMissDeadlineChatNotReady — все вызовы miss: обёртка по
+// deadline возвращает ChatNotReadyError, обёрнутую её контекстом, с последней
+// TDLib-ошибкой в цепочке (errors.Is на общем экземпляре).
+func TestAllWrappers_AllMissDeadlineChatNotReady(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		r, m := newWarmupRepo(t)
+		expectLoadChatsOnce(m)
+		// Один экземпляр ошибки на все вызовы мока: errors.Is сравнивает
+		// ResponseError по указателю Err.
+		notFound := chatNotFoundErr()
+		m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
+			return nil, notFound
+		}).Maybe()
+
+		// Act
+		msg, err := r.GetMessage(&client.GetMessageRequest{ChatId: 10, MessageId: 5})
+
+		// Assert
+		require.Error(t, err)
+		assert.Nil(t, msg)
+		var notReady *ChatNotReadyError
+		require.ErrorAs(t, err, &notReady)
+		assert.Equal(t, int64(10), notReady.ChatID)
+		assert.Contains(t, err.Error(), "get message:")
+		assert.ErrorIs(t, err, notFound)
+	})
+}
+
+// TestAllWrappers_NonMatchingErrorsPassthrough — ошибки, не являющиеся
+// «Chat not found» (иной текст при 400 / код 429 / plain error), не запускают
+// прогрев: ни LoadChats, ни повторного вызова.
+func TestAllWrappers_NonMatchingErrorsPassthrough(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "code_400_other_message",
+			err:  client.ResponseError{Err: &client.Error{Code: 400, Message: "MESSAGE_ID_INVALID"}},
+		},
+		{
+			name: "code_429",
+			err:  client.ResponseError{Err: &client.Error{Code: 429, Message: "Too Many Requests: retry after 5"}},
+		},
+		{
+			name: "plain_error",
+			err:  errors.New("transport broken"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange
+				r, m := newWarmupRepo(t)
+				var calls int
+				m.EXPECT().GetMessage(mock.Anything).RunAndReturn(func(_ *client.GetMessageRequest) (*client.Message, error) {
+					calls++
+					return nil, tt.err
+				})
+				// LoadChats не ожидается вовсе: mockery уронит тест при вызове.
+
+				// Act
+				msg, err := r.GetMessage(&client.GetMessageRequest{ChatId: 10, MessageId: 5})
+
+				// Assert
+				require.Error(t, err)
+				assert.Nil(t, msg)
+				assert.ErrorIs(t, err, tt.err)
+				assert.Equal(t, 1, calls)
+			})
+		})
+	}
+}
+
+// TestAllWrappers_WrappedErrorContext — при непрогретом chat ошибка каждой
+// обёртки сохраняет исходный контекст («...: chat N not ready ...»).
 func TestAllWrappers_WrappedErrorContext(t *testing.T) {
 	t.Parallel()
 
@@ -662,7 +1123,7 @@ func TestAllWrappers_WrappedErrorContext(t *testing.T) {
 				r, m := newWarmupRepo(t)
 				expectLoadChatsOnce(m)
 
-				// Все вызовы — miss (retry тоже падает).
+				// Все вызовы — miss (окно до deadline).
 				m.EXPECT().ForwardMessages(mock.Anything).RunAndReturn(func(_ *client.ForwardMessagesRequest) (*client.Messages, error) {
 					return nil, chatNotFoundErr()
 				}).Maybe()
@@ -694,9 +1155,10 @@ func TestAllWrappers_WrappedErrorContext(t *testing.T) {
 				// Act
 				err := tt.act(r)
 
-				// Assert
+				// Assert: контекст обёртки + ChatNotReadyError + текст TDLib.
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errText)
+				assert.Contains(t, err.Error(), "not ready after warmup window")
 				assert.Contains(t, err.Error(), "Chat not found")
 			})
 		})

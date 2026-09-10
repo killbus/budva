@@ -25,6 +25,8 @@
 //	TELEGRAM_APP_VERSION       — версия приложения (default: 1.0.0)
 //	TELEGRAM_LOG_DIR           — директория логов TDLib (default: .data/tdlib-logs)
 //	TELEGRAM_LOG_MAX_SIZE      — макс размер лог-файла в MB (default: 10)
+//	TELEGRAM_WARMUP_DEADLINE   — окно wait-for-ready на холодной БД (default: 5s)
+//	TELEGRAM_WARMUP_TICKER     — период тика ожидания прогрева (default: 500ms)
 //
 // Ограничения:
 //
@@ -35,6 +37,10 @@
 //   - GetOption — метод *Repo, обёртка над client.GetOption; доступен до авторизации.
 //   - CreateNewSupergroupChat/CreateNewBasicGroupChat/SetSupergroupUsername/DeleteChat — методы для cmd/stand.
 //   - SendMessageAndWait блокирует до получения permanent ID (таймаут 60 сек), подписывается через pendingSends; поддерживает retry при FLOOD_WAIT.
+//   - Обёртки pull-вызовов (см. client_adapter.go) на холодной БД входят в
+//     wait-for-ready: при «400 Chat not found» ждут материализации chat в
+//     ограниченном окне (см. warmup.go); по истечении окна — ChatNotReadyError
+//     (транспорт маппит её в gRPC Unavailable + RetryInfo).
 //   - Updates() выдаёт отфильтрованные `client.Type`; resolve UpdateMessageEdited через
 //     GetMessage — ответственность потребителя (cmd/engine/main.go, internal/test/support/live_stack.go).
 package telegram

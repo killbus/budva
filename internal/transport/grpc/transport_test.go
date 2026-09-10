@@ -3,16 +3,21 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/zelenin/go-tdlib/client"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/pure-golang/budva-claude/internal/domain"
+	"github.com/pure-golang/budva-claude/internal/infra/telegram"
 	"github.com/pure-golang/budva-claude/internal/transport/grpc/mocks"
 	"github.com/pure-golang/budva-claude/internal/transport/grpc/pb"
 )
@@ -672,4 +677,100 @@ func TestGetMessageLinkInfo_NilMessage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(42), resp.GetMessage().GetChatId())
 	assert.Equal(t, int64(0), resp.GetMessage().GetId())
+}
+
+// --- mapFacadeError: ChatNotReadyError → Unavailable + RetryInfo ---
+
+// TestChatNotReady_MapsToUnavailableWithRetryInfo — typed-ошибка wait-for-ready
+// маппится в codes.Unavailable с RetryInfo-деталями (клиент знает, когда
+// повторять), а не в Internal.
+func TestChatNotReady_MapsToUnavailableWithRetryInfo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	notReady := &telegram.ChatNotReadyError{
+		ChatID:  100,
+		Drives:  2,
+		LastErr: errors.New("Chat not found"),
+	}
+	facadeMock := mocks.NewFacadeService(t)
+	facadeMock.EXPECT().GetChatHistory(mock.Anything, int64(100), int64(0), int32(0), int32(10)).
+		Return(nil, error(notReady))
+	tr := New(facadeMock)
+
+	// Act
+	_, err := tr.GetChatHistory(context.Background(), &pb.GetChatHistoryRequest{
+		ChatId: 100,
+		Limit:  10,
+	})
+
+	// Assert
+	require.Error(t, err)
+	assert.Equal(t, codes.Unavailable, status.Code(err))
+	assert.Contains(t, err.Error(), "not ready after warmup window")
+
+	// RetryInfo-деталь: задержка 2s.
+	st := status.Convert(err)
+	require.Len(t, st.Details(), 1, "Unavailable must carry exactly one detail")
+	retryInfo, ok := st.Details()[0].(*errdetails.RetryInfo)
+	require.True(t, ok, "detail must be errdetails.RetryInfo, got %T", st.Details()[0])
+	assert.Equal(t, durationpb.New(chatNotReadyRetryDelay), retryInfo.RetryDelay)
+}
+
+// TestChatNotReady_OtherErrorsStayInternal — прочие ошибки не маппятся в
+// Unavailable: прежнее поведение Internal сохраняется (AC6).
+func TestChatNotReady_OtherErrorsStayInternal(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "plain_error", err: errors.New("transport broken")},
+		{
+			name: "wrapped_plain_error",
+			err:  fmt.Errorf("get chat history: %w", errors.New("boom")),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			facadeMock := mocks.NewFacadeService(t)
+			facadeMock.EXPECT().GetChatHistory(mock.Anything, int64(100), int64(0), int32(0), int32(10)).
+				Return(nil, tt.err)
+			tr := New(facadeMock)
+
+			// Act
+			_, err := tr.GetChatHistory(context.Background(), &pb.GetChatHistoryRequest{
+				ChatId: 100,
+				Limit:  10,
+			})
+
+			// Assert
+			require.Error(t, err)
+			assert.Equal(t, codes.Internal, status.Code(err))
+		})
+	}
+}
+
+// TestChatNotReady_WrappedTypedErrorStillMapped — typed-ошибка, завёрнутая
+// обёрткой-контекстом ("%w"), всё равно распознаётся errors.As.
+func TestChatNotReady_WrappedTypedErrorStillMapped(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	notReady := &telegram.ChatNotReadyError{ChatID: 100, Drives: 1}
+	facadeMock := mocks.NewFacadeService(t)
+	facadeMock.EXPECT().GetMessage(mock.Anything, int64(100), int64(5)).
+		Return(nil, fmt.Errorf("get message: %w", notReady))
+	tr := New(facadeMock)
+
+	// Act
+	_, err := tr.GetMessage(context.Background(), &pb.GetMessageRequest{ChatId: 100, MessageId: 5})
+
+	// Assert
+	require.Error(t, err)
+	assert.Equal(t, codes.Unavailable, status.Code(err))
 }
