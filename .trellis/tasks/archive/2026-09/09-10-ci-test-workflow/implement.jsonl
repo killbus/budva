@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/docker-ci-guidelines.md", "reason": "CI contracts and kill list (gha cache ban, --parallel 2 OOM lesson, exec-bit lesson); the new workflow must follow these"}
+{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "Defines the vet+test validation requirement this workflow delivers; Windows cgo constraint explains why CI is the only channel"}

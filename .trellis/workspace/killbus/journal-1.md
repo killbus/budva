@@ -50,3 +50,26 @@ Fixed cold-database 400 Chat not found on facade gRPC: TDLib does not load the c
 ### Status
 
 [OK] **Completed**
+
+
+## Session 3: ci-test workflow: go vet + go test on Linux
+<!-- trellis-session: v=2 fp=a3f8c21e7b9d40f1 -->
+
+**Date**: 2026-09-10
+**Task**: ci-test workflow: go vet + go test on Linux
+**Branch**: `main`
+
+### Summary
+
+Added .github/workflows/ci-test.yml: go vet ./... + go test ./internal/... on Linux for push/PR on main and dispatch. TDLib static libs built once with the Dockerfile recipe (pin 22d49d5, --parallel 2) and cached as a zstd tarball (34 MB) under tdlib-<commit>-amd64; cache split restore/save so red runs still populate it. Verified end-to-end: cold run green in 21m44s (20 packages ok, transform TestAddText_ValidMarkdown passes against real TDLib — confirming the Windows shadow-module failure was a stub artifact, not a code defect), warm run green in 44s, gate proof green-then-red: a deliberate fmt.Printf vet error on scratch branch ci-gate-proof fails the job with the exact diagnostic (run 34422196933); first gate-proof attempt passed because println (builtin) is not in vet's analyzer set — printf-mismatch needs fmt.Printf. User feedback folded in: commit message rewritten from gap-narrative ("Windows cannot compile go-tdlib, so vet+test had no channel") to positive deliverable framing (amend + force-push, saved to memory). Spec updated in docker-ci-guidelines.md (ci-test contracts: cache-key lockstep, save-before-test, runner sudo deviations, glob-cwd pitfall). Push to main: 02908b4, 834e806.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `02908b4` | ci: add go vet + go test workflow on push to main |
+| `834e806` | docs(spec): add ci-test workflow contracts to docker-ci guidelines |
+
+### Status
+
+[OK] **Completed**
