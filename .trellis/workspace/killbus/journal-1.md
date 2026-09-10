@@ -73,3 +73,25 @@ Added .github/workflows/ci-test.yml: go vet ./... + go test ./internal/... on Li
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: warmup wait-for-ready: lazy subscription instead of retry-once
+<!-- trellis-session: v=2 fp=warmup-wait-ready -->
+
+**Date**: 2026-09-10
+**Task**: warmup-wait-ready
+**Branch**: `warmup-wait-ready` (iteration) → `main` (squash)
+
+### Summary
+
+Delivered wait-for-ready warmup replacing retry-once: withReady(ctx, chatID, fn) window on "400 Chat not found" with updateNewChat-edge + LoadChats-bootstrap acceleration, fn retry as sole oracle; per-session certificate table behind atomic.Pointer swapped at clientAdapter overwrite; ChatNotReadyError → gRPC Unavailable + RetryInfo(2s); 9 wrappers routed; config WarmupDeadline/Ticker (5s/500ms); tests on testing/synctest virtual time. Design converged over 7 dbs-chatroom rounds. Two production-grade defects found during CI iterations: (1) certificates refuted by the oracle (miss while closed) must be deleted — otherwise the select wakes instantly every iteration and hot-loops fn calls until deadline (chat removed/left after certification); (2) ctx/deadline closeFailed must target the current table, not the one captured before a possible session swap. Test discipline incidents (3 CI round-trips): assert.Zero on *mock.Mock (cannot pass), missing LoadChats expectation under strict mock, success gated on call counter masking a skipped bootstrap (flake landed in CI at 50%) — bootstrap-gated success fixed it; discipline codified in quality-guidelines.md (F1-F3 with incident anchors, red-path proof rule). Structure-audit reviewer agent (step 2.2b) added to workflow; its first finding (duplicated 9-entry wrapper tables) resolved in the same pass. Commit boundary per user policy: branch carried 7 iteration commits; main received one squash (reset --hard 27ea95c + merge --squash + force-with-lease), PR #1 closed with pointer to squash; PR CI green on 5fb285d/dc2ee1b, main CI green on 4f3a805. Note: gh CLI default repo resolved to upstream pure-golang/budva — set-default killbus/budva.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4f3a805` | feat: TDLib chat warmup wait-for-ready with lazy subscription (squash of 7 branch commits) |
+
+### Status
+
+[OK] **Completed**
