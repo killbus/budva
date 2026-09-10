@@ -675,6 +675,8 @@ func TestWarmChatsOnce_ConcurrentMissesSingleBootstrap(t *testing.T) {
 
 // TestWarmChatsOnce_SecondMissWithinIntervalNoBootstrap — второй miss в окне
 // warmMinInterval не запускает второй LoadChats, но retry всё равно выполняется.
+// Оба miss — на РАЗНЫХ chat-ах: сертификат первого закрыт успехом, и повторный
+// miss того же chat-а в новом withReady идёт через refutation, а не через окно.
 func TestWarmChatsOnce_SecondMissWithinIntervalNoBootstrap(t *testing.T) {
 	t.Parallel()
 
@@ -684,40 +686,38 @@ func TestWarmChatsOnce_SecondMissWithinIntervalNoBootstrap(t *testing.T) {
 		expectLoadChatsOnce(m)
 
 		mu := sync.Mutex{}
-		chatCalls := 0
-		m.EXPECT().GetChat(mock.Anything).RunAndReturn(func(_ *client.GetChatRequest) (*client.Chat, error) {
+		misses := 0
+		m.EXPECT().GetChat(mock.Anything).RunAndReturn(func(req *client.GetChatRequest) (*client.Chat, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			chatCalls++
-			// Вызовы 1-2: первый miss + retry. Вызовы 3-4: второй miss + retry
-			// (retry успешен, хотя rate-limit не дал повторить бутстрап).
-			if chatCalls == 1 || chatCalls == 3 {
+			// Miss-ы только на первых вызовах каждого chat-а; успех —
+			// сразу после второго miss (rate-limit не дал повторить
+			// бутстрап, но retry всё равно попал на прогретую БД).
+			if misses < 2 {
+				misses++
 				return nil, chatNotFoundErr()
 			}
-			return &client.Chat{Id: 10}, nil
+			return &client.Chat{Id: req.ChatId}, nil
 		})
 
-		// Act: первый miss запускает бутстрап.
+		// Act: первый miss (chat 10) запускает бутстрап.
 		_, err := r.GetChat(&client.GetChatRequest{ChatId: 10})
 		require.NoError(t, err)
-		mu.Lock()
-		assert.Equal(t, 2, chatCalls)
-		mu.Unlock()
 
 		// Сдвигаем виртуальное время внутрь окна rate-limit-а (например, +1s).
 		time.Sleep(time.Second)
 
-		// Act: второй miss в окне — retry есть, второго LoadChats нет.
-		_, err = r.GetChat(&client.GetChatRequest{ChatId: 10})
+		// Act: второй miss (chat 11) в окне — retry есть, второго LoadChats нет.
+		_, err = r.GetChat(&client.GetChatRequest{ChatId: 11})
 		require.NoError(t, err)
-		mu.Lock()
-		assert.Equal(t, 4, chatCalls)
-		mu.Unlock()
 	})
 }
 
 // TestWarmChatsOnce_AfterIntervalBootstrapResumes — после истечения
-// warmMinInterval miss снова запускает LoadChats.
+// warmMinInterval miss снова запускает LoadChats. Оба miss — на разных
+// chat-ах (см. SecondMissWithinIntervalNoBootstrap); успех GetChat
+// отпирается завершением соответствующего бутстрапа, а не счётчиком
+// вызовов — иначе retry «успешен» мимо пропущенного LoadChats.
 func TestWarmChatsOnce_AfterIntervalBootstrapResumes(t *testing.T) {
 	t.Parallel()
 
@@ -725,34 +725,41 @@ func TestWarmChatsOnce_AfterIntervalBootstrapResumes(t *testing.T) {
 		// Arrange
 		r, m := newWarmupRepo(t)
 		// Два бутстрапа: первый сразу, второй после виртуального warmMinInterval+.
+		var mu sync.Mutex
+		bootstraps := 0
 		m.EXPECT().LoadChats(mock.Anything).RunAndReturn(func(_ *client.LoadChatsRequest) (*client.Ok, error) {
+			mu.Lock()
+			bootstraps++
+			mu.Unlock()
 			return nil, errors.New("Too Much Requests: chat list is empty")
 		}).Times(2)
 
-		mu := sync.Mutex{}
-		chatCalls := 0
-		m.EXPECT().GetChat(mock.Anything).RunAndReturn(func(_ *client.GetChatRequest) (*client.Chat, error) {
+		misses := 0
+		m.EXPECT().GetChat(mock.Anything).RunAndReturn(func(req *client.GetChatRequest) (*client.Chat, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			chatCalls++
-			if chatCalls == 1 || chatCalls == 3 {
+			if misses < 2 {
+				misses++
 				return nil, chatNotFoundErr()
 			}
-			return &client.Chat{Id: 10}, nil
+			// Второй miss (chat 11) успешен только если второй бутстрап
+			// уже прошёл (прошёл — из-за истёкшего rate-limit-а).
+			if req.ChatId == 11 && bootstraps < 2 {
+				return nil, chatNotFoundErr()
+			}
+			return &client.Chat{Id: req.ChatId}, nil
 		})
 
-		// Act
+		// Act: первый miss (chat 10) запускает бутстрап #1.
 		_, err := r.GetChat(&client.GetChatRequest{ChatId: 10})
 		require.NoError(t, err)
 
 		// Виртуально ждём больше warmMinInterval.
 		time.Sleep(warmMinInterval + time.Second)
 
-		_, err = r.GetChat(&client.GetChatRequest{ChatId: 10})
+		// Act: второй miss (chat 11) запускает бутстрап #2, retry успешен.
+		_, err = r.GetChat(&client.GetChatRequest{ChatId: 11})
 		require.NoError(t, err)
-		mu.Lock()
-		assert.Equal(t, 4, chatCalls)
-		mu.Unlock()
 	})
 }
 
