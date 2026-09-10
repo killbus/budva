@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/zelenin/go-tdlib/client"
@@ -62,6 +63,14 @@ type Repo struct {
 	warmCond     *sync.Cond
 	warmInFlight bool
 	lastWarm     time.Time
+
+	// readiness — таблица wait-for-ready сертификатов текущей TDLib-сессии
+	// (см. warmup.go, sessionReadiness). Заменяется целиком в runAuthLoop
+	// одновременно с перезаписью clientAdapter — фактическая граница сессии.
+	readiness atomic.Pointer[sessionReadiness]
+
+	// convergence — окно сходимости холодного старта (см. metrics.go).
+	convergence *convergenceTracker
 }
 
 // New создаёт Telegram-репозиторий.
@@ -321,6 +330,14 @@ func (r *Repo) runAuthLoop(ctx context.Context) {
 		return
 	}
 
+	// Смена TDLib-сессии: сертификаты wait-for-ready прошлого поколения
+	// невалидны (dialog-карта нового клиента пуста). Таблицу меняем РОВНО
+	// здесь — в одной критической секции с перезаписью adapter: с этой
+	// строки fn-вызовы бьют в нового клиента, и старые сертификаты становятся
+	// ложными. AuthorizationStateReady для этого не годится: он отстаёт от
+	// этой строки на весь handshake и может потеряться (см. design.md
+	// R-risk-2, седьмой раунд экспертной сессии).
+	r.swapSessionTable()
 	r.clientAdapter = tdlibClient
 	close(r.clientDone)
 
@@ -364,6 +381,20 @@ func (r *Repo) listenUpdates(ctx context.Context) {
 			// Сначала доставляем результат подписчикам SendMessageAndWait,
 			// затем — если update релевантен — кладём в общий канал.
 			r.dispatchSendResult(typ)
+
+			// updateNewChat — точный edge «dialog материализован» (проверено
+			// по исходникам TDLib: add_new_dialog стирает negative cache и
+			// шлёт update атомарно). Разбираем его ДО whitelist-фильтра:
+			// wait-for-ready waiter-ы живут в таблице сессии, а r.updates
+			// этот тип не интересует. signal идемпотентен и не блокируется —
+			// приёмник TDLib (receiver()) не может упереться в waiter-ов.
+			if u, ok := typ.(*client.UpdateNewChat); ok {
+				r.currentTable().signal(u.Chat.Id)
+				r.convergence.record()
+				continue
+			}
+
+			updatesBacklog.Record(ctx, int64(len(r.updates)))
 			if !isRelevantUpdate(typ) {
 				continue
 			}

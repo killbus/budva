@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/09-10-warmup-wait-ready/design.md", "reason": "Acceptance baseline: state machine invariants, AC1-AC9 mapping, risk mitigations to verify in review"}
+{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "Contract to re-check after implementation: %w context strings, error matrix rows, mock surface unchanged"}

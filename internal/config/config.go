@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	agrpc "github.com/pure-golang/adapters/grpc/std"
 	ahttp "github.com/pure-golang/adapters/httpserver/std"
 	"github.com/pure-golang/platform/monitoring"
@@ -35,6 +37,17 @@ type TelegramConfig struct {
 	ApplicationVersion  string `envconfig:"TELEGRAM_APP_VERSION" default:"1.0.0"`
 	LogDirectory        string `envconfig:"TELEGRAM_LOG_DIR" default:".data/tdlib-logs"`
 	LogMaxFileSize      int64  `envconfig:"TELEGRAM_LOG_MAX_SIZE" default:"10"`
+
+	// WarmupDeadline — окно wait-for-ready: сколько запрос готов ждать
+	// материализации chat на холодной БД, прежде чем вернуть
+	// ChatNotReadyError (маппится в gRPC Unavailable + RetryInfo).
+	// Дефолт 5s = ~2.5s LoadChats-бутстрап + ~2s серверной пагинации +
+	// запас (решение шестого раунда экспертной сессии, 4/4).
+	WarmupDeadline time.Duration `envconfig:"TELEGRAM_WARMUP_DEADLINE" default:"5s"`
+	// WarmupTicker — период тика ожидания (каждый тик ведёт LoadChats-драйв
+	// с singleflight/rate-limit и повторяет вызов). Должен быть много
+	// меньше WarmupDeadline.
+	WarmupTicker time.Duration `envconfig:"TELEGRAM_WARMUP_TICKER" default:"500ms"`
 }
 
 // StorageConfig описывает параметры KV-хранилища BadgerDB.

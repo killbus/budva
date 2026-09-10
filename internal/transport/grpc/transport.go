@@ -2,16 +2,45 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"time"
 
 	alogger "github.com/pure-golang/adapters/logger"
 	"github.com/zelenin/go-tdlib/client"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/pure-golang/budva-claude/internal/domain"
+	"github.com/pure-golang/budva-claude/internal/infra/telegram"
 	"github.com/pure-golang/budva-claude/internal/transport/grpc/pb"
 )
+
+// chatNotReadyRetryDelay — подсказка клиенту в gRPC RetryInfo: к этому
+// моменту типичный wait-for-ready уже завершился, повторный запрос почти
+// наверняка попадёт на прогретую БД (значение зеркалит
+// telegram.warmRetryInfoDelay — пакетная константа не экспортируется).
+const chatNotReadyRetryDelay = 2 * time.Second
+
+// mapFacadeError маппит ошибку facade-сервиса в gRPC-статус.
+// ChatNotReadyError (chat остался непрогретым в окне wait-for-ready) —
+// Unavailable + RetryInfo: сервис временно не готов, а не сломан, и клиенту
+// известно, когда повторять. Остальные ошибки — Internal (прежнее поведение).
+func mapFacadeError(err error) error {
+	var notReady *telegram.ChatNotReadyError
+	if errors.As(err, &notReady) {
+		st := status.New(codes.Unavailable, err.Error())
+		if withRetry, derr := st.WithDetails(&errdetails.RetryInfo{
+			RetryDelay: durationpb.New(chatNotReadyRetryDelay),
+		}); derr == nil {
+			st = withRetry
+		}
+		return st.Err()
+	}
+	return status.Error(codes.Internal, err.Error())
+}
 
 // facadeService — частично применяемый интерфейс к service/facade.
 // Все методы вернут raw-TDLib типы, которые gRPC-слой сворачивает в свой proto-DTO.
@@ -44,7 +73,7 @@ func (t *Transport) GetMessages(ctx context.Context, req *pb.GetMessagesRequest)
 	msgs, err := t.facadeService.GetMessages(ctx, req.GetChatId(), req.GetMessageIds())
 	if err != nil {
 		alogger.FromContext(ctx).Error("Failed to get messages", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	var messages []*pb.Message
 	for _, msg := range msgs {
@@ -60,7 +89,7 @@ func (t *Transport) GetChatHistory(ctx context.Context, req *pb.GetChatHistoryRe
 	msgs, err := t.facadeService.GetChatHistory(ctx, req.GetChatId(), req.GetFromMessageId(), req.GetOffset(), req.GetLimit())
 	if err != nil {
 		alogger.FromContext(ctx).Error("Failed to get chat history", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	var messages []*pb.Message
 	for _, msg := range msgs {
@@ -77,7 +106,7 @@ func (t *Transport) SendMessage(ctx context.Context, req *pb.SendMessageRequest)
 	}
 	if err := t.facadeService.SendMessage(ctx, msg.GetChatId(), msg.GetText()); err != nil {
 		alogger.FromContext(ctx).Error("Failed to send message", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	return &pb.EmptyResponse{}, nil
 }
@@ -98,7 +127,7 @@ func (t *Transport) SendMessageAlbum(ctx context.Context, req *pb.SendMessageAlb
 	}
 	if err := t.facadeService.SendMessageAlbum(ctx, chatID, items); err != nil {
 		alogger.FromContext(ctx).Error("Failed to send message album", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	return &pb.EmptyResponse{}, nil
 }
@@ -107,7 +136,7 @@ func (t *Transport) SendMessageAlbum(ctx context.Context, req *pb.SendMessageAlb
 func (t *Transport) ForwardMessage(ctx context.Context, req *pb.ForwardMessageRequest) (*pb.EmptyResponse, error) {
 	if err := t.facadeService.ForwardMessage(ctx, req.GetChatId(), req.GetMessageId()); err != nil {
 		alogger.FromContext(ctx).Error("Failed to forward message", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	return &pb.EmptyResponse{}, nil
 }
@@ -117,7 +146,7 @@ func (t *Transport) GetMessage(ctx context.Context, req *pb.GetMessageRequest) (
 	msg, err := t.facadeService.GetMessage(ctx, req.GetChatId(), req.GetMessageId())
 	if err != nil {
 		alogger.FromContext(ctx).Error("Failed to get message", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	return &pb.MessageResponse{Message: clientMessageToProto(msg)}, nil
 }
@@ -130,7 +159,7 @@ func (t *Transport) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequ
 	}
 	if err := t.facadeService.UpdateMessage(ctx, msg.GetChatId(), msg.GetId(), msg.GetText()); err != nil {
 		alogger.FromContext(ctx).Error("Failed to update message", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	return &pb.EmptyResponse{}, nil
 }
@@ -139,7 +168,7 @@ func (t *Transport) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequ
 func (t *Transport) DeleteMessages(ctx context.Context, req *pb.DeleteMessagesRequest) (*pb.EmptyResponse, error) {
 	if err := t.facadeService.DeleteMessages(ctx, req.GetChatId(), req.GetMessageIds()); err != nil {
 		alogger.FromContext(ctx).Error("Failed to delete messages", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	return &pb.EmptyResponse{}, nil
 }
@@ -149,7 +178,7 @@ func (t *Transport) GetMessageLink(ctx context.Context, req *pb.GetMessageLinkRe
 	link, err := t.facadeService.GetMessageLink(ctx, req.GetChatId(), req.GetMessageId())
 	if err != nil {
 		alogger.FromContext(ctx).Error("Failed to get message link", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	return &pb.MessageLinkResponse{Link: link}, nil
 }
@@ -159,7 +188,7 @@ func (t *Transport) GetMessageLinkInfo(ctx context.Context, req *pb.GetMessageLi
 	info, err := t.facadeService.GetMessageLinkInfo(ctx, req.GetLink())
 	if err != nil {
 		alogger.FromContext(ctx).Error("Failed to get message link info", slog.Any("err", err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, mapFacadeError(err)
 	}
 	var messageID int64
 	if info != nil && info.Message != nil {

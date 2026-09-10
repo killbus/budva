@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "Existing chat-warmup contract being replaced (single retry -> wait-for-ready); ResponseError value-type model, mock discipline, Windows cgo gotcha all binding"}
+{"file": ".trellis/workspace/killbus/warmup-convergence.md", "reason": "Round-0 convergence record — why startup warmup and app-layer loader were rejected; Repo-layer placement ruling"}
+{"file": ".trellis/tasks/09-10-warmup-wait-ready/design.md", "reason": "Verified TDLib source facts F1-F6, withReady state machine, close-persistent certificate, gRPC mapping, config, risks"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend spec index for layer-scoped guideline lookup during implementation"}
