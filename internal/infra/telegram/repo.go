@@ -95,11 +95,11 @@ func New(cfg config.TelegramConfig, mode UpdateMode) *Repo {
 		logger:     slog.Default().With("module", "infra.telegram"),
 		cfg:        cfg,
 		clientDone: make(chan struct{}),
-		updates:    make(chan client.Type, 100),
 		authStates: make(chan domain.AuthStateEvent, 10),
 	}
 	modeName := "NoBusinessUpdates"
 	if mode == BusinessUpdates {
+		r.updates = make(chan client.Type, 100)
 		modeName = "BusinessUpdates"
 	}
 	r.initWarmState()
@@ -404,6 +404,11 @@ func (r *Repo) listenUpdates(ctx context.Context) {
 			if !ok {
 				return
 			}
+			// M2 validation mutation: skip internal effects without a business outlet.
+			if r.updates == nil {
+				continue
+			}
+
 			// Private send results are independent of business publication.
 			r.dispatchSendResult(typ)
 
