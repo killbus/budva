@@ -95,11 +95,11 @@ func New(cfg config.TelegramConfig, mode UpdateMode) *Repo {
 		logger:     slog.Default().With("module", "infra.telegram"),
 		cfg:        cfg,
 		clientDone: make(chan struct{}),
+		updates:    make(chan client.Type, 100),
 		authStates: make(chan domain.AuthStateEvent, 10),
 	}
 	modeName := "NoBusinessUpdates"
 	if mode == BusinessUpdates {
-		r.updates = make(chan client.Type, 100)
 		modeName = "BusinessUpdates"
 	}
 	r.initWarmState()
@@ -416,11 +416,6 @@ func (r *Repo) listenUpdates(ctx context.Context) {
 			if u, ok := typ.(*client.UpdateNewChat); ok {
 				r.currentTable().signal(u.Chat.Id)
 				r.convergence.record()
-				continue
-			}
-
-			// Keep internal effects above this guard even without a business reader.
-			if r.updates == nil {
 				continue
 			}
 
