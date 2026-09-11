@@ -1,0 +1,9 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend review routing across the adapter and all assembly sites."}
+{"file":".trellis/spec/backend/telegram-tdlib-guidelines.md","reason":"Check internal dispatch and unchanged subscribed behavior against existing contracts."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Require executed behavioral evidence and prevent vacuous or helper-only regression tests."}
+{"file":".trellis/spec/backend/docker-ci-guidelines.md","reason":"Verify exact native CI scope without inventing live-account or race coverage."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/findings.md","reason":"Audit constructor modes and distinguish historical claims from current facts."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/internal-obligations.md","reason":"Check that request semantics and internal event responsibilities remain intact."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/concurrency-boundaries.md","reason":"Check nil-channel, cancellation, fixture ownership, and bounded closure claims."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/review.md","reason":"Recheck prior design findings, accepted dispositions, and any still-open validation gates."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/review-validation.md","reason":"Audit actual red/green discrimination and cleanup against the independent validation review."}

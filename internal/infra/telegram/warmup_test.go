@@ -200,7 +200,7 @@ func newWarmupRepoCfg(t *testing.T, cfg config.TelegramConfig) (*Repo, *mocks.Cl
 	t.Helper()
 
 	m := mocks.NewClientAdapter(t)
-	r := New(cfg)
+	r := New(cfg, NoBusinessUpdates)
 	r.clientAdapter = m
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)

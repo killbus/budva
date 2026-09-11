@@ -20,7 +20,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | [Quality Guidelines](./quality-guidelines.md) | Test red-path proofs, mock discipline, assertion hygiene (with incident anchors) | Filled |
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
 | [Docker/CI Guidelines](./docker-ci-guidelines.md) | Image build + docker-publish/ci-test workflow contracts; failure matrix from real CI deaths | Filled |
-| [Telegram/TDLib Guidelines](./telegram-tdlib-guidelines.md) | go-tdlib adapter contracts: error model, chat-warmup retry, cgo build constraint | Filled |
+| [Telegram/TDLib Guidelines](./telegram-tdlib-guidelines.md) | go-tdlib adapter contracts: error model, chat-warmup retry, explicit business-update ownership, cgo build constraint | Filled |
 
 ---
 

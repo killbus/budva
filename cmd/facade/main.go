@@ -77,7 +77,7 @@ func run() error {
 	logger.Info("Starting facade")
 
 	// 4. Repository-адаптеры
-	telegramRepo := telegram.New(cfg.Telegram)
+	telegramRepo := telegram.New(cfg.Telegram, telegram.NoBusinessUpdates)
 	if err := telegramRepo.Start(ctx); err != nil {
 		return fmt.Errorf("telegram repo: %w", err)
 	}
