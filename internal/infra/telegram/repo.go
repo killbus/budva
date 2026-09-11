@@ -404,11 +404,6 @@ func (r *Repo) listenUpdates(ctx context.Context) {
 			if !ok {
 				return
 			}
-			// M2 validation mutation: skip internal effects without a business outlet.
-			if r.updates == nil {
-				continue
-			}
-
 			// Private send results are independent of business publication.
 			r.dispatchSendResult(typ)
 
@@ -424,11 +419,19 @@ func (r *Repo) listenUpdates(ctx context.Context) {
 				continue
 			}
 
+			// Keep internal effects above this guard even without a business reader.
+			if r.updates == nil {
+				continue
+			}
+
 			updatesBacklog.Record(ctx, int64(len(r.updates)))
 			if !isRelevantUpdate(typ) {
 				continue
 			}
-			r.updates <- typ
+			select {
+			case r.updates <- typ:
+			default:
+			}
 		}
 	}
 }
