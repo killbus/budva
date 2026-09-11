@@ -428,10 +428,7 @@ func (r *Repo) listenUpdates(ctx context.Context) {
 			if !isRelevantUpdate(typ) {
 				continue
 			}
-			select {
-			case r.updates <- typ:
-			default:
-			}
+			r.updates <- typ
 		}
 	}
 }
