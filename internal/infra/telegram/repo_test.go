@@ -205,26 +205,89 @@ func TestMapTDLibState(t *testing.T) {
 	}
 }
 
-// --- New и аксессоры ---
+// --- New and accessors ---
 
-func TestNew_InitializesChannels(t *testing.T) {
+func TestNew_UpdateModes(t *testing.T) {
 	t.Parallel()
 
-	// Arrange / Act
-	r := New(config.TelegramConfig{})
-
-	// Assert: каналы готовы до Start().
-	require.NotNil(t, r)
-	assert.NotNil(t, r.Updates())
-	assert.NotNil(t, r.AuthStates())
-	assert.NotNil(t, r.ClientDone())
-
-	// ClientDone ещё не закрыт.
-	select {
-	case <-r.ClientDone():
-		t.Fatal("clientDone must not be closed before Start")
-	default:
+	tests := []struct {
+		name string
+		mode UpdateMode
+	}{
+		{name: "request_only", mode: NoBusinessUpdates},
+		{name: "business_updates", mode: BusinessUpdates},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			r := New(config.TelegramConfig{}, tt.mode)
+			require.NotNil(t, r)
+
+			// Inspect before Updates or Start: allocation must not depend on access.
+			if tt.mode == NoBusinessUpdates {
+				assert.Nil(t, r.updates, "request-only mode must not allocate an outlet")
+			} else {
+				require.NotNil(t, r.updates)
+				assert.Equal(t, 100, cap(r.updates))
+				assert.Zero(t, len(r.updates))
+				updates := r.Updates()
+				assert.Equal(t, (<-chan client.Type)(r.updates), updates)
+				assert.Equal(t, updates, r.Updates(), "access is not subscription registration")
+			}
+
+			require.NotNil(t, r.AuthStates())
+			assert.Equal(t, 10, cap(r.AuthStates()))
+			select {
+			case <-r.AuthStates():
+				t.Fatal("authStates must be open and empty before Start")
+			default:
+			}
+
+			require.NotNil(t, r.ClientDone())
+			assert.Zero(t, cap(r.ClientDone()))
+			select {
+			case <-r.ClientDone():
+				t.Fatal("clientDone must not be closed before Start")
+			default:
+			}
+
+			assert.Nil(t, r.clientAdapter)
+			assert.Nil(t, r.phoneCh)
+			assert.Nil(t, r.codeCh)
+			assert.Nil(t, r.passwordCh)
+			assert.NotNil(t, r.warmCond)
+			assert.NotNil(t, r.readiness.Load())
+			assert.NotNil(t, r.convergence)
+		})
+	}
+}
+
+func TestNew_InvalidUpdateModePanics(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []UpdateMode{2, 255} {
+		t.Run(fmt.Sprintf("mode_%d", mode), func(t *testing.T) {
+			t.Parallel()
+
+			// Removing mode validation must fail this misuse contract.
+			assert.PanicsWithValue(t,
+				fmt.Sprintf("telegram.New: invalid UpdateMode %d (want NoBusinessUpdates or BusinessUpdates)", mode),
+				func() { New(config.TelegramConfig{}, mode) },
+			)
+		})
+	}
+}
+
+func TestUpdates_DisabledPanics(t *testing.T) {
+	t.Parallel()
+
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
+	// Returning a nil channel would hide misuse as an indefinite receive wait.
+	assert.PanicsWithValue(t,
+		"telegram.Repo.Updates: business updates are disabled; construct with BusinessUpdates",
+		func() { r.Updates() },
+	)
 }
 
 func TestClose_ResetsClientAdapter(t *testing.T) {
@@ -232,7 +295,7 @@ func TestClose_ResetsClientAdapter(t *testing.T) {
 
 	// Arrange
 	m := mocks.NewClientAdapter(t)
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.clientAdapter = m
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
@@ -252,7 +315,7 @@ func TestSubmitPhone_WritesToChannel(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -274,7 +337,7 @@ func TestSubmitCode_WritesToChannel(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -296,7 +359,7 @@ func TestSubmitPassword_WritesToChannel(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -333,7 +396,7 @@ func TestCleanUp(t *testing.T) {
 		r := New(config.TelegramConfig{
 			DatabaseDirectory: dbDir,
 			FilesDirectory:    filesDir,
-		})
+		}, NoBusinessUpdates)
 
 		// Act
 		r.CleanUp()
@@ -349,7 +412,7 @@ func TestCleanUp(t *testing.T) {
 		t.Parallel()
 
 		// Arrange: обе директории пустые — не должно быть ни ошибок, ни паники.
-		r := New(config.TelegramConfig{})
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
 
 		// Act + Assert
 		assert.NotPanics(t, func() { r.CleanUp() })
@@ -364,7 +427,7 @@ func TestCleanUp(t *testing.T) {
 		r := New(config.TelegramConfig{
 			DatabaseDirectory: filepath.Join(base, "ghost-db"),
 			FilesDirectory:    filepath.Join(base, "ghost-files"),
-		})
+		}, NoBusinessUpdates)
 
 		// Act + Assert
 		assert.NotPanics(t, func() { r.CleanUp() })
@@ -377,7 +440,7 @@ func TestDispatchSendResult_SucceededDelivered(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -410,7 +473,7 @@ func TestDispatchSendResult_FailedDelivered(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -440,7 +503,7 @@ func TestDispatchSendResult_FailedWithNilError(t *testing.T) {
 	t.Parallel()
 
 	// Arrange: TDLib может отдать Update без Error — покрываем ветку с "unknown".
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -464,7 +527,7 @@ func TestDispatchSendResult_NoSubscriberIsNoOp(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -482,7 +545,7 @@ func TestDispatchSendResult_IgnoresUnrelatedUpdates(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -504,7 +567,7 @@ func TestPendingSends_ConcurrentAddRemove(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
 	r.passwordCh = make(chan string, 1)
@@ -551,7 +614,7 @@ func TestSendMessageAndWait_SuccessPath(t *testing.T) {
 		m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
 			return &client.Message{Id: 1}, nil
 		})
-		r := New(config.TelegramConfig{})
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
 		r.clientAdapter = m
 		r.phoneCh = make(chan string, 1)
 		r.codeCh = make(chan string, 1)
@@ -585,7 +648,7 @@ func TestSendMessageAndWait_SendMessageError(t *testing.T) {
 	m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
 		return nil, errors.New("boom")
 	})
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.clientAdapter = m
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
@@ -609,7 +672,7 @@ func TestSendMessageAndWait_ContextCancelled(t *testing.T) {
 		m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
 			return &client.Message{Id: 7}, nil
 		})
-		r := New(config.TelegramConfig{})
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
 		r.clientAdapter = m
 		r.phoneCh = make(chan string, 1)
 		r.codeCh = make(chan string, 1)
@@ -651,7 +714,7 @@ func TestSendMessageAndWait_FloodWaitExhaustsRetries(t *testing.T) {
 			mu.Unlock()
 			return nil, errors.New("Too Many Requests: retry after 1")
 		})
-		r := New(config.TelegramConfig{})
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
 		r.clientAdapter = m
 		r.phoneCh = make(chan string, 1)
 		r.codeCh = make(chan string, 1)
@@ -683,7 +746,7 @@ func TestSendMessageAndWait_FloodWaitInterruptedByContext(t *testing.T) {
 		m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
 			return nil, errors.New("Too Many Requests: retry after 5")
 		})
-		r := New(config.TelegramConfig{})
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
 		r.clientAdapter = m
 		r.phoneCh = make(chan string, 1)
 		r.codeCh = make(chan string, 1)
@@ -715,7 +778,7 @@ func TestSendMessageAndWait_DeliversErrorThroughPendingChannel(t *testing.T) {
 		m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
 			return &client.Message{Id: 55}, nil
 		})
-		r := New(config.TelegramConfig{})
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
 		r.clientAdapter = m
 		r.phoneCh = make(chan string, 1)
 		r.codeCh = make(chan string, 1)
@@ -750,7 +813,7 @@ func TestSendMessageAndWaitOnce_FloodWaitReturnedFromSend(t *testing.T) {
 	m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
 		return nil, errors.New("Too Many Requests: retry after 3")
 	})
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.clientAdapter = m
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)
@@ -773,7 +836,7 @@ func TestSendMessageAndWaitOnce_NonFloodErrorReturnsZeroWait(t *testing.T) {
 	m.EXPECT().SendMessage(mock.Anything).RunAndReturn(func(_ *client.SendMessageRequest) (*client.Message, error) {
 		return nil, fmt.Errorf("transport broken")
 	})
-	r := New(config.TelegramConfig{})
+	r := New(config.TelegramConfig{}, NoBusinessUpdates)
 	r.clientAdapter = m
 	r.phoneCh = make(chan string, 1)
 	r.codeCh = make(chan string, 1)

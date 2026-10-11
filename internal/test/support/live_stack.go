@@ -95,7 +95,7 @@ func (s *LiveStack) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancelUpdates = cancel
 
-	telegramRepo := telegram.New(cfg)
+	telegramRepo := telegram.New(cfg, telegram.BusinessUpdates)
 	if err := telegramRepo.Start(ctx); err != nil {
 		cancel()
 		return fmt.Errorf("telegram start: %w", err)

@@ -1,11 +1,32 @@
 // Package telegram реализует обёртку над TDLib для работы с Telegram API.
 //
-// Использование:
+// Request-only role (facade and stand):
 //
-//	r := telegram.New(cfg)
+//	r := telegram.New(cfg, telegram.NoBusinessUpdates)
 //	if err := r.Start(ctx); err != nil { ... }
 //	defer r.Close()
-//	events := r.AuthStates() // канал событий авторизации
+//	events := r.AuthStates() // Authorization events still need their normal consumer.
+//
+// NoBusinessUpdates allocates no business outlet and requires no update drain.
+// Calling Updates in this mode panics with a programming error. The SDK pump
+// and Repo listener still run: private send results, NewChat readiness and
+// convergence, and authorization handling are independent of business delivery.
+//
+// Business-consumer role (engine and LiveStack):
+//
+//	r := telegram.New(cfg, telegram.BusinessUpdates)
+//	updates := r.Updates() // Allocated at construction, before Start.
+//	if err := r.Start(ctx); err != nil { ... }
+//	defer r.Close()
+//	consumeUpdates(ctx, updates) // Alongside the normal authorization consumer.
+//
+// BusinessUpdates retains a capacity-100, filtered outlet with ordered blocking
+// delivery. The mode is fixed at construction. Updates is an accessor, not
+// registration: repeated calls return the same channel; multiple readers compete
+// for events, with no broadcast. Consumers must keep draining it for publication
+// to progress. No new channel-closure guarantee is introduced; consumers should
+// use their context for shutdown. Engine stalls and SDK close races remain
+// unresolved; no cancellation or full shutdown safety is established.
 //
 // Конфигурация:
 //
@@ -32,7 +53,7 @@
 //
 //   - Start() инициализирует TDLib-клиент, настраивает логирование и запускает цикл авторизации.
 //   - SubmitPhone/SubmitCode/SubmitPassword делегируют ввод в TDLib authorizer.
-//   - Close() завершает TDLib-сессию и освобождает ресурсы.
+//   - Close() retains the existing adapter reset, not full SDK shutdown or outlet closure.
 //   - ParseTextEntities/GetMarkdownText — статические вызовы TDLib, работают до авторизации.
 //   - GetOption — метод *Repo, обёртка над client.GetOption; доступен до авторизации.
 //   - CreateNewSupergroupChat/CreateNewBasicGroupChat/SetSupergroupUsername/DeleteChat — методы для cmd/stand.
@@ -41,6 +62,7 @@
 //     wait-for-ready: при «400 Chat not found» ждут материализации chat в
 //     ограниченном окне (см. warmup.go); по истечении окна — ChatNotReadyError
 //     (транспорт маппит её в gRPC Unavailable + RetryInfo).
-//   - Updates() выдаёт отфильтрованные `client.Type`; resolve UpdateMessageEdited через
-//     GetMessage — ответственность потребителя (cmd/engine/main.go, internal/test/support/live_stack.go).
+//   - Updates() returns filtered client.Type values only in BusinessUpdates mode;
+//     resolving UpdateMessageEdited through GetMessage remains the consumer's
+//     responsibility (cmd/engine/main.go, internal/test/support/live_stack.go).
 package telegram

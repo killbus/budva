@@ -29,6 +29,16 @@ type sendResult struct {
 	err error
 }
 
+// UpdateMode fixes whether a Repo publishes filtered business updates.
+type UpdateMode uint8
+
+const (
+	// NoBusinessUpdates keeps internal event handling without a business outlet.
+	NoBusinessUpdates UpdateMode = iota
+	// BusinessUpdates publishes to a capacity-100 outlet that a caller must consume.
+	BusinessUpdates
+)
+
 // Repo — TDLib-адаптер.
 //
 // Разделение поверхности пакета:
@@ -45,12 +55,12 @@ type Repo struct {
 	codeCh     chan string
 	passwordCh chan string
 	clientDone chan struct{}
-	updates    chan client.Type
+	updates    chan client.Type // Immutable after New; nil disables business publication.
 	authStates chan domain.AuthStateEvent
 
-	// pendingSends хранит канал-результат для каждого tmp message id, ожидающего
-	// permanent ID. Единственный listener в listenUpdates доставляет результат
-	// в канал и одновременно пропускает update в общий канал r.updates.
+	// pendingSends maps temporary message IDs to private result channels.
+	// The shared listener delivers these results regardless of business mode;
+	// relevant updates also reach r.updates only when that outlet is enabled.
 	//
 	// Такой подход заменяет per-call GetListener()/Close() — go-tdlib v0.7.6
 	// имеет гонку в Listener.Close() (panic: send on closed channel).
@@ -73,16 +83,27 @@ type Repo struct {
 	convergence *convergenceTracker
 }
 
-// New создаёт Telegram-репозиторий.
-func New(cfg config.TelegramConfig) *Repo {
+// New creates a Telegram repository with an immutable business-update mode.
+// It panics immediately on an invalid mode. NoBusinessUpdates needs no reader;
+// BusinessUpdates requires a consumer of Updates for continued publication.
+func New(cfg config.TelegramConfig, mode UpdateMode) *Repo {
+	if mode != NoBusinessUpdates && mode != BusinessUpdates {
+		panic(fmt.Sprintf("telegram.New: invalid UpdateMode %d (want NoBusinessUpdates or BusinessUpdates)", mode))
+	}
+
 	r := &Repo{
 		logger:     slog.Default().With("module", "infra.telegram"),
 		cfg:        cfg,
 		clientDone: make(chan struct{}),
-		updates:    make(chan client.Type, 100),
 		authStates: make(chan domain.AuthStateEvent, 10),
 	}
+	modeName := "NoBusinessUpdates"
+	if mode == BusinessUpdates {
+		r.updates = make(chan client.Type, 100)
+		modeName = "BusinessUpdates"
+	}
 	r.initWarmState()
+	r.logger.Info("Business update mode configured", slog.String("update_mode", modeName))
 	return r
 }
 
@@ -114,10 +135,15 @@ func (r *Repo) ClientDone() <-chan struct{} {
 	return r.clientDone
 }
 
-// Updates возвращает канал сырых TDLib-обновлений, прошедших фильтр.
-// Потребитель сам делает type switch по `client.Type` и при необходимости
-// резолвит edit-update через GetMessage.
+// Updates returns the shared, filtered business-update outlet.
+// It panics when business updates are disabled. This accessor does not register
+// a subscription: repeated calls return the same channel, and multiple readers
+// compete for events rather than receiving a broadcast. Consumers resolve edit
+// updates through GetMessage themselves.
 func (r *Repo) Updates() <-chan client.Type {
+	if r.updates == nil {
+		panic("telegram.Repo.Updates: business updates are disabled; construct with BusinessUpdates")
+	}
 	return r.updates
 }
 
@@ -378,8 +404,7 @@ func (r *Repo) listenUpdates(ctx context.Context) {
 			if !ok {
 				return
 			}
-			// Сначала доставляем результат подписчикам SendMessageAndWait,
-			// затем — если update релевантен — кладём в общий канал.
+			// Private send results are independent of business publication.
 			r.dispatchSendResult(typ)
 
 			// updateNewChat — точный edge «dialog материализован» (проверено
@@ -391,6 +416,11 @@ func (r *Repo) listenUpdates(ctx context.Context) {
 			if u, ok := typ.(*client.UpdateNewChat); ok {
 				r.currentTable().signal(u.Chat.Id)
 				r.convergence.record()
+				continue
+			}
+
+			// Keep internal effects above this guard even without a business reader.
+			if r.updates == nil {
 				continue
 			}
 

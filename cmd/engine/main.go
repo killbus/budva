@@ -88,7 +88,7 @@ func run() error {
 
 	rulesetRepo := ruleset.New(cfg.Ruleset)
 
-	telegramRepo := telegram.New(cfg.Telegram)
+	telegramRepo := telegram.New(cfg.Telegram, telegram.BusinessUpdates)
 	if err := telegramRepo.Start(ctx); err != nil {
 		return fmt.Errorf("telegram repo: %w", err)
 	}

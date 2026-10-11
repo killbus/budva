@@ -4,7 +4,8 @@
 > shared by facade and engine.
 
 Content below comes from the chat-warmup tasks (Sept 2026: warmup-lazy-loadchats,
-then warmup-wait-ready) and their investigation of go-tdlib's actual behavior.
+then warmup-wait-ready), the facade-update-ownership repair, and their
+investigation of go-tdlib's actual behavior.
 
 ---
 
@@ -193,6 +194,71 @@ assert.ErrorIs(t, err, notFound)
 r.swapSessionTable()
 r.clientAdapter = tdlibClient
 ```
+
+---
+
+## Scenario: Explicit business-update ownership
+
+Trigger: changes to Repo construction, `Updates`, `listenUpdates`, or their
+consumers. Facade must serve its existing request API without a business-update
+subscriber; no caller must drain an unpublished queue to keep it alive.
+
+### Construction and delivery contract
+
+`New(cfg, mode)` requires an immutable `UpdateMode`; invalid values panic as
+programming errors. Audit actual assembly choices, not just compilation:
+
+| Caller | Mode | Business owner |
+|---|---|---|
+| `cmd/facade`, `cmd/stand` | `NoBusinessUpdates` | None; request-only |
+| `cmd/engine` | `BusinessUpdates` | `handler.Service.Run` |
+| `internal/test/support/LiveStack` | `BusinessUpdates` | `processUpdates` |
+
+- NoBusinessUpdates allocates no business outlet or drain worker. `Updates()`
+  panics in this mode; returning nil would hide misuse as a stalled consumer.
+  No new external endpoint, option, or companion process is required.
+- BusinessUpdates allocates the existing capacity-100 outlet before Start.
+  Updates is a shared accessor, not registration/broadcast; readers compete.
+  Preserve filtering, event contents, per-listener order, and blocking delivery.
+  The owner must keep consuming; no new close guarantee or drop policy exists.
+- Keep the SDK pump, Repo listener, and normal authorization handling. Dispatch
+  private send results and NewChat readiness/convergence BEFORE the absent-outlet
+  guard. Only business publication is optional; a nil-channel send still blocks.
+- Do not infer mode from reader counts, queue length, or Updates calls, or add
+  drop/default, per-event goroutines, another queue, or dynamic registration.
+- Log `update_mode` once without account/chat identifiers. Backlog describes an
+  existing business queue, not request health. No requested business delivery
+  means no subscribed-event drop counter.
+- Engine overload, SDK send/close races, and full shutdown/session safety remain
+  open. Removing a publication stall is not evidence of safe teardown or
+  unchanged race frequency, nor a whole-pipeline liveness guarantee.
+
+### Regression and evidence boundaries
+
+- Constructor tests cover allocation, misuse, accessor identity, and unchanged
+  auth/client-done initialization; source review checks all real caller modes.
+- `updates_test.go` drives production listenUpdates: 4096 relevant events with
+  no business reader, then actual internal effects; real pending sends and
+  same-chat readiness waiters precede injection. Readiness success uses an
+  explicit materialization oracle and must precede the first ticker.
+- Subscribed regression must attempt event 101 while capacity 100 is full before
+  resuming the reader; check exact contents, identities, order, count, and extras.
+- Use synctest and distinct input/effect/exit barriers. The loop alone closes
+  fixture input. Install teardown early, stop/join synthetic work, and record
+  failed verdicts before rescue-draining the actual private outlet and joining
+  the loop. Never force cleanup with disabled Updates(), Repo.Close, or manual
+  channel closes.
+- Required controls restore both allocation/publication, bypass listening or
+  internal dispatch, and add subscribed drop-on-full. Record executed red reasons
+  plus the final green revision; static reasoning is not executed liveness proof.
+- Linux `go vet ./...` and `go test ./internal/...` are the native compile/test
+  gates. The inactive Listener fixture does not exercise SDK fan-out or prove
+  cancellation safety. Calling the loop directly also cannot detect removal of
+  its production startup call. Production closure separately requires an authorized
+  isolated-account run of the actual facade: idle update load followed by valid
+  client-backed requests with expected successful content and cold readiness,
+  under declared load/latency/error bounds and revision. Health 200s or fast
+  validation errors do not qualify; unavailable live acceptance stays pending.
 
 ---
 

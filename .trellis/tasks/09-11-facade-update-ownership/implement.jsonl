@@ -1,0 +1,9 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend spec routing for the adapter and binary assembly changes."}
+{"file":".trellis/spec/backend/telegram-tdlib-guidelines.md","reason":"Preserve native TDLib, readiness, and listener contracts."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Behavior-binding regression tests, negative controls, and deterministic synchronization."}
+{"file":".trellis/spec/backend/docker-ci-guidelines.md","reason":"Linux/native validation constraints and existing CI commands."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/findings.md","reason":"Current constructor inventory, accepted scope, and source evidence."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/internal-obligations.md","reason":"Internal events that must remain active when the business outlet is absent."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/concurrency-boundaries.md","reason":"Immutable publication guard, safe controlled-listener fixture, and residual lifecycle risks."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/review.md","reason":"Follow the resolved design-review dispositions and preserve verification and authorization gates."}
+{"file":".trellis/tasks/09-11-facade-update-ownership/research/review-validation.md","reason":"Use source-specific event barriers, stateful readiness, real pending registration, overflow scheduling, and failure cleanup."}
