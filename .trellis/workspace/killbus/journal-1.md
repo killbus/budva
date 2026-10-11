@@ -95,3 +95,38 @@ Delivered wait-for-ready warmup replacing retry-once: withReady(ctx, chatID, fn)
 ### Status
 
 [OK] **Completed**
+
+
+## Session 5: Facade update ownership merged and archived
+<!-- trellis-session: v=2 fp=98630056f4fda887 -->
+
+**Date**: 2026-10-11
+**Task**: Facade update ownership merged and archived
+**Branch**: `main`
+
+### Summary
+
+Recorded the successful PR #2 merge, preserved the separate actual-facade acceptance boundary, and archived the completed Trellis task.
+
+### Main Changes
+
+- PR #2 merge state recorded in the task artifacts.
+- Task 09-11-facade-update-ownership archived after merge.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3ea3a1e` | docs(task): record facade ownership merge |
+
+### Testing
+
+- [OK] PR ci-test 38103363230 passed vet and internal tests before merge.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Run the isolated-account actual-facade acceptance before claiming production incident closure.
