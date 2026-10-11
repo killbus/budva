@@ -1,5 +1,36 @@
 # Planning progress
 
+## 2026-10-11 - final evidence reconciliation
+
+- User requested the next step. Reactivated this existing task for the current session; both nine-entry manifests validate. HEAD remains a314b00, with the inherited task-record edits and unrelated WIP preserved.
+- Scope: independently reconcile AC5/design 7.2 with source, mutation history, and recorded native receipts; refresh existing GitHub run/PR metadata read-only and synchronize task records. No runtime change, new CI run, commit, push, PR creation, merge, deployment, live-account use, or archive is authorized by this continuation.
+- Completed: main and read-only Trellis reviewer /root/evidence_check independently inspected fresh existing M1/M2/M3/G metadata/full logs and local source/history. Verdict PASS for AC5/design 7.2, no blocking finding. Updated Step 4 and current-status records; exact results and limitations are in research/native-red-green.md.
+- Fresh all-state task-head PR query returned [] after the initial sandbox HTTP 401 was resolved by normal approved escalation of the same read-only command. No PR exists at query time; no direct-merge audit is claimed.
+- Spec-sync review found existing guidance sufficient. Production source/tests/workflow remain unchanged, the validation worktree is clean, and the main Git index remains empty. Actual-facade acceptance, delivery authority, and task completion remain pending.
+- User approved the exact six-file local evidence-only commit below with "同意" on 2026-10-11. This supersedes the earlier no-commit boundary for this checkpoint only. After successful local commit, the next gate is separate push/PR authorization; no push, PR, merge, archive, or live-account operation is included.
+
+### Approved local evidence commit - 2026-10-11
+
+Message: `docs(task): reconcile facade native validation evidence`
+
+Include exactly these six task files, preserving their inherited validation records as well as this session's reconciliation updates:
+
+- `.trellis/tasks/09-11-facade-update-ownership/implement.md`
+- `.trellis/tasks/09-11-facade-update-ownership/task.json`
+- `.trellis/tasks/09-11-facade-update-ownership/research/findings.md`
+- `.trellis/tasks/09-11-facade-update-ownership/research/progress.md`
+- `.trellis/tasks/09-11-facade-update-ownership/research/task_plan.md`
+- `.trellis/tasks/09-11-facade-update-ownership/research/native-red-green.md` (inherited untracked report, now reviewed and updated)
+
+All six were already dirty/untracked before this continuation; this proposal explicitly includes those inherited task-record changes, not just newly added lines. All other inherited dirty paths are excluded: `AGENTS.md`, workspace index/research files, Trellis setup/scripts/bootstrap/spec scaffolding, `.zvec-grep/`, and `log.txt`. Exact excluded path inventory remains in research/native-ci-handoff.md. Raw CI receipts under ignored `.trellis/.runtime/evidence/` and the temporary validation branch/worktree are also excluded. Recheck status/index before any approved staging; do not amend or push.
+
+## 2026-10-10 - evidence reconciliation continuation
+
+- Resumed the existing task at the user's request and bound it to the current session with `task.py start`. Both manifests validate with nine entries. No duplicate task was created.
+- Rechecked local state: task HEAD remains `a314b00`; restored validation HEAD is `eb90ad5`; both repo.go blobs and both main working-file SHA256 fingerprints match the saved report. The validation worktree is clean and its baseline diff contains only temporary CI test flags.
+- Preserve all inherited task-record edits and unrelated WIP. This continuation will reconcile the executed evidence independently, refresh read-only GitHub receipts where available, and synchronize task records. It does not authorize commits, pushes, new CI runs, PR creation, merge, deployment, account traffic, or archive.
+- Next action: a read-only Trellis check of the native report against AC5/design 7.2, while the main agent verifies the existing run receipts. Result not yet received; production closure remains pending.
+
 ## 2026-09-11 — task entry
 
 - Read the project workflow and confirmed there was no current session task.
@@ -104,3 +135,53 @@ Ready for the user to review prd.md, design.md, implement.md, and research/revie
 - Saved research/native-ci-handoff.md with the confirmed channel, one 31-file local checkpoint commit proposal, explicit inherited-work classification, 20 excluded dirty path/directory entries, and remaining approval/acceptance gates. The task branch needs an explicit dispatch after a separately authorized push; pushing this branch alone does not run CI.
 - The broad build-file inventory was blocked by the Windows sandbox and its escalation was rejected after an approval-review adapter_eof. Did not retry that inventory; used only materially narrower known-file reads. The initial new handoff patch timed out; a read confirmed it absent, and one approved same-editor retry created it. No ACL changes or approval workaround.
 - This proposal only requests a local commit. Push/dispatch, mutation refs, live-account use, merge, deployment, and archival remain separate. All task acceptance checkboxes for native red/green and actual-facade behavior remain pending.
+
+## Post-build merge-readiness recheck
+
+- Restored workflow, planning-with-files notes, current task, PRD/design/checklist, and both workflow definitions. Session catchup succeeded without a report. No new task, source edit, or lifecycle change was needed.
+- Recovered the actual authorized 31-file checkpoint and confirmed successful branch CI and Docker workflow records at the same complete SHA; exact receipts are in research/findings.md. Older uncommitted/baseline-only notes are historical.
+- Separated initial CI green from required negative controls/restored final green, and merge readiness from the pre-production-closure live-account probe. Recommended completing missing red/green evidence before merge without treating Docker health smoke as real request liveness.
+- Sandbox failures required scoped, approved read-only retries. PR-list approval was rejected and was not retried or worked around. The safer local acceptance audit continued; PR state remains unknown. An initial patch-call JavaScript syntax error executed no patch and was corrected.
+- Reconciled only task records for the checkpoint and initial native green. Runtime/spec/workflow files and 20 unrelated dirty entries remain untouched. No commit, push, dispatch, negative-control execution, account traffic, PR creation, merge, release, archive, or deployment occurred in this recheck.
+
+## CI-step retry recovery
+
+- Revalidated the existing task plan, repository rules, planning skill, and dirty state. The same five task-record edits and 20 unrelated dirty entries remain; no source or workflow changes were introduced.
+- An independent read of the existing CI job first failed at sandbox process creation, then its approval review was rate-limited. Reported the exact failure instead of claiming the command ran. Following the renewed retry request, the same command succeeded through normal approval; no PR-query workaround was used.
+- Recorded the exact SHA, job URL, and successful execution timestamps for the go vet and go test steps in research/findings.md. This strengthens initial-CI evidence only; mandatory negative controls, restored final green, PR readiness, and pre-production account acceptance remain unverified.
+- Updated only the existing research notes. Recovered an incomplete skill read with a scoped, approved read after the sandbox failure; no sandbox ACL/configuration changes. No staging, commit, push, new CI/build run, PR query, merge, account use, or task archive was performed.
+
+## PR-query retry recovery
+
+- The CI-evidence patch initially failed before reading its first file because of the sandbox ACL error. The same native patch editor through approved execution updated the three research notes. Task-scoped git diff --check passed and task.py validate passed with nine entries in each manifest.
+- The previously unavailable PR query then succeeded through normal approval after the renewed retry request. It returned an empty all-state list for the task head branch; no matching PR exists in that query scope. Saved the exact command, receipt, and limitations in research/findings.md.
+- Synchronized the current plan, implementation checklist, and task metadata to distinguish an absent matching PR from an unavailable query. The earlier unavailable-query notes are historical. Kept all behavioral red/green and production-closure gates open; task status remains in_progress.
+- Both read-only recovery operations are finished, with no live polling handle. Only the same five task-record files are modified beyond inherited unrelated WIP; no new commit, push, dispatch, PR creation, merge, account operation, or archive was performed.
+
+## 2026-09-12 — explicit prior-session continuation
+
+- Restored the exact requested session, project workflow, planning-with-files notes, reviewed design, acceptance checklist, and existing CI entry point. The supplied session-catchup helper exited 0 without a report. No duplicate task or root-level plan was created.
+- Bound the existing task to session codex_01a0917d-aac6-7871-a348-14816c3e2eb6 using `task.py start` (receipt b79b41). The task remains in_progress and HEAD remains a314b0002e46b5a3ffeeef22c503a486a5293b13.
+- Refreshed the all-state PR query successfully and rechecked local runner availability. The PR list is empty; Docker is absent from command discovery and WSL returned installation/help output. Exact limits and receipts are in research/findings.md.
+- Updated only these existing research notes plus the session task binding; preserved source, workflow, inherited task-record edits, and unrelated WIP. Required red/restored-green validation is pending authorization for temporary validation refs and remote CI. No staging, commit, push, dispatch, PR creation, merge, account operation, environment setup, deployment, or archive occurred.
+- Direct apply_patch failed before reading its first target with helper_sandbox_lock_failed / SetNamedSecurityInfoW error 5. The same installed native patch editor was retried through normal approval; no ACL or sandbox configuration was changed.
+
+## 2026-09-12 — authorized isolated red/green validation
+
+- Received explicit approval for temporary validation refs, push, and CI dispatch only. Restored the planning skill, task notes, workflow, and backend/TDLib/CI constraints; session catchup exited 0 without a report.
+- Confirmed the same active task, patch HEAD, and inherited dirty inventory. Preflight found the proposed temporary branch absent locally/remotely and the worktree path ignored.
+- Recorded the four-commit red/red/red/restored-green plan and exact two-file validation write set. Original task-branch source, existing task-record edits, and unrelated work remain outside the commit set. No validation result is claimed before execution.
+- Created the isolated worktree and temporary validation branch. M1 and M2 were independently scoped against the baseline, committed/pushed only there, dispatched, and correlated by exact run head SHA. Both produced the required behavioral red and normal package exit after successful vet; details live in research/native-red-green.md.
+- Independent Trellis protocol check approved the planned sequence without extra controls and identified the exact early-assertion boundaries retained in the evidence report.
+- The first M1 evidence-save approval timed out before command creation (`The automatic permission approval review did not finish before its deadline`). The permitted single retry of the same native apply_patch operation succeeded; no sandbox/configuration change or alternate write mechanism was used.
+- M3 preparation and final restored-source validation remain in progress. No PR, merge, publish, deployment, or live-account use occurred.
+
+## 2026-09-12 — final native evidence recovered and reconciled
+
+- Recovered the already-executed M3 and G state instead of repeating mutations or dispatches. The preceding preparation/pending notes are historical. Full temporary-branch history, exact final run SHA, named step metadata, and complete logs now establish all three behavioral reds followed by restored native green.
+- G used Go 1.25.9 / TDLib 22d49d5 and executed whole-repository vet plus the uncached complete internal suite: 21 passing packages, 14 no-test-file packages, Telegram 0.089s, ordinary completion. Neither validation step was skipped. Exact receipts and limits are in research/native-red-green.md.
+- Verified identical baseline/final repo.go Git blobs, a baseline-to-final diff containing only temporary CI test flags, clean validation worktree, unchanged main HEAD, and unchanged main source/workflow SHA256 fingerprints. No mutation remains in production source or tests.
+- Synchronized the native report, implementation checklist, findings, plan, and task metadata. Only task records were edited; no runtime/spec/workflow edit, staging, commit, push, redispatch, PR, merge, publish, deployment, archive, or account use occurred during recovery. Existing unrelated WIP remains excluded.
+- Direct apply_patch failed before reading its first target with the known sandbox ACL error. The same native apply_patch editor through scoped approval saved the recovery records (receipt 3662ad); no ACL/tooling/authorization bypass. Read-only helper startup error 1223 and subsequent ACL error 5 were likewise recovered through normal approval.
+- The raw CI log's UNKNOWN STEP labels defeated the initial step-name filter; inspecting the already-fetched command markers, package results, and ordinary cleanup resolved it without another network request.
+- Dispatched a read-only Trellis check for final executed-evidence reconciliation, separate from the already-complete implementation and structure reviews. Result pending. PR/evidence-commit authority and actual-facade isolated-account production closure remain open; task remains in_progress.

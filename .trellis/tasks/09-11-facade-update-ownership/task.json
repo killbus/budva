@@ -15,12 +15,12 @@
   "branch": "fix/facade-update-ownership",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "a314b0002e46b5a3ffeeef22c503a486a5293b13",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "Implementation and static/source/structure review are complete on fix/facade-update-ownership. Existing Linux ci-test is confirmed active, but its latest green covers only baseline 84a9df2. A 31-file task-only local checkpoint commit plan awaits confirmation in research/native-ci-handoff.md. Native patch tests, required behavioral controls/final green, and actual-facade isolated-account acceptance remain pending. Push/dispatch and other remote actions require separate authorization.",
+  "notes": "The approved 31-file checkpoint a314b00 remains the unchanged production patch; initial ci-test/docker-publish succeeded. Source/static/structure/spec review and native M1/M2/M3 behavioral reds with ordinary teardown are complete. Restored G at eb90ad511083c7e507f351a3829988074f05e0fb passed vet and the uncached internal suite (ci-test 34634421836); source blob equality and unchanged main fingerprints are verified. Independent executed-evidence reconciliation passed on 2026-10-11 with no blocking finding after fresh existing CI metadata/full-log and local-source checks. The user approved the six-file local evidence-only commit on 2026-10-11; push, PR creation/checks/reviews, and merge retain separate authority gates. The 2026-10-11 all-state PR query found no task-head match. Actual-facade isolated-account acceptance remains a pre-production-closure gate. Task stays in_progress; no PR, merge, rollout, account use, or completion recorded by this reconciliation. See research/native-red-green.md and research/progress.md for the verdict and approved commit boundary.",
   "meta": {}
 }

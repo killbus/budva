@@ -6,7 +6,20 @@ Implement and verify the reviewed facade zero-business-subscriber liveness repai
 
 ## Current phase
 
-Phase 2.2 native validation gate: source implementation, static reviews/checks, structure audit, and spec consistency are complete. The existing ci-test workflow on killbus/budva is confirmed active; its latest green covers only the unchanged baseline, not this patch. A task-only local checkpoint commit plan is ready in research/native-ci-handoff.md and awaits confirmation. Push/dispatch, native behavioral controls/final green, and actual-binary acceptance remain separate pending gates. No usable local Linux/TDLib runner was established.
+Native behavioral red/green execution and independent evidence reconciliation are complete. On 2026-10-11, fresh existing CI metadata/full logs and local source comparisons confirmed all three intended behavioral failures with ordinary exits and restored uncached internal-suite/vet success; the independent reviewer found no blocker to AC5/design 7.2. Source/static/structure/spec review and initial Linux CI/Docker evidence remain complete. The user approved the six-file evidence-only local commit listed in research/progress.md on 2026-10-11. After successful local commit, push/PR creation, actual PR checks/reviews, and merge approval remain separate gates. The isolated-account actual-facade probe remains required before production closure, not evidence supplied by Docker health smoke. No PR, merge, deployment, or live-account use occurred in this reconciliation. Task remains in_progress. Receipts and limitations are in research/native-red-green.md and research/findings.md.
+
+## 2026-09-12 continuation gate
+
+The user has explicitly approved creating/pushing temporary validation refs and dispatching CI for the missing negative controls and restored full-suite green. Keep fix/facade-update-ownership at a314b0002e46b5a3ffeeef22c503a486a5293b13 and preserve its dirty work. Use a clean worktree under .trellis/.runtime/validation/facade-update-ownership-20260912 and the temporary branch validation/facade-update-ownership-20260912. Authorization is validation-only: no PR creation, merge, publish, deployment, account traffic, or unrelated commit.
+
+### Authorized validation sequence
+
+1. Prepare a clean temporary worktree from the exact patch SHA; review scoped changes before each checkpoint. Only repo.go and a temporary CI test-command change belong in validation commits; existing task records and unrelated WIP remain excluded.
+2. Completed: unconditional business allocation/publication control at c4df60fa4c00475ff57c678c478e7833295979ab; ci-test 34631556246 reached actual T2 blocked burst progress and exited normally.
+3. Completed: early absent-outlet guard control at 679d8c045d1cca890ff4defb720c7a84223de300; ci-test 34632417620 reached the missing internal tail effect and exited normally. T3 stopped at its initial tail prerequisite, not its later waiter assertions.
+4. Completed: subscribed drop-on-full control at 260cac52b682d7e34e50d8be5b865d5fe24f9589; ci-test 34633303904 reached the T4 count failure (104 expected, 103 received) and exited normally. Later identity assertions were not reached in this red.
+5. Completed: restored commit eb90ad511083c7e507f351a3829988074f05e0fb and existing ci-test 34634421836 passed whole-repository vet and the uncached internal suite. Final repo.go equals the original Git blob; only temporary CI test flags differ from the baseline. Main source/workflow fingerprints are unchanged.
+6. Completed on 2026-10-11: independent executed-evidence reconciliation confirms run/commit correlation, intended assertion failures, ordinary exits, and restored source/green receipts with no blocker. Preserve all PR/merge/account/rollout authority gates.
 
 ## Planning phases
 
@@ -20,9 +33,10 @@ Phase 2.2 native validation gate: source implementation, static reviews/checks, 
 
 6. Record authorization, preserve dirty work, create task branch, and activate — complete; reused the already-existing task branch.
 7. Implement explicit construction modes, migrate callers, and add production-loop regression tests — complete; Gibbs delivered and released source ownership.
-8. Run available static/behavioral validation and record native-CI evidence boundaries — in_progress; local static checks passed and the existing Linux CI channel is confirmed. Native tests for the patch and behavioral controls await an authorized validation revision/run.
+8. Run available static/behavioral validation and record native-CI evidence boundaries — complete; static checks, initial native green, all three required behavioral reds with ordinary teardown, and exact-source-restored final vet/internal-suite green are verified. This is adapter-seam evidence, not actual-account/SDK integration acceptance.
 9. Independent full-scope check, adversarial/structure audit, simplification, and spec sync — complete for source review; no blocking finding, fresh structure audit returned, source-only simplification complete, and existing spec sync verified. This does not satisfy native acceptance.
-10. Present the task-only commit plan at the confirmation gate — in_progress; one 31-file checkpoint commit is proposed in research/native-ci-handoff.md, distinguishing takeover edits, inherited task changes, and all excluded dirty paths. Confirmation is pending. No staging, commit, push, CI dispatch, account traffic, or deployment occurred during takeover.
+10. Present and execute the authorized task-only checkpoint — complete; the approved 31-file commit is a314b0002e46b5a3ffeeef22c503a486a5293b13. The subsequent push and workflow runs occurred; unrelated dirty work remains excluded. Earlier pending-delivery notes below are historical.
+11. Assess merge readiness — in_progress; required native execution evidence and final independent reconciliation are complete. The 2026-10-11 PR query found no match. Local evidence-record commit is approved; push and PR creation still require authorization, followed by verification of actual target/checks/reviews and explicit merge authorization. Keep live-account acceptance, rollout, and task completion separate.
 
 ## Decisions and constraints
 
@@ -62,3 +76,9 @@ Phase 2.2 native validation gate: source implementation, static reviews/checks, 
 | Normal reads briefly recovered, then sandbox ACL error 5 recurred; a combined escalated read timed out | Retried once with already-approved single-file read commands; findings, progress, and TDLib spec reads succeeded. No ACL, configuration, or tooling changes. |
 | A broad filename inventory escalation was rejected after the approval reviewer reported stream disconnected / adapter_eof | Did not retry the rejected inventory. Used the materially narrower, already-known CI spec and two explicit build/config files; no permission or tooling changes. |
 | First native-CI handoff patch approval timed out | Confirmed the new file did not exist, then one scoped retry through the same native apply_patch editor succeeded. No write was inferred from the timeout. |
+| Merge-readiness recovery output exceeded the tool output budget | Re-read the missing plan/findings and workflow routing in bounded calls. |
+| Sandbox process creation failed again with helper_sandbox_lock_failed / SetNamedSecurityInfoW error 5 | Scoped, approved read-only retries succeeded; no ACL or tooling changes. |
+| PR-list approval failed: Automatic approval review failed: unexpected status 502 Bad Gateway: context ~241758 tokens exceeds the model window 200000 | Initially continued only with the safer local audit. Following a renewed retry request, the same query was approved normally and returned an empty all-state list. No alternate PR/API route was used; recovery evidence is in research/findings.md. |
+| First merge-readiness patch call had SyntaxError: Unexpected identifier 'commit' | No tool or patch executed. Corrected JavaScript string quoting before retrying the editor. |
+| Independent CI-step query was rejected before execution after approval-service rate limiting | Reported the failure. Following the renewed retry request, the same read-only command was approved normally and succeeded. No alternate PR/API route or new workflow run; step evidence is in research/findings.md. |
+| Latest recovery encountered orchestrator_helper_launch_canceled: ShellExecuteExW failed to launch setup helper: 1223, then helper_sandbox_lock_failed / SetNamedSecurityInfoW error 5 | Retried the required read-only operations through normal scoped approval. Successful history, diff, status, catchup, and run-metadata receipts are recorded; no ACL/configuration change or alternate authorization route. |
