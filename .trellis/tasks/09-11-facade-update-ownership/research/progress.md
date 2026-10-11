@@ -1,5 +1,22 @@
 # Planning progress
 
+## 2026-10-11 - authorized merge completed
+
+- User confirmed the tests passed and PR #2 was merged to main, then approved recording the merge in the five task-state files as a dedicated documentation commit.
+- Merge completes the source-delivery gate for the reviewed facade update-ownership repair. It does not satisfy the separate actual-facade isolated-account acceptance required before production closure, and it does not authorize deployment, rollout, publishing, or account use.
+- This checkpoint intentionally excludes unrelated Trellis initialization/workspace changes and local generated artifacts. After this task-only record commit, the remaining work is Trellis archival and session bookkeeping from a safely synchronized main worktree.
+
+## 2026-10-11 - authorized branch push and PR
+
+- User authorized pushing fix/facade-update-ownership and creating its PR to main. Local evidence commit 48f7a364a592c397520d7c2a9264857af580c5cc succeeded with exactly the approved six files; it contains no runtime change. Merge, deployment, publishing, live-account acceptance, and archive remain unauthorized.
+- Remote preflight: origin is killbus/budva; main is 84a9df228944a72876e08cf4555c69c423440078 and the task branch is a314b0002e46b5a3ffeeef22c503a486a5293b13. No all-state PR matches this head. Local branch is two commits ahead of main; unrelated dirty files are excluded.
+- Installed task.py does not expose create-pr despite the workflow example, so use gh with explicit repository, base, and head. The main-targeting PR automatically triggers existing ci-test; branch push triggers no Docker publishing workflow.
+- Completed: ordinary fast-forward push to origin, verified remotely at 48f7a364a592c397520d7c2a9264857af580c5cc, and created https://github.com/killbus/budva/pull/2 targeting main at 84a9df228944a72876e08cf4555c69c423440078. PR is open/non-draft; initial mergeability is MERGEABLE/CLEAN, reviewDecision is empty, and autoMergeRequest is null. Empty initial checks are not a passing CI result.
+- Automatic pull_request ci-test 38103363230 completed successfully in 26m13s: https://github.com/killbus/budva/actions/runs/38103363230. TDLib cold build succeeded after a cache miss. Metadata ties the run to head 48f7a36; PR checkout logged GitHub's merge revision b7036b76e0a63617c2b0b82979c62c2251653726, not the task-head SHA. Actual `go vet ./...` and `go test ./internal/...` executed successfully; 21 packages passed, 14 had no tests, and no cached results appeared. This is the unchanged PR workflow, not the temporary uncached mutation-control command.
+- Final PR readback: OPEN, non-draft, MERGEABLE/CLEAN; base main 84a9df2 and head 48f7a36 remain unchanged. ci-test/test is COMPLETED/SUCCESS, reviews and review requests are empty, reviewDecision is empty, autoMergeRequest is null. `gh pr checks --required` reports no required checks; absence of requirements is not substituted for actual test success. The sandbox watcher hit anonymous API rate limiting; normal approved escalation resumed authenticated read-only monitoring without a workflow rerun.
+- Saved CI metadata/raw logs and final PR readback under ignored `.trellis/.runtime/evidence/facade-20261011/` (38103363230.json/.log and pr-2-final.json). No manual dispatch, publishing, merge, deployment, or account use occurred. The runner emitted an informational upcoming Ubuntu 26 image migration notice; no workflow change was made.
+- Superseded next step: explicit merge approval was subsequently granted and PR #2 was merged to main. Actual-facade isolated-account acceptance and rollout remain separate. Context validation, task diff checks, and production-diff checks passed; unrelated WIP remains preserved.
+
 ## 2026-10-11 - final evidence reconciliation
 
 - User requested the next step. Reactivated this existing task for the current session; both nine-entry manifests validate. HEAD remains a314b00, with the inherited task-record edits and unrelated WIP preserved.

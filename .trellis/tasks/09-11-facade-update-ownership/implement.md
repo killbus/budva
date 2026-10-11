@@ -1,6 +1,6 @@
 # Implementation plan: facade update ownership
 
-Status: source/static/structure/spec review, the authorized checkpoint/push, initial Linux CI/Docker build, and required native behavioral red/red/red/restored-green execution are complete. Independent executed-evidence reconciliation passed on 2026-10-11 with no blocking finding. The user approved the six-file local evidence-record commit on 2026-10-11. Push, PR/checks/review/merge authority, and pre-production-closure actual-facade acceptance remain separate; the task is still in_progress and the production incident is not closed. The 2026-10-11 all-state query found no task-head PR. See research/native-red-green.md, research/findings.md, and research/progress.md.
+Status: source/static/structure/spec review, initial Linux CI/Docker build, and required native behavioral red/red/red/restored-green execution are complete. Independent executed-evidence reconciliation passed on 2026-10-11 with no blocking finding. Evidence commit 48f7a36 was approved, committed, pushed, and merged to main through PR #2 after its ci-test passed vet/internal tests. The actual-facade isolated-account acceptance remains required before production closure; merge does not establish that acceptance. The task is ready for Trellis archival. See research/native-red-green.md, research/findings.md, and research/progress.md.
 
 ## Gate 0 — reviewed planning and user approval
 
@@ -89,7 +89,9 @@ Checkpoint: CI logs identify the exact revision, commands, failure reasons, and 
 - [x] Establish initial branch CI and Docker build success before considering merge.
 - [x] Complete required behavioral red/green execution evidence in the isolated validation branch, without modifying the production patch or adding permanent CI flags.
 - [x] Receive one-shot approval for the six-file local evidence-record commit on 2026-10-11; exact scope is recorded in research/progress.md. No push or PR is included.
-- [ ] Obtain authorization for evidence-record push and PR creation, verify the actual PR target/checks/reviews, and obtain separate squash/merge authorization. The actual-facade probe remains required before production closure; deployment requires its own approved workflow.
+- [x] Obtain separate push/PR authority, fast-forward the task branch to evidence commit 48f7a36, and create PR #2 targeting main. Actual head/base match; auto-merge is disabled.
+- [x] Inspect final PR checks/reviews: ci-test 38103363230 passed vet/internal tests; PR remains MERGEABLE/CLEAN at the expected head/base, with no formal reviews and no auto-merge. No required checks are reported, but actual CI success is independently verified.
+- [x] Obtain separate merge authorization and merge PR #2 to main after the successful PR check, with the absent formal GitHub review approval already disclosed. The actual-facade probe remains required before production closure; deployment requires its own approved workflow.
 - [x] Record accepted limitations: engine overload, SDK listener/responses close races, and full shutdown/session safety were not repaired.
 
 ## Stop / return-to-planning conditions

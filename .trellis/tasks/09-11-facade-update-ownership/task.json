@@ -16,11 +16,11 @@
   "base_branch": "main",
   "worktree_path": null,
   "commit": "a314b0002e46b5a3ffeeef22c503a486a5293b13",
-  "pr_url": null,
+  "pr_url": "https://github.com/killbus/budva/pull/2",
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "The approved 31-file checkpoint a314b00 remains the unchanged production patch; initial ci-test/docker-publish succeeded. Source/static/structure/spec review and native M1/M2/M3 behavioral reds with ordinary teardown are complete. Restored G at eb90ad511083c7e507f351a3829988074f05e0fb passed vet and the uncached internal suite (ci-test 34634421836); source blob equality and unchanged main fingerprints are verified. Independent executed-evidence reconciliation passed on 2026-10-11 with no blocking finding after fresh existing CI metadata/full-log and local-source checks. The user approved the six-file local evidence-only commit on 2026-10-11; push, PR creation/checks/reviews, and merge retain separate authority gates. The 2026-10-11 all-state PR query found no task-head match. Actual-facade isolated-account acceptance remains a pre-production-closure gate. Task stays in_progress; no PR, merge, rollout, account use, or completion recorded by this reconciliation. See research/native-red-green.md and research/progress.md for the verdict and approved commit boundary.",
+  "notes": "Production patch a314b00 is unchanged; source/static/structure/spec review, initial CI/Docker, native M1/M2/M3 reds, and restored G vet/uncached internal-suite evidence are complete. Independent evidence reconciliation passed on 2026-10-11 with no blocker. The approved six-file documentation commit 48f7a364a592c397520d7c2a9264857af580c5cc was separately authorized for ordinary branch push and PR creation. PR #2 passed automatic ci-test 38103363230 and was then merged to main with explicit user approval after the absence of formal GitHub review approval was disclosed. Actual-facade isolated-account acceptance remains required before production closure; merge does not authorize rollout, deployment, account use, or claim incident closure. The task is ready for Trellis archival after the five merge-state task records are committed. See research/progress.md and research/native-red-green.md.",
   "meta": {}
 }
