@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
@@ -115,6 +118,9 @@ func initialize(rs *domain.RuleSet) {
 	if rs.Destinations == nil {
 		rs.Destinations = make(map[domain.ChatID]*domain.Destination)
 	}
+	if rs.PushTargets == nil {
+		rs.PushTargets = make(map[string]*domain.PushTarget)
+	}
 	if rs.ForwardRules == nil {
 		rs.ForwardRules = make(map[domain.ForwardRuleID]*domain.ForwardRule)
 	}
@@ -123,6 +129,24 @@ func initialize(rs *domain.RuleSet) {
 }
 
 func validate(rs *domain.RuleSet) error {
+	for name, target := range rs.PushTargets {
+		if target == nil || target.URL == "" {
+			return fmt.Errorf("push target %q: URL is required", name)
+		}
+		parsed, err := url.ParseRequestURI(target.URL)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+			return fmt.Errorf("push target %q: URL must use https", name)
+		}
+		if target.TimeoutSeconds < 0 || int64(target.TimeoutSeconds) > int64((1<<63-1)/time.Second) {
+			return fmt.Errorf("push target %q: timeoutSeconds must be nonnegative and fit time.Duration", name)
+		}
+		for header, value := range target.Headers {
+			if !validHeaderName(header) || strings.ContainsAny(value, "\r\n\x00") {
+				return fmt.Errorf("push target %q: invalid static header", name)
+			}
+		}
+	}
+
 	invalidID := regexp.MustCompile("[,:]")
 	for id, rule := range rs.ForwardRules {
 		if invalidID.MatchString(id) {
@@ -139,6 +163,11 @@ func validate(rs *domain.RuleSet) error {
 				return fmt.Errorf("forward rule %q: To[%d] must differ from From", id, i)
 			}
 		}
+		for _, targetName := range rule.PushTo {
+			if _, ok := rs.PushTargets[targetName]; !ok {
+				return fmt.Errorf("forward rule %q: unknown push target %q", id, targetName)
+			}
+		}
 	}
 
 	// Проверка UTF-16 длин фрагментов замены
@@ -153,6 +182,19 @@ func validate(rs *domain.RuleSet) error {
 	}
 
 	return nil
+}
+
+func validHeaderName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, char := range name {
+		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char >= '0' && char <= '9' || strings.ContainsRune("!#$%&'*+-.^_`|~", char) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func utf16Len(s string) int {

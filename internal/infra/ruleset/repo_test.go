@@ -326,6 +326,104 @@ forwardRules:
 	assert.Contains(t, err.Error(), "To[0] must be positive")
 }
 
+func TestRepo_Load_PushTargets(t *testing.T) {
+	t.Parallel()
+
+	path := writeRuleset(t, `
+sources:
+  1001000: {}
+destinations:
+  2001000: {}
+pushTargets:
+  external:
+    url: https://push.example.test/events
+    timeoutSeconds: 7
+    headers:
+      Authorization: Bearer token
+    hmacSecret: secret
+forwardRules:
+  rule1:
+    from: 1001000
+    to: [2001000]
+    pushTo: [external]
+`)
+
+	rs, err := New(config.RulesetConfig{Path: path}).Load()
+
+	require.NoError(t, err)
+	require.Contains(t, rs.PushTargets, "external")
+	target := rs.PushTargets["external"]
+	require.Equal(t, "https://push.example.test/events", target.URL)
+	require.Equal(t, 7, target.TimeoutSeconds)
+	require.Equal(t, "Bearer token", target.Headers["Authorization"])
+	require.Equal(t, "secret", target.HMACSecret)
+	require.Equal(t, []string{"external"}, rs.ForwardRules["rule1"].PushTo)
+}
+
+func TestRepo_Load_PushTargetValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		pushTarget string
+		pushTo     string
+		wantError  string
+	}{
+		{
+			name: "unknown reference",
+			pushTo: `
+    pushTo: [missing]
+`,
+			wantError: `forward rule "rule1": unknown push target "missing"`,
+		},
+		{
+			name: "missing URL",
+			pushTarget: `
+pushTargets:
+  external: {}
+`,
+			pushTo: `
+    pushTo: [external]
+`,
+			wantError: `push target "external": URL is required`,
+		},
+		{
+			name: "plaintext HTTP",
+			pushTarget: `
+pushTargets:
+  external:
+    url: http://push.example.test/events
+`,
+			pushTo: `
+    pushTo: [external]
+`,
+			wantError: `push target "external": URL must use https`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			path := writeRuleset(t, `
+sources:
+  1001000: {}
+destinations:
+  2001000: {}
+`+tt.pushTarget+`
+forwardRules:
+  rule1:
+    from: 1001000
+    to: [2001000]
+`+tt.pushTo)
+
+			_, err := New(config.RulesetConfig{Path: path}).Load()
+
+			require.EqualError(t, err, tt.wantError)
+		})
+	}
+}
+
 func TestRepo_WatchContext_FileWrite_CallsOnChange(t *testing.T) {
 	t.Parallel()
 

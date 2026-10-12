@@ -1,0 +1,5 @@
+copy_guard RED verified
+copy_routes RED verified
+album_hook RED verified
+album_timestamp RED verified
+album_wait RED verified

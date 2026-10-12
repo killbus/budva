@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Red-first and synctest verification"}
+{"file": ".trellis/tasks/10-11-external-push-sink/design.md", "reason": "Approved delivery and lifecycle contracts"}
+{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "Real TDLib/cgo validation and unchanged Telegram pipeline"}
+{"file": ".trellis/tasks/10-11-external-push-sink/research/implementation-step-records.md", "reason": "Preserved P01-P12 scope, red mechanisms, acceptance and boundaries"}
+{"file": ".trellis/tasks/10-11-external-push-sink/research/linux-correction-verification.md", "reason": "Authorized isolated Linux behavioral reds, restored-source greens and publication boundary"}

@@ -53,6 +53,15 @@ Mock success must be gated on the event the test is about (bootstrap completed, 
 
 Tests that bind to subtle behavior carry a one-line comment stating what regression makes them fail ("mock strictness: any unexpected LoadChats fails the test"). This is the durable trace of F2's proof.
 
+### R4 — Timer mocks measure elapsed domain time
+
+For a quiet-period collector, derive age from `time.Since(lastReceived)` inside
+`testing/synctest`; do not return ages such as zero then three seconds solely by
+call ordinal. Assert collection/limiter work occurs after the actual deadline.
+Otherwise a shortened or skipped wait can still pass the fixture. The external
+push album correction (2026-10-12) exposed this false-green path; a zero-wait
+mutation now fails the strict age expectation before collection.
+
 ---
 
 ## Testing Requirements

@@ -1,0 +1,69 @@
+# External push sink for forwarder events
+
+## Goal
+
+Add a fire-and-forget external push channel that delivers forwarder new/edited/deleted events as a canonical JSON envelope to HTTP webhook endpoints (ntfy/Bark/Slack compatible), with at-most-once delivery, snapshot-based routing, per-endpoint single worker, and drop-with-observability semantics, fully decoupled from the Telegram serial queue.
+
+The external push channel is additive. The Telegram forwarding pipeline (serial queue, per-chat limiter, edit/delete sync, ID mapping) keeps its current behavior unchanged.
+
+## Authorization and status
+
+- The user explored the existing pipeline (delivery targets, blocking behavior, external-delivery gap) across this session and confirmed the direction: "我们不是需要指标，是需要 push message" (2026-10-11).
+- Delivery semantics were user-decided: at-most-once, droppable; event scope: new + edited + deleted.
+- A three-round dbs-chatroom review (Kleppmann / Kent Beck / Beyer / Hohpe) converged the design decisions recorded in `design.md`; the user approved the converged executable recommendations with "同意，产出 trellis task" (2026-10-11).
+- This task covers design plus implementation of the bounded v1 scope. Commit, push, PR, and merge remain separately authorized gates per the Trellis commit-boundaries convention.
+
+## Requirements
+
+### Acceptance Review Clarification (2026-10-12)
+
+User confirmed that the product goal is preserving Telegram message intent in
+an independent webhook channel. At-most-once permits losing events, not silently
+losing semantics in delivered events. Text-only v1 is an intermediate protocol;
+full content/media/relationships belong to linked task
+`10-12-telegram-webhook-semantics`.
+
+This task must repair webhook-only edited events without Telegram copy mappings
+and media-album new events. Hook locations are implementation choices, not scope
+exclusions. Album members use the existing v1 ID/text/caption envelope in this
+repair. Specify source-edit filtering/routing before coding; copy mappings must
+not be the push eligibility oracle. Preserve Telegram batching/retry behavior.
+
+- R1 (Canonical envelope): All sinks receive one canonical JSON envelope — `schema_version`, `event` (`new|edited|deleted`), `chat_id`, `message_id`, `occurred_at`, and `text`. `edited` carries the full post-edit text (self-contained event, not a delta). `deleted` has `text` empty — absence is part of the contract. `chat_id` + `message_id` are the correlation key for edited/deleted. Product-specific payload shapes (ntfy priority, Slack blocks) and raw TDLib objects are out of the v1 envelope.
+- R2 (At-most-once terminal outcomes): Delivery is at-most-once with no retries. Each endpoint event has exactly one terminal outcome: rejected at non-blocking enqueue because the buffer is full; attempted once and succeeded; attempted once and failed; rejected because its dispatcher generation is retired; or accepted in memory and lost at a process boundary. Buffer rejection, send failure, retired-generation rejection, and process-boundary loss are distinct semantics. Observable runtime outcomes are logged and counted; process-boundary loss is documented but cannot be counted reliably after abrupt termination.
+- R3 (Decoupling): Push dispatch runs on independent per-endpoint goroutines with short timeouts. Submit must never block the handler pipeline (OnNewMessage / edit / delete paths) beyond a bounded non-blocking operation. Push rejection, timeout, transport failure, reload, or shutdown must not alter Telegram send/edit/delete/statistics results or queue/limiter scheduling.
+- R4 (Snapshot routing): The recipient list is resolved from the atomic ruleset snapshot at submit time, mirroring the handler's existing per-event atomic load. Sending never reads live configuration; an accepted delivery is never re-routed across a reload boundary.
+- R5 (Generation lifecycle): Push workers and buffers belong to an immutable dispatcher generation referenced by the ruleset snapshot. Reload atomically publishes a fresh generation, then retires the old generation through an explicit concurrency-safe `Submit`/`Retire` protocol. Retirement first prevents new submissions, waits for submissions that already acquired the generation to finish, then closes and drains its channels. No sender may race with channel closure, and no handler-held old snapshot may cause `send on closed channel`. Events accepted before retirement are drained; submissions that encounter a retired generation are rejected non-blockingly and counted.
+- R6 (Hot-reload safety): A ruleset that fails validation keeps the current table (existing engine behavior). Configuration and references are validated before candidate workers start; if candidate startup fails after any worker starts, the unpublished candidate is retired completely while the current generation remains active. Reload success is observable through a reload counter and a one-line diff log of endpoints added/removed. Retirement is idempotent; because endpoint workers drain in parallel and each accepted event has a bounded request timeout, graceful retirement is bounded by the endpoint buffer capacity plus any in-flight attempt, multiplied by the configured request timeout. Shutdown uses the same lifecycle protocol.
+- R7 (Observability): Counters distinguish enqueue rejection, delivery-attempt failure classes (HTTP 4xx / HTTP 5xx / redirect-policy / timeout / TLS or transport), and retired-generation rejection; buffer depth gauge; send duration histogram; reload counter. Only a final 2xx response is a successful delivery. `last_success_unix` is absent or zero until the first successful delivery and must never report process start as a delivery success.
+- R8 (Security): Push URLs live in ruleset.yml, marked sensitive; real configuration must not be committed to git; file permissions 0600 guidance. TLS verification is mandatory with no off switch. Redirects are capped at 3 hops; `http://` endpoints are rejected at configuration load. HMAC request signing is an optional switch, default off. Raw TDLib payload export is excluded from v1; adding it later requires an explicit versioned schema, allowlist/redaction policy, size bound, enablement switch, and serialization-failure contract.
+- R9 (Downstream contract, documented): at-most-once, may drop, unordered; events are self-contained; downstream must tolerate events without predecessors, apply last-write-wins by `occurred_at`, and self-cache history to render deletions. Process boundary truncates the stream; no persistence is built ("restart truncates the stream; no durability" written verbatim).
+
+## Constraints and exclusions
+
+- No message broker (Kafka/NATS/Redis) in this task. The documented MQ trigger: the downstream already operates a bus with persistence and fan-out, or replay / a second full-stream consumer appears. Do not pre-build the MQ sink.
+- No persistence, no durability, no delivery guarantees beyond R2. Do not add a session_id in v1 (recorded as a v2 signal alongside the "silence is ambiguous" caveat on occurred_at).
+- No ordering promises in the downstream contract. chat_id-partitioned workers are a documented upgrade path, gated on a real per-endpoint throughput signal that does not exist today. Per-rule sequence numbers are rejected (drop-induced gap ambiguity) — do not add them.
+- ntfy/Bark/Slack-specific translators are deferred; v1 ships only the canonical JSON webhook. Do not pre-build translator templates.
+- Do not change engine queue scheduling, limiter intervals, edit/delete retry behavior, or ID-mapping semantics. The Telegram pipeline must remain byte-for-byte behaviorally identical.
+- No HMAC-by-default, no TLS-verification bypass switch, no `http://` acceptance.
+- Implementation iterates on a task branch; green CI precedes any separately authorized squash/merge to main.
+
+## Acceptance Criteria
+
+- [x] AC10: Webhook-only rules (`to: []`) emit new, full-text/caption edited and
+  permanent deleted events without Telegram copy mappings; cover snapshot/reload
+  and verify Telegram retries do not duplicate push.
+- [x] AC11: Media-album members emit new events, including empty captions, on
+  approved source eligibility paths without collection/retry duplicates or any
+  change to Telegram album batching, timing and results.
+
+- [ ] AC1: A webhook sink test server receives the canonical envelope for new, edited, and deleted events. `edited` carries full post-edit text; `deleted` has empty `text`; `schema_version` is present on every envelope. Evidence uses the production emit points (processMessage / editMessages / deleteMessages paths).
+- [ ] AC2: With a full endpoint buffer, submit rejects the event, increments the enqueue-rejection counter, logs, and the calling handler goroutine is not blocked (no deadlock, bounded latency).
+- [ ] AC3: A failing endpoint (HTTP 4xx / HTTP 5xx / redirect-policy failure / timeout / TLS or transport error) makes exactly one HTTP delivery attempt for each accepted event, increments the classified attempt-failure counter, and never retries. Only a final 2xx response counts as success. v1 has no circuit-breaker fast-rejection path that can turn an accepted event into zero HTTP attempts.
+- [ ] AC4: Concurrent submit/reload tests exercise the interleaving “handler retains old snapshot → replacement is published → old generation retires → handler submits” under the race detector without panic, data race, deadlock, or goroutine leak. An endpoint removed by reload drains events accepted before retirement; a submission that reaches a retired generation is rejected and counted. Invalid reload keeps the previous table and logs `reload_failed`.
+- [ ] AC5: Endpoint isolation: a stalled or slow endpoint A does not delay delivery to endpoint B (independent per-endpoint worker demonstrable in test).
+- [ ] AC6: `budva.push.*` metrics register through the existing global OTel meter and export when `METRICS_PORT` is set. `last_success_unix` is absent or zero before the first successful send, then records the actual success time.
+- [ ] AC7: Package documentation states the downstream contract: at-most-once and may lose events; unordered with `occurred_at` LWW; self-contained events; tolerate missing predecessors; self-cache to render deletions; restart truncates the stream with no durability. It distinguishes enqueue rejection, attempted delivery failure, retired-generation rejection, and process-boundary loss rather than claiming an exhaustive two-drop-point model.
+- [ ] AC8: Existing internal tests and whole-repository vet pass in Linux CI; new behavior-binding tests have recorded red paths per repo conventions; Windows static checks are not runtime validation.
+- [ ] AC9: The Telegram forwarding pipeline is unchanged: existing delivery, edit/delete sync, and statistics tests pass without modification beyond event emission hooks. A parameterized regression test injects push enqueue rejection, timeout, and send failure and proves identical Telegram send/edit/delete/statistics outcomes plus unchanged serial-queue and per-chat-limiter scheduling.

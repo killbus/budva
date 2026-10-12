@@ -262,6 +262,32 @@ programming errors. Audit actual assembly choices, not just compilation:
 
 ---
 
+## Scenario: Additive Source-Fact Push Hooks
+
+Trigger: external event emission from `internal/app/handler`. Source facts are
+not successful-copy notifications: push routing uses the captured source rules,
+not copied-message IDs. V1 supported edits propagate full text/caption, including
+clearing or filter exits; they do not re-run new-message filters. Preserve the
+disabled-push fast path and existing Telegram retries, with push only on the
+first attempt. New-message eligibility remains a separate reviewed contract.
+
+For albums, keep the original quiet period, Telegram member slice (including
+duplicates), limiter, mappings and statistics. Push-only filtering and bucket
+identity deduplication must not mutate that Telegram behavior. Capture event
+time before delayed collection: delivery-time timestamps can make old captions
+overwrite later edits/deletes under downstream LWW. The v1 correction uses a
+conservative shared first-ingress timestamp for bucket members, not a claim of
+exact per-member occurrence time or durable deduplication.
+
+Required regressions: source-only lifecycle, mapped/unmapped routes, empty/nil
+text, captured reload snapshots, retry once-only emission, album duplicate/filter
+cases and disabled/failure-mode Telegram invariance. Bind quiet-period tests to
+virtual elapsed time, and prove delayed new facts precede later edit/delete times.
+Real TDLib Linux tests/race/vet/build are runtime evidence; isolated verification
+does not imply GitHub CI, actual-account acceptance or a replacement image.
+
+---
+
 ## Environment gotcha: this repo cannot build go-tdlib on Windows
 
 go-tdlib v0.7.6 is **cgo-only** (`tdjson_static.go`/`tdjson_dynamic.go` carry

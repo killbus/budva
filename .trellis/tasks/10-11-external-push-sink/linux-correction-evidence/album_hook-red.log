@@ -1,0 +1,35 @@
+--- FAIL: TestPush_AlbumPipelineInvariant (0.00s)
+    --- FAIL: TestPush_AlbumPipelineInvariant/forward/success (0.00s)
+        push_album_invariance_test.go:61: 
+            	Error Trace:	/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:61
+            	Error:      	Not equal: 
+            	            	expected: []event.SubmitResult{"accepted"}
+            	            	actual  : []event.SubmitResult(nil)
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,4 +1,2 @@
+            	            	-([]event.SubmitResult) (len=1) {
+            	            	- (event.SubmitResult) (len=8) "accepted"
+            	            	-}
+            	            	+([]event.SubmitResult) <nil>
+            	            	 
+            	Test:       	TestPush_AlbumPipelineInvariant/forward/success
+        filter_service.go:21: FAIL:	Evaluate(string,*domain.ForwardRule)
+            		at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/filter_service.go:65 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:95 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:58]
+        filter_service.go:21: FAIL:	Evaluate(string,*domain.ForwardRule)
+            		at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/filter_service.go:65 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:96 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:58]
+        filter_service.go:21: FAIL: 0 out of 2 expectation(s) were met.
+            	The code you are testing needs to make 2 more call(s).
+            	at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/filter_service.go:21 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1308 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1572 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1928 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/runtime/panic.go:615 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1013 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:61]
+        message_service.go:21: FAIL:	GetFormattedText(*client.Message)
+            		at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/message_service.go:125 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:104 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:58]
+        message_service.go:21: FAIL:	GetFormattedText(*client.Message)
+            		at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/message_service.go:125 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:105 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:58]
+        message_service.go:21: FAIL: 2 out of 4 expectation(s) were met.
+            	The code you are testing needs to make 2 more call(s).
+            	at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/message_service.go:21 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1308 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1572 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1928 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/runtime/panic.go:615 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1013 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_album_invariance_test.go:61]
+FAIL
+FAIL	github.com/pure-golang/budva-claude/internal/app/handler	0.020s
+FAIL

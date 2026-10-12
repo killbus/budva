@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(tdlib_export_header LANGUAGES CXX)
+include(GenerateExportHeader)
+# Configure the real TDLib source target only to generate its export macros.
+# No substitute library is built or linked; tests link the public image's .so.
+add_library(tdjson SHARED td_json_client.cpp)
+generate_export_header(tdjson EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/tdjson_export.h")
