@@ -108,3 +108,19 @@ existing GitHub `docker-publish` workflow. Use the established GHCR
 `ghcr.io/killbus/budva:dispatch-test` channel; do not publish a release tag,
 update latest, merge main, or deploy production. This section supersedes the
 earlier no-publication state; final run/image evidence will follow publication.
+
+Publication completed on 2026-10-12 (UTC):
+
+- Source branch: `feat/external-push-sink`.
+- Source commit: `d58909f4c576209958393201a295629d9f6dfba8`.
+- Linux CI: https://github.com/killbus/budva/actions/runs/38195811065 (success).
+- Docker: https://github.com/killbus/budva/actions/runs/38195815275 (success).
+- Both linux/amd64 and linux/arm64 passed version, facade-health and
+  engine-startup smoke checks before manifest publication.
+- Tag: `ghcr.io/killbus/budva:dispatch-test`.
+- Embedded version: `dev-run12-d58909f`.
+- Immutable manifest: `ghcr.io/killbus/budva@sha256:5f9b41c31eb6a3003c245bad263d1b273524761abad4a562b1727d606ee39037`.
+- GHCR manifest was independently read back; its revision annotation matches
+  the source commit and its digest matches the publication log.
+- No release/latest tag, PR, main merge or production deployment performed.
+  Live Telegram-to-user-webhook testing remains the user's test phase.

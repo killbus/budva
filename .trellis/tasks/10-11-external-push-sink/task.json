@@ -15,7 +15,7 @@
   "branch": "feat/external-push-sink",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "d58909f4c576209958393201a295629d9f6dfba8",
   "pr_url": null,
   "subtasks": [],
   "children": [],
