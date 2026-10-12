@@ -42,11 +42,26 @@ source text; deleted events contain empty text. Consumers must tolerate missing
 predecessors, treat events as unordered, apply last-write-wins by `occurred_at`,
 and cache their own history to render deletions. No raw TDLib payload is sent.
 
-New events are emitted on the existing single-message `FiltersOK` path before
-Telegram destinations. The separate media-album forwarding path is unchanged
-and does not emit new push events in v1. Edited events use the rules referenced
-by existing Telegram copy mappings; deletes use current source-rule push routes
-even without copy mappings. Push events are not repeated by Telegram retries.
+New single-message events use the existing `FiltersOK` path before Telegram
+destinations. Album members emit supported text/caption after the existing
+collection quiet period, evaluating `FiltersOK` per member for push only.
+Empty captions are valid; duplicate `(chat_id, message_id)` members within a
+rule's album bucket emit once. Telegram album batching, forwarding, mapping and
+statistics do not change, even when a member fails the push filter. Album new
+events share the bucket's first-ingress timestamp, not collection completion time, so
+delayed old captions cannot win over subsequent edits/deletes in downstream LWW.
+No per-member receipt-time state is added. New events retain the existing
+supported-content and saveability guards; protected-message
+routing and rich media transport are not extended by this correction.
+
+Edited and permanent deleted events use the captured source-rule push routes,
+even without Telegram copy mappings or destinations. Edits carry full supported
+text/caption (including empty captions) and do not re-run new-message filters:
+clearing a caption or leaving a filter must still update a consumer's old copy.
+Edits without a matching new event are possible; no eligibility history is
+stored. Push events are not repeated by Telegram retries, and queued album/edit
+work retains its captured dispatcher across reload. This remains a text/caption
+test protocol, not full Telegram content, entities, media or relationship support.
 
 `budva.push.*` metrics use the existing global OTel meter and are exported with
 the engine's `METRICS_PORT`. Counters distinguish enqueue, buffer rejection,

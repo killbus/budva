@@ -252,7 +252,7 @@ func (s *Service) OnNewMessage(ctx context.Context, msg *client.Message) {
 			albumKey := fmt.Sprintf("%s:%d", ruleID, int64(msg.MediaAlbumId))
 			isFirst := s.albumService.AddMessage(albumKey, msg)
 			if isFirst {
-				s.processMediaAlbum(ctx, albumKey, rs.RuleSet, ruleID, msg, formattedText)
+				s.processMediaAlbum(ctx, albumKey, rs.RuleSet, ruleID, msg, formattedText, rs.push)
 			}
 			continue
 		}
@@ -535,8 +535,10 @@ func (s *Service) runNextLinkWorkflow(ctx context.Context, src *domain.Source, d
 	}
 }
 
-func (s *Service) processMediaAlbum(ctx context.Context, albumKey string, rs *domain.RuleSet, ruleID string, firstMsg *client.Message, formattedText *client.FormattedText) {
+func (s *Service) processMediaAlbum(ctx context.Context, albumKey string, rs *domain.RuleSet, ruleID string, firstMsg *client.Message, formattedText *client.FormattedText, submitters ...event.Submitter) {
 	_ = formattedText // оставлен для симметрии API, текст для каждого сообщения берётся по месту
+	// Collection delay must not make an old caption supersede a later edit/delete.
+	occurredAt := time.Now().UTC()
 	s.taskQueue.Add(func() {
 		// Ожидаем пока все сообщения альбома придут (3 секунды после последнего).
 		for {
@@ -559,6 +561,26 @@ func (s *Service) processMediaAlbum(ctx context.Context, albumKey string, rs *do
 		rule := rs.ForwardRules[ruleID]
 		if rule == nil {
 			return
+		}
+
+		if len(submitters) != 0 && submitters[0] != nil && len(rule.PushTo) != 0 {
+			// Deduplicate only push facts; retain the original Telegram album list.
+			seen := make(map[[2]int64]struct{}, len(messages))
+			for _, msg := range messages {
+				key := [2]int64{msg.ChatId, msg.Id}
+				if _, duplicate := seen[key]; duplicate {
+					continue
+				}
+				seen[key] = struct{}{}
+				text := s.messageService.GetFormattedText(msg)
+				if text == nil || s.filterService.Evaluate(text.Text, rule) != domain.FiltersOK {
+					continue
+				}
+				submitters[0].Submit(rule.PushTo, event.Envelope{
+					SchemaVersion: event.SchemaVersion, Event: event.EventNew,
+					ChatID: msg.ChatId, MessageID: msg.Id, OccurredAt: occurredAt, Text: text.Text,
+				})
+			}
 		}
 
 		src := rs.Sources[firstMsg.ChatId]
@@ -662,7 +684,11 @@ func (s *Service) editMessagesWithRetry(ctx context.Context, rs *domain.RuleSet,
 // editMessages возвращает true если нужен retry (permanent ID ещё не в storage).
 func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *client.Message, emissions ...*sourceEmission) bool {
 	copies := s.stateRepo.GetCopiedMessageIDs(msg.ChatId, msg.Id)
-	if len(copies) == 0 {
+	var emission *sourceEmission
+	if len(emissions) != 0 {
+		emission = emissions[0]
+	}
+	if len(copies) == 0 && (emission == nil || emission.push == nil) {
 		return false
 	}
 
@@ -671,16 +697,15 @@ func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *cli
 	if text == nil {
 		return false
 	}
-	if len(emissions) != 0 && emissions[0].push != nil {
+	if emission != nil && emission.push != nil {
 		names := make([]string, 0)
-		for _, copy := range copies {
-			if ref, ok := parseCopyRef(copy); ok {
-				if rule := rs.ForwardRules[ref.ruleID]; rule != nil {
-					names = append(names, rule.PushTo...)
-				}
+		// Source edits must reach webhook-only routes, even after a filter exit.
+		for _, rule := range rs.ForwardRules {
+			if rule.From == msg.ChatId {
+				names = append(names, rule.PushTo...)
 			}
 		}
-		emissions[0].submit(names, event.EventEdited, msg.ChatId, msg.Id, text.Text)
+		emission.submit(names, event.EventEdited, msg.ChatId, msg.Id, text.Text)
 	}
 
 	_, isText := msg.Content.(*client.MessageText)
