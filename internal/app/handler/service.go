@@ -13,6 +13,7 @@ import (
 	"github.com/zelenin/go-tdlib/client"
 
 	"github.com/pure-golang/budva-claude/internal/domain"
+	"github.com/pure-golang/budva-claude/internal/service/push/event"
 )
 
 // telegramRepo — частично применяемый интерфейс к infra/telegram.
@@ -96,7 +97,18 @@ type Service struct {
 	taskQueue        taskQueue
 	rateLimiter      rateLimiter
 	newTracker       DedupFactory
-	ruleset          atomic.Pointer[domain.RuleSet]
+	ruleset          atomic.Pointer[runtimeSnapshot]
+}
+
+// Rules and their submitter are published together; queued work retains both.
+type runtimeSnapshot struct {
+	*domain.RuleSet
+	push event.Submitter
+}
+
+type sourceEmission struct {
+	push       event.Submitter
+	occurredAt time.Time
 }
 
 // New создаёт новый экземпляр обработчика обновлений.
@@ -127,7 +139,15 @@ func New(
 
 // SetRuleSet обновляет текущий набор правил.
 func (s *Service) SetRuleSet(rs *domain.RuleSet) {
-	s.ruleset.Store(rs)
+	s.SetRuleSetWithPush(rs, nil)
+}
+
+func (s *Service) SetRuleSetWithPush(rs *domain.RuleSet, submitter event.Submitter) {
+	if rs == nil {
+		s.ruleset.Store(nil)
+		return
+	}
+	s.ruleset.Store(&runtimeSnapshot{RuleSet: rs, push: submitter})
 }
 
 // Run читает поток обновлений Telegram и запускает обработчики событий.
@@ -232,13 +252,13 @@ func (s *Service) OnNewMessage(ctx context.Context, msg *client.Message) {
 			albumKey := fmt.Sprintf("%s:%d", ruleID, int64(msg.MediaAlbumId))
 			isFirst := s.albumService.AddMessage(albumKey, msg)
 			if isFirst {
-				s.processMediaAlbum(ctx, albumKey, rs, ruleID, msg, formattedText)
+				s.processMediaAlbum(ctx, albumKey, rs.RuleSet, ruleID, msg, formattedText)
 			}
 			continue
 		}
 
 		// Одиночное сообщение.
-		s.processMessage(ctx, rs, ruleID, rule, msg, formattedText)
+		s.processMessage(ctx, rs.RuleSet, ruleID, rule, msg, formattedText, rs.push)
 	}
 }
 
@@ -252,8 +272,9 @@ func (s *Service) OnEditedMessage(ctx context.Context, msg *client.Message) {
 		return
 	}
 
+	emission := &sourceEmission{push: rs.push, occurredAt: time.Now().UTC()}
 	s.taskQueue.Add(func() {
-		s.editMessagesWithRetry(ctx, rs, msg, 0)
+		s.editMessagesWithRetry(ctx, rs.RuleSet, msg, 0, emission)
 	})
 }
 
@@ -270,8 +291,9 @@ func (s *Service) OnDeletedMessages(ctx context.Context, chatID int64, messageID
 		return
 	}
 
+	emission := &sourceEmission{push: rs.push, occurredAt: time.Now().UTC()}
 	s.taskQueue.Add(func() {
-		s.deleteMessagesWithRetry(ctx, rs, chatID, messageIDs, 0)
+		s.deleteMessagesWithRetry(ctx, rs.RuleSet, chatID, messageIDs, 0, emission)
 	})
 }
 
@@ -287,7 +309,7 @@ func (s *Service) OnMessageSendSucceeded(chatID int64, oldMessageID, newMessageI
 	})
 }
 
-func (s *Service) processMessage(ctx context.Context, rs *domain.RuleSet, ruleID string, rule *domain.ForwardRule, msg *client.Message, text *client.FormattedText) {
+func (s *Service) processMessage(ctx context.Context, rs *domain.RuleSet, ruleID string, rule *domain.ForwardRule, msg *client.Message, text *client.FormattedText, submitters ...event.Submitter) {
 	mode := s.filterService.Evaluate(text.Text, rule)
 	src := rs.Sources[msg.ChatId]
 
@@ -295,6 +317,12 @@ func (s *Service) processMessage(ctx context.Context, rs *domain.RuleSet, ruleID
 
 	switch mode {
 	case domain.FiltersOK:
+		if len(submitters) != 0 && submitters[0] != nil {
+			submitters[0].Submit(rule.PushTo, event.Envelope{
+				SchemaVersion: event.SchemaVersion, Event: event.EventNew,
+				ChatID: msg.ChatId, MessageID: msg.Id, OccurredAt: time.Now().UTC(), Text: text.Text,
+			})
+		}
 		isFirstDst := true
 		for _, dstChatID := range rule.To {
 			if !tracker.TryMark(dstChatID) {
@@ -622,8 +650,8 @@ func (s *Service) forwardAlbum(ctx context.Context, rule *domain.ForwardRule, me
 }
 
 // editMessagesWithRetry обрабатывает редактирование с retry до 3 раз.
-func (s *Service) editMessagesWithRetry(ctx context.Context, rs *domain.RuleSet, msg *client.Message, attempt int) {
-	needRetry := s.editMessages(ctx, rs, msg)
+func (s *Service) editMessagesWithRetry(ctx context.Context, rs *domain.RuleSet, msg *client.Message, attempt int, emissions ...*sourceEmission) {
+	needRetry := s.editMessages(ctx, rs, msg, emissions...)
 	if needRetry && attempt < 3 {
 		s.taskQueue.Add(func() {
 			s.editMessagesWithRetry(ctx, rs, msg, attempt+1)
@@ -632,7 +660,7 @@ func (s *Service) editMessagesWithRetry(ctx context.Context, rs *domain.RuleSet,
 }
 
 // editMessages возвращает true если нужен retry (permanent ID ещё не в storage).
-func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *client.Message) bool {
+func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *client.Message, emissions ...*sourceEmission) bool {
 	copies := s.stateRepo.GetCopiedMessageIDs(msg.ChatId, msg.Id)
 	if len(copies) == 0 {
 		return false
@@ -642,6 +670,17 @@ func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *cli
 	text := s.messageService.GetFormattedText(msg)
 	if text == nil {
 		return false
+	}
+	if len(emissions) != 0 && emissions[0].push != nil {
+		names := make([]string, 0)
+		for _, copy := range copies {
+			if ref, ok := parseCopyRef(copy); ok {
+				if rule := rs.ForwardRules[ref.ruleID]; rule != nil {
+					names = append(names, rule.PushTo...)
+				}
+			}
+		}
+		emissions[0].submit(names, event.EventEdited, msg.ChatId, msg.Id, text.Text)
 	}
 
 	_, isText := msg.Content.(*client.MessageText)
@@ -723,8 +762,8 @@ func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *cli
 }
 
 // deleteMessagesWithRetry обрабатывает удаление с retry до 3 раз.
-func (s *Service) deleteMessagesWithRetry(ctx context.Context, rs *domain.RuleSet, chatID int64, messageIDs []int64, attempt int) {
-	needRetry := s.deleteMessages(ctx, rs, chatID, messageIDs)
+func (s *Service) deleteMessagesWithRetry(ctx context.Context, rs *domain.RuleSet, chatID int64, messageIDs []int64, attempt int, emissions ...*sourceEmission) {
+	needRetry := s.deleteMessages(ctx, rs, chatID, messageIDs, emissions...)
 	if needRetry && attempt < 3 {
 		s.taskQueue.Add(func() {
 			s.deleteMessagesWithRetry(ctx, rs, chatID, messageIDs, attempt+1)
@@ -733,8 +772,24 @@ func (s *Service) deleteMessagesWithRetry(ctx context.Context, rs *domain.RuleSe
 }
 
 // deleteMessages возвращает true если нужен retry.
-func (s *Service) deleteMessages(_ context.Context, rs *domain.RuleSet, chatID int64, messageIDs []int64) bool {
+func (s *Service) deleteMessages(_ context.Context, rs *domain.RuleSet, chatID int64, messageIDs []int64, emissions ...*sourceEmission) bool {
 	needRetry := false
+	if len(emissions) != 0 && emissions[0].push != nil {
+		names := make([]string, 0)
+		for _, rule := range rs.ForwardRules {
+			if rule.From == chatID {
+				names = append(names, rule.PushTo...)
+			}
+		}
+		seen := make(map[int64]struct{}, len(messageIDs))
+		for _, msgID := range messageIDs {
+			if _, duplicate := seen[msgID]; duplicate {
+				continue
+			}
+			seen[msgID] = struct{}{}
+			emissions[0].submit(names, event.EventDeleted, chatID, msgID, "")
+		}
+	}
 
 	for _, msgID := range messageIDs {
 		copies := s.stateRepo.GetCopiedMessageIDs(chatID, msgID)
@@ -785,6 +840,13 @@ func (s *Service) deleteMessages(_ context.Context, rs *domain.RuleSet, chatID i
 	}
 
 	return needRetry
+}
+
+func (e *sourceEmission) submit(names []string, kind event.Event, chatID, messageID int64, text string) {
+	e.push.Submit(names, event.Envelope{
+		SchemaVersion: event.SchemaVersion, Event: kind, ChatID: chatID,
+		MessageID: messageID, OccurredAt: e.occurredAt, Text: text,
+	})
 }
 
 // copyRef содержит разобранную ссылку на копию сообщения формата "ruleID:dstChatID:tmpMsgID".

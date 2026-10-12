@@ -25,6 +25,8 @@ type ForwardRule struct {
 	From ChatID `yaml:"from"`
 	// To — список идентификаторов чатов-получателей.
 	To []ChatID `yaml:"to"`
+	// PushTo — имена внешних webhook-получателей.
+	PushTo []string `yaml:"pushTo"`
 	// SendCopy — отправлять копию вместо форварда.
 	SendCopy bool `yaml:"sendCopy"`
 	// CopyOnce — при редактировании создавать новую копию вместо обновления.

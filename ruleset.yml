@@ -1,4 +1,7 @@
 # Минимальный конфиг для запуска (пустой, без правил пересылки)
 sources: {}
 destinations: {}
+# Push URLs, headers and HMAC keys are sensitive: keep real values out of git.
+# Deploy a private ruleset with file permissions 0600.
+pushTargets: {}
 forwardRules: {}

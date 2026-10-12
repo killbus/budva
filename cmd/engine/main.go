@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	aenv "github.com/pure-golang/adapters/env"
 	"github.com/pure-golang/platform/monitoring"
@@ -15,6 +17,7 @@ import (
 	"github.com/pure-golang/budva-claude/internal/app/auth"
 	"github.com/pure-golang/budva-claude/internal/app/handler"
 	"github.com/pure-golang/budva-claude/internal/config"
+	"github.com/pure-golang/budva-claude/internal/domain"
 	"github.com/pure-golang/budva-claude/internal/infra/queue"
 	"github.com/pure-golang/budva-claude/internal/infra/ruleset"
 	"github.com/pure-golang/budva-claude/internal/infra/state"
@@ -25,6 +28,7 @@ import (
 	"github.com/pure-golang/budva-claude/internal/service/filters"
 	"github.com/pure-golang/budva-claude/internal/service/limiter"
 	"github.com/pure-golang/budva-claude/internal/service/message"
+	"github.com/pure-golang/budva-claude/internal/service/push"
 	"github.com/pure-golang/budva-claude/internal/service/transform"
 	tterm "github.com/pure-golang/budva-claude/internal/transport/term"
 )
@@ -134,21 +138,51 @@ func run() error {
 	)
 
 	// 6. Ruleset
+	pushManager := push.NewManager()
+	defer pushManager.Close()
+	loadSnapshot := func(rs *domain.RuleSet) error {
+		configs := make(map[string]push.EndpointConfig, len(rs.PushTargets))
+		for name, target := range rs.PushTargets {
+			timeout := 5 * time.Second
+			if target.TimeoutSeconds > 0 {
+				timeout = time.Duration(target.TimeoutSeconds) * time.Second
+			}
+			configs[name] = push.EndpointConfig{
+				Timeout: timeout,
+				Sink: push.NewWebhookSink(push.WebhookConfig{
+					URL: target.URL, Headers: target.Headers, HMACSecret: target.HMACSecret,
+					Client: &http.Client{Timeout: timeout},
+				}),
+			}
+		}
+		return pushManager.Replace(configs, func(g *push.Generation) { handlerService.SetRuleSetWithPush(rs, g) })
+	}
 	rs, err := rulesetRepo.Load()
 	if err != nil {
+		push.RecordReload(false)
 		logger.Warn("Failed to load ruleset", slog.Any("err", err))
 	} else {
-		handlerService.SetRuleSet(rs)
+		err = loadSnapshot(rs)
+		push.RecordReload(err == nil)
+		if err != nil {
+			logger.Error("Failed to initialize push generation")
+		}
 	}
 
 	// 7. Watcher для hot-reload
 	if err := rulesetRepo.WatchContext(ctx, func() {
 		newRS, loadErr := rulesetRepo.Load()
 		if loadErr != nil {
-			logger.Error("Failed to reload ruleset", slog.Any("err", loadErr))
+			push.RecordReload(false)
+			logger.Error("Failed to reload ruleset", slog.String("outcome", "reload_failed"), slog.Any("err", loadErr))
 			return
 		}
-		handlerService.SetRuleSet(newRS)
+		if err := loadSnapshot(newRS); err != nil {
+			push.RecordReload(false)
+			logger.Error("Failed to reload push generation", slog.String("outcome", "reload_failed"))
+			return
+		}
+		push.RecordReload(true)
 		logger.Info("Ruleset reloaded")
 	}); err != nil {
 		logger.Warn("Failed to watch ruleset", slog.Any("err", err))
