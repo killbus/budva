@@ -2,3 +2,4 @@
 {"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "Review gate: emission hooks stay non-blocking and ruleset contracts intact (R3/R4)"}
 {"file": ".trellis/tasks/10-11-external-push-sink/prd.md", "reason": "Task-specific gate: verify explicit terminal outcomes, final-2xx success semantics, generation retirement, candidate-startup cleanup, and Telegram isolation (R2-R8, AC2-AC6, AC9)"}
 {"file": ".trellis/tasks/10-11-external-push-sink/design.md", "reason": "Task-specific anti-audit gate: verify no sender/close race, no zero-attempt accepted event, no raw TDLib payload, no false last-success, and bounded drain accounting"}
+{"file": ".trellis/tasks/10-11-external-push-sink/research/linux-correction-verification.md", "reason": "P10-P12/AC10/AC11 actual mutation reds and restored-source Linux tests/race/vet/build; not new GitHub CI or image"}

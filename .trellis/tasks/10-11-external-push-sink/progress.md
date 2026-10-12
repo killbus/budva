@@ -1,5 +1,90 @@
 # External Push Implementation Evidence
 
+## Current Status: Correction Linux-Verified, Publication Pending (2026-10-12)
+
+This section supersedes earlier completion claims in the historical report.
+The reopened gaps were copy-dependent webhook-only edits and missing album new
+events. P10/P11 corrective source changes and AC10/AC11 regressions now pass
+against real Linux TDLib. P12 isolated Linux verification is complete; GitHub
+CI and replacement test publication remain pending separate authorization.
+No new image has been published, and this task remains in progress.
+
+After the user's commit-plan confirmation, corrective code, regressions and
+spec sync were committed locally as
+`4243ddf8cffc70ef50420bd196f56f83ced2cbea` on `feat/external-push-sink`.
+The second approved commit records task/evidence updates. Push, GitHub CI,
+replacement image, PR/merge and production deployment remain unperformed.
+
+User confirmed preserving full Telegram message intent as the product goal.
+Linked planning task `10-12-telegram-webhook-semantics` owns versioned rich
+content, entities, relationships and usable secure media access. Published
+`dev-run12-d58909f` remains a text-event test build, not full message support.
+
+### P10-P12 correction evidence
+
+- Source edits route through all captured source rules, not copied-message
+  references. Full supported text/caption, including an empty caption, is sent
+  once on the first Telegram attempt. New-message filters are not re-evaluated.
+- Album submission uses the captured dispatcher after existing collection;
+  per-member `FiltersOK` gates only push. Duplicate bucket members are suppressed
+  only for push, and unsupported text is skipped. Telegram batching, forwarding,
+  copy mappings, limiter and statistics remain on their original path.
+- Album new facts capture first-ingress bucket time before collection; delayed
+  old captions cannot supersede later edits/deletes under downstream LWW. A
+  two-member synctest regression queues later edits/deletes before collection
+  execution and binds the shared timestamp. Album age comes from virtual elapsed
+  time; collection and limiter assertions forbid execution before the 3s deadline.
+- Tests cover source-only new/edit/delete, caption clearing, album empty captions,
+  unsupported content, collection duplicates, captured snapshots and album
+  forward/copy invariance under disabled/full/retired/success/HTTP-failure/timeout
+  dispatch. Original Telegram tests are not modified.
+- Known-red mechanisms: the original copy guard fails the required no-copy
+  formatted-text expectation and edit-event count; missing album hooks fail
+  required per-member text/filter expectations and event counts; altered Telegram
+  members/mapping/scheduling cause strict mock or trace failures. These are
+  inspected strict-mock paths. The subsequent authorized Linux run also records
+  five behavioral mutation reds, followed by restored-source greens below.
+- Windows Go 1.25.9: `go test -count=1 ./internal/service/push/...` passes the
+  35 push tests (the event subpackage has no test files);
+  `go vet ./internal/service/push/...` passes. Dependencies
+  are cached (`GOPROXY=off`), build cache is workspace `.tmp-go-cache`.
+- Handler test compilation is blocked in the existing go-tdlib v0.7.6 dependency:
+  `client/client.go:11:18: undefined: JsonClient` and additional undefined
+  `Response`, `Type`, `meta`, `JsonInt64` symbols on Windows with CGO disabled.
+  This is an environment failure, not a behavioral red. No stubs or mock TDLib
+  library are substituted to claim acceptance.
+- Remote SSH validation was initially declined, then explicitly authorized on
+  2026-10-12. Tests ran in a new isolated correction directory with the existing
+  real TDLib shared library and pinned C ABI header, not production state.
+- Linux Go 1.25.9 with `CGO_ENABLED=1` and `-tags libtdjson`: handler `TestPush`
+  passes 14 top-level tests (45 including subtests); `./internal/...` passes
+  22 tested packages and 509 top-level tests (853 including subtests).
+- Race passes for push, handler and ruleset: 3 tested packages, 140 top-level
+  tests (211 including subtests). Whole-repository vet/build and the engine
+  binary build all exit 0. No test failures or race reports occur.
+- Five isolated mutations each compile and fail the named behavioral test:
+  no-copy edit guard, copy-only recipient routing, omitted album hook, delayed
+  album timestamp and skipped album quiet-period wait. Source is restored after
+  each mutation; all 157 source hashes match again before and after green runs.
+- This is isolated Linux runtime evidence, NOT a new GitHub CI run or image.
+  Reproduction commands, source/library hashes, counts and raw log references
+  are in `research/linux-correction-verification.md` and
+  `linux-correction-evidence/`. Replacement publication remains a separate gate.
+- No commit, push, PR, merge, deployment or task archive occurred during the
+  validation turn; the subsequently authorized local commit is recorded above.
+- Trellis read-only check found no source-routing defect. Its album timing
+  test finding is addressed with elapsed-time mocks and deadline assertions;
+  these static review results are now complemented by the Linux runtime tests.
+  Final local `gofmt`, task/JSONL parsing and `git diff --check` pass.
+- Spec sync records elapsed-domain-time timer mocks and source-fact routing/
+  delayed album timestamp boundaries in the backend quality and TDLib guides.
+  Mixed P01-P12 step records are preserved verbatim in research; the context
+  JSONL files now contain only spec/research file-and-reason entries.
+- Final read-only evidence review finds no new factual/status issue; the scoped
+  structure audit finds no above-threshold issue. Empty vet/build logs alone do
+  not certify exit status; their success is backed by recorded command results.
+  Final full-scope package query identifies this as a single-repo backend task.
+
 ## State
 
 P01-P09 implementation and verification are complete; ready for review.

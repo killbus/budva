@@ -170,6 +170,39 @@ Alert guidance (documentation, not code): distinguish “never succeeded” (`la
 
 ## 12. Verification strategy
 
+Acceptance correction (2026-10-12): original hook locations do not exclude
+webhook-only edits or album events. Separate source-event eligibility from copy
+bookkeeping; specify edit filtering and emit album member text/caption without
+changing Telegram batching. Keep schema_version=1 for this repair. Versioned
+rich content/media/relationships are owned by the linked protocol task.
+
+### P10-P11 source eligibility (2026-10-12)
+
+- New single messages retain the existing source, supported-text/content,
+  saveability and `FiltersOK` guards. Protected-message routing is not changed
+  in this correction.
+- Edited events use every forward rule whose `From` matches the captured
+  source chat, irrespective of copy mappings, `To`, `CopyOnce` or saveability.
+  Supported text/caption is required; an empty caption is valid. Do not re-run
+  new-message filters: an edit leaving a filter or clearing its caption must
+  update a consumer that already holds the message. As with deletion, consumers
+  can receive edits without a matching new event. No eligibility history is added.
+- Album events use the captured rule/dispatcher after the existing quiet-period
+  collection. Each unique `(chat_id, message_id)` in that rule's album bucket
+  emits its supported text/caption only when `FiltersOK`; empty captions are
+  evaluated normally. Filter checks apply only to push, never to Telegram album
+  forwarding. The Telegram member list, timing, queue, limiter, mapping and
+  statistics remain unchanged. Duplicate members are suppressed only in the
+  push loop; there is no durable/global duplicate cache or retry.
+- Album new facts share the bucket's first-ingress timestamp captured before
+  queueing collection. This is a conservative bucket timestamp, not an exact
+  per-member receipt time: no per-member state is added. Collection completion
+  time would incorrectly let an old caption overwrite later edits/deletes under
+  the existing downstream `occurred_at` LWW contract.
+- With push disabled, preserve original message-service/filter call patterns.
+  Submit carries the captured dispatcher even if the live snapshot has changed;
+  retired-generation rejection remains the established at-most-once outcome.
+
 - Unit: envelope marshaling (schema fields, deleted-text-empty, no raw TDLib object), enqueue and retired-generation rejection accounting, `Submit`/`Retire` lease invariants, idempotent retirement, config validation (`http://` rejection, unknown `pushTo` reference), and zero/absent last-success before first success.
 - Behavior (red-first per repo conventions): AC2 full-buffer non-blocking rejection; AC3 exactly one HTTP attempt plus failure classification and no retry; AC4 concurrent old-snapshot submit/reload/retire interleavings under `go test -race`, drain of accepted events, retired-generation rejection, invalid-reload retention, and goroutine-exit assertions; AC5 endpoint isolation (stall A, assert B's latency); AC1 three-event flow against `httptest.Server` through production emit points.
 - Pipeline invariance: retain the existing delivery/edit/delete/statistics suites unchanged. Add a parameterized regression that injects push buffer rejection, timeout, and delivery failure and compares Telegram send/edit/delete/statistics outcomes plus serial-queue and per-chat-limiter scheduling with push disabled.

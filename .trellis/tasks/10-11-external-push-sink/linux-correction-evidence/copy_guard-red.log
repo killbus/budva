@@ -1,0 +1,24 @@
+--- FAIL: TestPush_EditWithoutCopies (0.00s)
+    --- FAIL: TestPush_EditWithoutCopies/current_caption (0.00s)
+        push_coverage_test.go:32: 
+            	Error Trace:	/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_coverage_test.go:32
+            	Error:      	"[]" should have 1 item(s), but has 0
+            	Test:       	TestPush_EditWithoutCopies/current_caption
+        message_service.go:21: FAIL:	GetFormattedText(*client.Message)
+            		at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/message_service.go:125 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_coverage_test.go:28]
+        message_service.go:21: FAIL: 0 out of 1 expectation(s) were met.
+            	The code you are testing needs to make 1 more call(s).
+            	at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/message_service.go:21 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1308 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1572 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1928 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/runtime/panic.go:615 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1013 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_coverage_test.go:32]
+    --- FAIL: TestPush_EditWithoutCopies/#00 (0.00s)
+        push_coverage_test.go:32: 
+            	Error Trace:	/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_coverage_test.go:32
+            	Error:      	"[]" should have 1 item(s), but has 0
+            	Test:       	TestPush_EditWithoutCopies/#00
+        message_service.go:21: FAIL:	GetFormattedText(*client.Message)
+            		at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/message_service.go:125 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_coverage_test.go:28]
+        message_service.go:21: FAIL: 0 out of 1 expectation(s) were met.
+            	The code you are testing needs to make 1 more call(s).
+            	at: [/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/mocks/message_service.go:21 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1308 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1572 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1928 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/runtime/panic.go:615 /home/ying/budva-push-validation-20261011/go-mod/golang.org/toolchain@v0.0.1-go1.25.9.linux-amd64/src/testing/testing.go:1013 /home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_coverage_test.go:32]
+FAIL
+FAIL	github.com/pure-golang/budva-claude/internal/app/handler	0.015s
+FAIL

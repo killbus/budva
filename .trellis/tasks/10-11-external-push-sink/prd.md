@@ -15,6 +15,20 @@ The external push channel is additive. The Telegram forwarding pipeline (serial 
 
 ## Requirements
 
+### Acceptance Review Clarification (2026-10-12)
+
+User confirmed that the product goal is preserving Telegram message intent in
+an independent webhook channel. At-most-once permits losing events, not silently
+losing semantics in delivered events. Text-only v1 is an intermediate protocol;
+full content/media/relationships belong to linked task
+`10-12-telegram-webhook-semantics`.
+
+This task must repair webhook-only edited events without Telegram copy mappings
+and media-album new events. Hook locations are implementation choices, not scope
+exclusions. Album members use the existing v1 ID/text/caption envelope in this
+repair. Specify source-edit filtering/routing before coding; copy mappings must
+not be the push eligibility oracle. Preserve Telegram batching/retry behavior.
+
 - R1 (Canonical envelope): All sinks receive one canonical JSON envelope — `schema_version`, `event` (`new|edited|deleted`), `chat_id`, `message_id`, `occurred_at`, and `text`. `edited` carries the full post-edit text (self-contained event, not a delta). `deleted` has `text` empty — absence is part of the contract. `chat_id` + `message_id` are the correlation key for edited/deleted. Product-specific payload shapes (ntfy priority, Slack blocks) and raw TDLib objects are out of the v1 envelope.
 - R2 (At-most-once terminal outcomes): Delivery is at-most-once with no retries. Each endpoint event has exactly one terminal outcome: rejected at non-blocking enqueue because the buffer is full; attempted once and succeeded; attempted once and failed; rejected because its dispatcher generation is retired; or accepted in memory and lost at a process boundary. Buffer rejection, send failure, retired-generation rejection, and process-boundary loss are distinct semantics. Observable runtime outcomes are logged and counted; process-boundary loss is documented but cannot be counted reliably after abrupt termination.
 - R3 (Decoupling): Push dispatch runs on independent per-endpoint goroutines with short timeouts. Submit must never block the handler pipeline (OnNewMessage / edit / delete paths) beyond a bounded non-blocking operation. Push rejection, timeout, transport failure, reload, or shutdown must not alter Telegram send/edit/delete/statistics results or queue/limiter scheduling.
@@ -36,6 +50,13 @@ The external push channel is additive. The Telegram forwarding pipeline (serial 
 - Implementation iterates on a task branch; green CI precedes any separately authorized squash/merge to main.
 
 ## Acceptance Criteria
+
+- [x] AC10: Webhook-only rules (`to: []`) emit new, full-text/caption edited and
+  permanent deleted events without Telegram copy mappings; cover snapshot/reload
+  and verify Telegram retries do not duplicate push.
+- [x] AC11: Media-album members emit new events, including empty captions, on
+  approved source eligibility paths without collection/retry duplicates or any
+  change to Telegram album batching, timing and results.
 
 - [ ] AC1: A webhook sink test server receives the canonical envelope for new, edited, and deleted events. `edited` carries full post-edit text; `deleted` has empty `text`; `schema_version` is present on every envelope. Evidence uses the production emit points (processMessage / editMessages / deleteMessages paths).
 - [ ] AC2: With a full endpoint buffer, submit rejects the event, increments the enqueue-rejection counter, logs, and the calling handler goroutine is not blocked (no deadlock, bounded latency).

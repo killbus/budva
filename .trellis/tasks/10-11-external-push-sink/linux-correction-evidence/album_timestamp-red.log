@@ -1,0 +1,18 @@
+--- FAIL: TestPush_AlbumNewDoesNotSupersedeEditsOrDeletes (0.00s)
+    push_coverage_test.go:134: 
+        	Error Trace:	/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_coverage_test.go:134
+        	Error:      	Not equal: 
+        	            	expected: time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+        	            	actual  : time.Date(2000, time.January, 1, 0, 0, 3, 500000000, time.UTC)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(time.Time) 2000-01-01 00:00:00 +0000 UTC
+        	            	+(time.Time) 2000-01-01 00:00:03.5 +0000 UTC
+        	            	 
+        	Test:       	TestPush_AlbumNewDoesNotSupersedeEditsOrDeletes
+FAIL
+FAIL	github.com/pure-golang/budva-claude/internal/app/handler	0.046s
+FAIL

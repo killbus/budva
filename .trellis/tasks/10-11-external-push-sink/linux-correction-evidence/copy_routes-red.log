@@ -1,0 +1,30 @@
+--- FAIL: TestPush_SourceEditRoutingIndependentOfCopies (0.00s)
+    --- FAIL: TestPush_SourceEditRoutingIndependentOfCopies/mapped_and_unmapped_rules (0.00s)
+        push_source_routing_test.go:105: 
+            	Error Trace:	/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_source_routing_test.go:58
+            	            				/home/ying/budva-push-validation-20261011/correction-20261012-2iYCAb/source/internal/app/handler/push_source_routing_test.go:105
+            	Error:      	elements differ
+            	            	
+            	            	extra elements in list A:
+            	            	([]interface {}) (len=1) {
+            	            	 (string) (len=8) "unmapped"
+            	            	}
+            	            	
+            	            	
+            	            	listA:
+            	            	([]string) (len=3) {
+            	            	 (string) (len=7) "primary",
+            	            	 (string) (len=5) "audit",
+            	            	 (string) (len=8) "unmapped"
+            	            	}
+            	            	
+            	            	
+            	            	listB:
+            	            	([]string) (len=2) {
+            	            	 (string) (len=7) "primary",
+            	            	 (string) (len=5) "audit"
+            	            	}
+            	Test:       	TestPush_SourceEditRoutingIndependentOfCopies/mapped_and_unmapped_rules
+FAIL
+FAIL	github.com/pure-golang/budva-claude/internal/app/handler	0.016s
+FAIL

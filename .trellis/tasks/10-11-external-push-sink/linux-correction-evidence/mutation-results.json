@@ -1,0 +1,30 @@
+{
+  "cases": [
+    {
+      "case": "copy_guard",
+      "test": "TestPush_EditWithoutCopies",
+      "exit": 1
+    },
+    {
+      "case": "copy_routes",
+      "test": "TestPush_SourceEditRoutingIndependentOfCopies/mapped_and_unmapped_rules",
+      "exit": 1
+    },
+    {
+      "case": "album_hook",
+      "test": "TestPush_AlbumPipelineInvariant/forward/success",
+      "exit": 1
+    },
+    {
+      "case": "album_timestamp",
+      "test": "TestPush_AlbumNewDoesNotSupersedeEditsOrDeletes",
+      "exit": 1
+    },
+    {
+      "case": "album_wait",
+      "test": "TestPush_AlbumPipelineInvariant/forward/success",
+      "exit": 1
+    }
+  ],
+  "restored_sha256": "94d2c0fba6b76d5f8e3e55549ef9f0dc87c24d2dd0cd8fc34bc497c5b038f573"
+}
