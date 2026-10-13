@@ -1,19 +1,32 @@
 # External Push Implementation Evidence
 
-## Current Status: Correction Linux-Verified, Publication Pending (2026-10-12)
+## Current Status: Correction CI Accepted, Publication Pending (2026-10-13)
 
 This section supersedes earlier completion claims in the historical report.
 The reopened gaps were copy-dependent webhook-only edits and missing album new
 events. P10/P11 corrective source changes and AC10/AC11 regressions now pass
-against real Linux TDLib. P12 isolated Linux verification is complete; GitHub
-CI and replacement test publication remain pending separate authorization.
-No new image has been published, and this task remains in progress.
+against real Linux TDLib. P12 isolated Linux verification is complete.
+
+Correction CI ACCEPTED on 2026-10-13: run
+https://github.com/killbus/budva/actions/runs/38212912036 (`ci-test.yml`,
+head SHA `6d7daa750fb708b86c83b12f5d5c19bc10f93eb6`) completed with conclusion
+`success` (confirmed via `gh api`). No new image has been published, and this
+task remains in progress.
 
 After the user's commit-plan confirmation, corrective code, regressions and
 spec sync were committed locally as
 `4243ddf8cffc70ef50420bd196f56f83ced2cbea` on `feat/external-push-sink`.
-The second approved commit records task/evidence updates. Push, GitHub CI,
-replacement image, PR/merge and production deployment remain unperformed.
+Task/evidence updates were committed as
+`6d7daa750fb708b86c83b12f5d5c19bc10f93eb6`. Both approved commits were pushed
+to `origin/feat/external-push-sink` after explicit authorization.
+`ci-test.yml` was dispatched on that branch at `2026-10-12T06:31:08Z`:
+https://github.com/killbus/budva/actions/runs/38212912036
+The observed status was `queued`, with head SHA
+`6d7daa750fb708b86c83b12f5d5c19bc10f93eb6`. The user requested no waiting;
+no completion result is claimed and no Docker workflow was dispatched.
+Replacement image, PR/merge and production deployment remain unperformed.
+Next handoff: CI is accepted (see Current Status); the only remaining gate is
+the user decision on replacement test-image publication.
 
 User confirmed preserving full Telegram message intent as the product goal.
 Linked planning task `10-12-telegram-webhook-semantics` owns versioned rich

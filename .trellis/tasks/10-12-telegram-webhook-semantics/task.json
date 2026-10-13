@@ -1,0 +1,31 @@
+{
+  "id": "telegram-webhook-semantics",
+  "name": "telegram-webhook-semantics",
+  "title": "Telegram message semantics and media delivery for webhook",
+  "description": "Plan and, after explicit design approval, implement versioned Telegram Message facts independently of Telegram forwarding. M01 completed the 74-type mapping; the M02 candidate defines Message-only v2 and defers Attachment, MessageAttachmentRelation and byte-access infrastructure until separate product evidence justifies them.",
+  "status": "active",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "killbus",
+  "assignee": "killbus",
+  "createdAt": "2026-10-12",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "internal/service/push/event/envelope.go",
+    "internal/service/message/service.go",
+    "internal/app/handler/service.go",
+    "internal/infra/telegram/client_adapter.go"
+  ],
+  "notes": "User approved the product goal/task split, then requested planning without waiting for correction CI. On 2026-10-12 the user rejected Attachment entities and relationship-set completeness in Message; the boundary is recorded in research/message-attachment-boundaries.md. M01 is complete with an auditable 74-type/201-field matrix and 13 representative research fixtures. On 2026-10-13 a three-frame DBS-chatroom cross-audit converged M02 on a Message-only v2: independent Attachment and Relation contracts, byte access, authenticated fetch, lifecycle and numerical budgets are deferred for lack of product evidence. The user explicitly approved M02 on 2026-10-13, so M03 is active for source verification, exact fixtures and RED/GREEN implementation. On 2026-10-13 the user authorized a takeover of this task: local commits on branch feat/external-push-sink are allowed (record the commit plan in progress.md first, positive-framing messages), while push, PR, merge, image publication, deployment, task.py start, and any M04/resource/Attachment/byte-access work remain hard stops (record a GATE line and halt for the user). A recurring Paseo loop was designed (prompt at .trellis/.runtime/loops/m03-prompt.txt, state at .trellis/.runtime/loops/m03-loop-state.md) but NOT created, because the local magpie gateway's auto-mode safety classifier (GLM-5.3-Flash long thinking block stalling past the harness timeout) blocks it in auto mode; create it only from a non-auto session or after the classifier issue is resolved. Related correction: 10-11-external-push-sink; baseline 6d7daa750fb708b86c83b12f5d5c19bc10f93eb6; CI https://github.com/killbus/budva/actions/runs/38212912036 accepted (success) on 2026-10-13. No push, new image, merge or deployment is authorized.",
+  "meta": {}
+}

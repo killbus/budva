@@ -38,10 +38,12 @@ TDLib after explicit user authorization. Five isolated behavioral mutations
 fail their regression tests; restored source passes all internal tests, focused
 race, whole-repository vet/build and engine build. Windows standalone push
 tests/vet also pass; Windows handler cgo failure is not acceptance evidence.
-P12's isolated Linux gate is complete, but GitHub CI and any replacement test
-publication remain pending separate authorization. Corrective code/specs were
+P12's isolated Linux gate is complete; correction CI was subsequently dispatched
+and its result remains pending. Any replacement test publication remains pending.
+Corrective code/specs were
 subsequently committed locally as `4243ddf8cffc70ef50420bd196f56f83ced2cbea`
-after commit-plan confirmation; no push or publication occurred. See progress.md and
+after commit-plan confirmation. Task/evidence commit `6d7daa7` and the correction
+were later pushed with authorization; no image publication occurred. See progress.md and
 research/linux-correction-verification.md for exact evidence.
 
 ### Correction Check Gates
@@ -58,5 +60,8 @@ research/linux-correction-verification.md for exact evidence.
   internal, race, whole-repository vet/build and engine build. Preserve raw logs.
 - [x] P12: Obtain commit-plan confirmation and commit corrective code/specs
   locally as `4243ddf8cffc70ef50420bd196f56f83ced2cbea`.
-- [ ] P12: Separately authorize push, green GitHub CI and replacement
-  test-image publication. No main merge or production deployment is implied.
+- [x] P12: Authorized push and `ci-test.yml` dispatch on `6d7daa7`:
+  https://github.com/killbus/budva/actions/runs/38212912036 (observed queued).
+- [ ] P12: Accept the exact CI run's green result; the user requested no waiting.
+- [ ] P12: Decide replacement test-image publication after CI acceptance.
+  No main merge or production deployment is implied.
