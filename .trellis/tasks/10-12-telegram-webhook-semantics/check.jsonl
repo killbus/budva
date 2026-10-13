@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "Real TDLib Linux validation and media boundary"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Strict-mock behavioral reds, domain-time assertions and ownership/race verification"}
+{"file": ".trellis/spec/backend/docker-ci-guidelines.md", "reason": "Check build/runtime acceptance claims and separately gated image publication"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/media-gap-baseline.md", "reason": "Check that rich/textless media, relationships and actual receiver-byte usability address measured baseline gaps"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/message-attachment-boundaries.md", "reason": "Reject Attachment entities, relation collections/counts/completeness and resource preparation/access state in Message; keep Delivery and Album separate"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/content-type-matrix.md", "reason": "Check completed M01 coverage of 74 unique pinned types, 201 exact top-level fields, Message projections, resource semantics and exclusions; do not mistake research completion for runtime support"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/m01-representative-fixtures.jsonl", "reason": "Check 13 parseable research scenarios and reject Attachment, Relation, Delivery, Album-completeness or resource-lifecycle state inside Message"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/m02-protocol-decision.md", "reason": "Verify M02 defers Attachment, Relation and byte-access infrastructure; Message v2 remains self-describing, versioned and transport-guarantee neutral"}
+{"file": ".trellis/tasks/10-11-external-push-sink/research/linux-correction-verification.md", "reason": "Keep source edits, album quiet-period/filtering/dedup and Telegram invariance regressions intact"}

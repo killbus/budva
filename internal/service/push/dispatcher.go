@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pure-golang/budva-claude/internal/service/push/event"
+	"github.com/pure-golang/budva-claude/internal/service/push/messagev2"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -37,7 +38,7 @@ type EndpointConfig struct {
 type endpointWorker struct {
 	name    string
 	sink    Sink
-	queue   chan Envelope
+	queue   chan event.RenderedEnvelope
 	timeout time.Duration
 }
 
@@ -82,7 +83,7 @@ func newGeneration(configs map[string]EndpointConfig, metrics *telemetry) *Gener
 		worker := &endpointWorker{
 			name:    name,
 			sink:    config.Sink,
-			queue:   make(chan Envelope, capacity),
+			queue:   make(chan event.RenderedEnvelope, capacity),
 			timeout: config.Timeout,
 		}
 		if worker.timeout <= 0 {
@@ -105,6 +106,17 @@ func newGeneration(configs map[string]EndpointConfig, metrics *telemetry) *Gener
 // Submit obtains a short-lived generation lease and attempts only non-blocking
 // sends. Routing names are fixed by the caller's ruleset snapshot.
 func (g *Generation) Submit(endpointNames []string, env Envelope) SubmitResults {
+	return g.submit(endpointNames, event.RenderedEnvelope{Envelope: env})
+}
+
+// SubmitV2 enqueues both representations of the source facts. Each endpoint
+// worker renders the schema selected at generation time; a v2 projection that
+// is missing or invalid fails only the v2-selected endpoint.
+func (g *Generation) SubmitV2(endpointNames []string, env Envelope, v2 *messagev2.Notification) SubmitResults {
+	return g.submit(endpointNames, event.RenderedEnvelope{Envelope: env, V2: v2})
+}
+
+func (g *Generation) submit(endpointNames []string, rend event.RenderedEnvelope) SubmitResults {
 	if !g.acquireLease() {
 		results := make(SubmitResults, len(endpointNames))
 		for _, name := range endpointNames {
@@ -135,7 +147,7 @@ func (g *Generation) Submit(endpointNames []string, env Envelope) SubmitResults 
 		}
 
 		select {
-		case worker.queue <- env:
+		case worker.queue <- rend:
 			results[name] = SubmitAccepted
 			g.metrics.enqueued.Add(context.Background(), 1, endpointOption(name))
 		default:
@@ -193,18 +205,16 @@ func (g *Generation) releaseLease() {
 
 func (g *Generation) runWorker(worker *endpointWorker) {
 	defer g.workers.Done()
-	for env := range worker.queue {
+	for rend := range worker.queue {
 		ctx, cancel := context.WithTimeout(context.Background(), worker.timeout)
 		start := time.Now()
-		err := worker.sink.Push(ctx, env)
+		err := worker.sink.Push(ctx, rend)
 		g.metrics.duration.Record(context.Background(), time.Since(start).Milliseconds(), endpointOption(worker.name))
 		if err != nil {
-			class := FailureTLSTransport
+			class := classifyWorkerError(err, ctx)
 			var deliveryErr *DeliveryError
 			if errors.As(err, &deliveryErr) {
 				class = deliveryErr.Class
-			} else if ctx.Err() != nil {
-				class = FailureTimeout
 			}
 			g.metrics.failed.Add(context.Background(), 1, metric.WithAttributes(attribute.String("endpoint", worker.name), attribute.String("class", string(class))))
 			// Never log URLs, headers, message content, or wrapped transport errors.
@@ -216,4 +226,11 @@ func (g *Generation) runWorker(worker *endpointWorker) {
 		}
 		cancel()
 	}
+}
+
+func classifyWorkerError(err error, ctx context.Context) FailureClass {
+	if ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return FailureTimeout
+	}
+	return FailureTLSTransport
 }

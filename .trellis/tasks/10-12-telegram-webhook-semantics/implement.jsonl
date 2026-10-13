@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Known-red behavior tests and concurrency verification"}
+{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "Pinned TDLib adapter ownership, source-fact hooks and real Linux runtime requirements"}
+{"file": ".trellis/spec/backend/docker-ci-guidelines.md", "reason": "Real image validation and explicit CI/publication boundaries"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/media-gap-baseline.md", "reason": "Repository-backed text-only envelope and source-handler/media-access gaps used by completed M01 research and pending M02 design"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/message-attachment-boundaries.md", "reason": "User-confirmed Message/Attachment/optional Relation separation; supersedes embedded media and relationship-set completeness assumptions"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/content-type-matrix.md", "reason": "Completed M01 mapping of all 74 pinned types and 201 exact top-level fields to Message facts, resource semantics, exclusions and fixture coverage"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/m01-representative-fixtures.jsonl", "reason": "Completed M01 non-wire-schema scenarios for Message-only boundaries, updates, deletion distinctions, albums and resource invariance"}
+{"file": ".trellis/tasks/10-12-telegram-webhook-semantics/research/m02-protocol-decision.md", "reason": "M02 Message-only protocol decision, cross-audit conclusions, compatibility, unknown-content and serialization-failure boundaries"}
+{"file": ".trellis/tasks/10-11-external-push-sink/research/linux-correction-verification.md", "reason": "Preserve accepted v1 correction behavior and distinguish isolated Linux evidence from pending correction CI"}

@@ -1,0 +1,531 @@
+# Current Handoff (2026-10-13)
+
+Status: active. M01 research is complete. The user explicitly approved the
+M02 Message-only v2 design on 2026-10-13, authorizing M03. The M03 wire
+schema is frozen in `research/m03-message-v2-wire-schema.md`. M03 execution
+has begun: the canonical v2 serializer core plus RED/GREEN fixtures are
+implemented on branch `feat/external-push-sink` (see M03 execution log
+below). On 2026-10-13 the user additionally authorized a takeover of this
+task with the following working rules (they supersede the older no-commit
+wording below):
+
+- Local commits on branch `feat/external-push-sink` are allowed. Record the
+  commit plan in `progress.md` before committing; use positive-framing commit
+  messages.
+- Hard stops (record a GATE line here and stop): push, PR, merge, image
+  publication, deployment, `task.py start`, and any M04/resource/Attachment/
+  byte-access work. v1 stays default; v2 is per-endpoint opt-in with no silent
+  fallback.
+- Scope: this task (M03) plus a one-time 10-11 CI-acceptance wrap-up, which is
+  done (see below).
+
+## 10-11 correction CI: ACCEPTED (2026-10-13)
+
+GitHub CI run `38212912036` on head SHA `6d7daa750fb708b86c83b12f5d5c19bc10f93eb6`
+(`ci-test.yml`, dispatched 2026-10-12T06:31:08Z) completed with conclusion
+`success`. Confirmed 2026-10-13 via `gh api` and the magpie routing log.
+Acceptance is recorded in `10-11-external-push-sink/progress.md`. The 10-11
+task remains in progress: replacement test-image publication, PR/merge and
+deployment are still an open user decision (published `dev-run12-d58909f` is
+still the text-only test build).
+
+## Deliverables (unchanged, from 2026-10-12 handoff)
+
+- PRD now defines Message facts without presupposing media download, hosting,
+  caching or byte delivery. Attachment and optional Relation product scope must
+  be decided by M01/M02 evidence before any resource transport is designed.
+- `research/message-attachment-boundaries.md` is the authoritative decision:
+  Message facts are separate from resources and optional relationships;
+  Webhook is transport behavior, while Album is a cross-Message aggregate.
+- `research/content-type-matrix.md` maps all 74 pinned MessageContent types to
+  exact source fields, Message-fact projections, resource semantics, exclusions,
+  support decisions and representative fixture coverage.
+- `research/m01-representative-fixtures.jsonl` contains 13 non-wire-schema
+  research scenarios that preserve the Message-only boundary.
+- `research/m02-protocol-decision.md` records the domain, distributed-systems
+  and evolutionary-contract cross-audit and the converged M02 decisions.
+- `design.md` now contains only the Message v2 design candidate. Attachment,
+  Relation, byte access and resource infrastructure are explicitly deferred.
+- `implement.md` orders M01-M06 with research/design approval before coding.
+- `research/media-gap-baseline.md` records repository-backed v1 gaps.
+- `implement.jsonl` and `check.jsonl` contain real spec/research contexts.
+
+M01 semantic validation passed on 2026-10-12: the pinned source contains 74
+unique MessageContent implementations and 201 top-level fields; the matrix
+contains all 74 types exactly once and reproduces their exact source fields.
+All 13 JSONL fixtures parse and contain no forbidden Attachment, Relation,
+Delivery, Album-completeness or resource-lifecycle keys inside Message.
+Document-integrity checks also cover JSON/JSONL parsing, ASCII, final newlines,
+trailing whitespace, local references and `git diff --check`. These checks
+complete M01 research only; the user's 2026-10-13 approval separately authorizes
+M03 but does not prove runtime behavior.
+
+## Optional recurring loop (NOT yet created)
+
+On 2026-10-13 a recurring Paseo schedule was designed to advance M03 in fresh
+agents (cadence `5,45 * * * *`, provider `claude/remote-magpie/group/qwen3-8-27b`,
+mode auto, max 20 runs / 2-day TTL, file-lock concurrency guard in
+`.trellis/.runtime/loops/`). Creation was blocked by the local magpie gateway's
+auto-mode safety classifier (GLM-5.3-Flash long thinking block stalling past
+the harness timeout; gateway routing log records 499 client aborts; the model
+endpoint itself probes fine). The full per-run prompt is at
+`.trellis/.runtime/loops/m03-prompt.txt` on this machine; the state file is
+`.trellis/.runtime/loops/m03-loop-state.md`. Creating the loop is optional and
+non-blocking: do it only from a session not in `auto` permission mode (or after
+the classifier issue is resolved), since `auto` mode routes every write through
+that flaky classifier.
+
+## Next Action And Boundaries
+
+M03 increments in progress (see M03 execution log). Done: serializer core
+plus RED/GREEN fixtures (commit `7750b19`), `PushTarget.schemaVersion`
+ruleset parsing and rejection (this run). Next: per-endpoint v2 projector
+wiring between handler source facts and `messagev2.MarshalNotification` at
+the delivery boundary, mixed v1/v2 endpoint behavior and endpoint-isolated
+failure tests. Keep v1 as the default; do not enter M04 resource access.
+Task-branch pushes are limited to CI evidence; final main integration
+requires explicit owner agreement followed by a pull request. `task.py start`
+requires recording intent and stopping for user approval.
+
+## Takeover execution policy update (2026-10-14)
+
+The previous loop run exhausted local memory. From this point onward, local work
+must remain lightweight: no full typecheck, whole-repository test/build/vet/race
+jobs, or parallel heavy commands. Run formatting, diff checks and narrowly scoped
+tests locally when safe; move necessary memory-heavy or Linux/CGO-dependent
+verification to the relevant GitHub Actions workflow and record the branch, commit
+SHA, workflow/run URL and result here.
+
+Non-main iteration branches are allowed for M03 traceability. A task branch may be
+pushed when needed to trigger relevant CI, but direct updates to main remain
+forbidden. Final integration requires explicit owner agreement followed by a pull
+request; the loop must not merge it.
+
+`mytokens.txt` is local secret input and is excluded through `.git/info/exclude`.
+Agents must never open, print, search, parse, diff, stage, commit, upload or archive
+it. If GitHub authentication is required, stream it directly to the consuming
+process through stdin or an equivalent non-echoing channel; never expose it in
+arguments, shell tracing, environment dumps, remotes, config, scripts or artifacts.
+
+The related correction CI is already accepted (green) as noted above; do not
+re-poll it. Future 10-11 acceptance gates are publication, not CI. This task is
+not archived, and the linked correction task remains in progress pending its
+publication gate.
+
+Planning/context files are local and uncommitted (deliberately, per user
+instruction on 2026-10-13). Commit them only through the normal reviewed
+commit-plan gate. Existing caches/tools/unrelated WIP remain untouched.
+
+## M03 execution log
+
+### 2026-10-13 — serializer core plus RED/GREEN fixtures (single immediate run)
+
+The old loop run (started 2026-10-13T16:32:41Z, no RUN END) was stopped by the
+user; its leftovers were audited and preserved, not reverted:
+
+- `internal/service/push/messagev2/model.go` (untracked, left by the old run):
+  the TDLib-free canonical v2 fact carrier. Kept unchanged; it matches the
+  frozen wire schema.
+- `go.mod` (modified, uncommitted): promotes
+  `go.opentelemetry.io/otel/sdk/metric v1.43.0` from indirect to direct.
+  `internal/service/push/metrics_test.go` (committed in 10-11) imports it, so
+  the promotion is required for `go mod` consistency. Kept and folded into the
+  serializer commit.
+
+Discriminator strings, entity/reply/origin discriminators,
+`UpdateDeleteMessages` facts and UTF-16 entity offsets were re-verified
+against the pinned `go-tdlib v0.7.6` module cache (read-only); the frozen
+schema needs no correction.
+
+Implemented in this run (new files, no v1 or handler changes):
+
+- `internal/service/push/messagev2/serializer.go`: `MarshalNotification`
+  validates projected facts and renders the frozen v2 wire JSON:
+  deterministic key order, UTC RFC3339 times, zero/nil omission semantics,
+  `has_sensitive_content` snapshot-only, delete facts only for `deleted`,
+  bounded discriminators (128 bytes, ASCII allowlist, no control
+  characters), UTF-16 offsets copied verbatim, endpoint-relevant errors
+  wrapping `ErrInvalidNotification` with bounded messages. No TDLib
+  dependency, no v1 fallback, no raw source data in output or errors.
+- `internal/service/push/messagev2/serializer_test.go`: RED/GREEN coverage
+  for the serializer increment:
+  - RED control 3: the four exact frozen wire fixtures (new text, edited
+    photo caption, delete, unknown content) compared as decoded JSON.
+  - RED control 4: nil sender/reply/origin/content handling, unsupported
+    reply discriminator, entity type validation, nil notification, unknown
+    event, zero occurred_at/chat_id/message_id, snapshot vs delete fact
+    isolation (including a deleted-with-sensitive-flag reject).
+  - RED control 5: UTF-16 offsets (65535/2) emitted verbatim; discriminator
+    accepted at exactly 128 bytes, rejected at 129; control characters,
+    non-ASCII and JSON-looking source_type rejected.
+  - RED control 6: absence set over rendered output and the frozen
+    fixtures (no raw TDLib `@type`, file_id, path, URL, credential,
+    delivery or resource-cache tokens).
+  - RED control 1 partial: v1 `event` package and `push` package tests
+    re-run and unchanged (v1 stays default and source-compatible).
+
+Local verification (lightweight, memory-bounded, GOPROXY=off, GOMAXPROCS=2):
+
+- `gofmt` clean on both new files; repo-wide `git diff --check` clean.
+- `go vet ./internal/service/push/messagev2/` clean.
+- `go test ./internal/service/push/messagev2/` — all 8 top-level tests and
+  all subtests pass (Linux/amd64; the package has no CGO dependency).
+- `go test ./internal/service/push/` (v1 envelope/webhook/manager/dispatcher
+  tests) — pass; no v1 regression from this increment.
+- No full typecheck, whole-repo test/build/vet/race was run.
+
+Commit plan (recorded before committing, per takeover policy):
+
+- Branch: `feat/external-push-sink` (existing task branch; no new branch
+  needed for this increment).
+- Commit 1 (code), message `feat: add canonical Message v2 serializer`,
+  executed as `7750b19` on `feat/external-push-sink`, including:
+  - `internal/service/push/messagev2/model.go` (preserved old-run artifact,
+    unchanged);
+  - `internal/service/push/messagev2/serializer.go` (new);
+  - `internal/service/push/messagev2/serializer_test.go` (new);
+  - `go.mod` (otel sdk/metric indirect-to-direct promotion, required by the
+    committed 10-11 metrics test).
+- Commit 2 (docs), message `docs: record M03 serializer increment and 10-11
+  correction CI acceptance`, including:
+  - `.trellis/tasks/10-12-telegram-webhook-semantics/` (task directory:
+    prd, design, implement, progress, task.json, research records and jsonl
+    contexts) — first commit of this task's records;
+  - the recorded 10-11 CI-acceptance doc updates (progress.md, implement.md,
+    task.json, research/linux-correction-verification.md) folded in per the
+    m03-prompt one-time wrap-up.
+- Both commits end with the required `Co-Authored-By` line from
+  `m03-prompt.txt`.
+- Excluded from both commits (intentionally left as-is):
+  - `.trellis/.runtime/` (loop prompt/state package, local-only),
+    `.trellis/.developer`, `.trellis/scripts/`;
+  - `go.sum` (unchanged; the version was already present);
+  - the 10-11 evidence archives (`linux-correction.tgz`, `linux-files.txt`,
+    `linux-source.tgz`, `validation-evidence.tgz`): untracked, not part of
+    this increment;
+  - `.tmp-go-cache/`, `.zvec-grep/`, `probe.js`, `ruleset.yml`,
+    `mytokens.txt` (secret, excluded via `.git/info/exclude`): untouched and
+    untracked.
+- No push, PR, merge, image publication, deployment, `task.py start` and no
+  M04 work in this run.
+
+Next action: M03 increment 2 — per-endpoint `schemaVersion` ruleset parsing
+(absent/zero/explicit-1 => v1, explicit 2 => v2, other values reject the
+ruleset) plus projector wiring between the handler source facts and
+`messagev2.MarshalNotification` at the delivery boundary. (Increment 2
+split: ruleset parsing lands this run; projector wiring is the next
+increment. Push of this task branch is for CI evidence of the Linux/CGO
+packages, which cannot be compiled locally.)
+
+### 2026-10-13 — PushTarget schemaVersion ruleset parsing (single immediate run, increment 2a)
+
+Scope: per-endpoint webhook schema selection at the ruleset boundary.
+`internal/domain` and `internal/infra/ruleset` transitively import
+`go-tdlib` (cgo, linux/darwin: `domain/params.go` imports `client`), so
+these packages cannot be compiled or tested on this Linux box without the
+TDLib headers (`td_json_client.h` missing; `CGO_ENABLED=0` also fails with
+undefined `meta`/`JsonInt64`). That is the documented environment
+limitation, not a red; the focused package tests move to `ci-test.yml`.
+
+Changes (no v1 wire change, no handler change, no Telegram behavior change):
+
+- `internal/domain/ruleset.go`:
+  - `PushTarget.SchemaVersion` field (`yaml:"schemaVersion"`);
+  - `ErrInvalidSchemaVersion` sentinel;
+  - `(*PushTarget).EffectiveSchemaVersion()`: absent/0 => 1 (v1 default),
+    explicit 1 => 1, explicit 2 => 2 (Message-only v2 opt-in), any other
+    value rejected with a bounded error wrapping the sentinel. The
+    resolution is the single canonical authority used by the loader and
+    (later) by the delivery boundary.
+- `internal/infra/ruleset/repo.go`: `validate()` rejects a ruleset whose
+  any push target requests an unsupported `schemaVersion`, naming the
+  target. This makes "any other value is invalid and rejects the ruleset"
+  (frozen wire schema) true at load time; a v2 failure therefore can never
+  silently fall back to v1, because such a ruleset never loads.
+- `internal/domain/ruleset_test.go` (new): `EffectiveSchemaVersion` table —
+  absent/1/2 accepted, -1/3/99 rejected (sentinel match).
+- `internal/infra/ruleset/push_schema_test.go` (new): `validate()` RED
+  table — -1/3/20 reject (error names `schemaVersion`), absent/1/2 accept;
+  plus a mixed-target case proving the error names the offending target
+  (`"bad"`), not a valid sibling.
+
+Local verification (lightweight, memory-bounded, GOPROXY=off):
+
+- `gofmt` clean on all four touched files; `git diff --check` clean; new
+  test files ASCII-clean.
+- `go test ./internal/service/push/...` (pure Go, unaffected packages) —
+  green; no regression.
+- `go vet`/`go test` for `internal/domain` and
+  `internal/infra/ruleset` are NOT runnable locally (TDLib cgo headers
+  absent — limitation above). The RED state could not be executed locally
+  for the same reason; the rejection tests are constructed to pass only
+  with the new validation (absent/1/2 accept cases would also pass
+  without it, so the reject cases carry the red).
+
+Commit plan (recorded before committing, per takeover policy):
+
+- Branch: `feat/external-push-sink` (existing task branch).
+- Commit 1 (code), message `feat: add per-endpoint push schemaVersion
+  selection`, including exactly:
+  - `internal/domain/ruleset.go`;
+  - `internal/infra/ruleset/repo.go`;
+  - `internal/domain/ruleset_test.go` (new);
+  - `internal/infra/ruleset/push_schema_test.go` (new).
+- Push the task branch to `origin` for CI evidence (authorized for this
+  task; branch only, never main). The push triggers no workflow
+  automatically (`ci-test` pushes on main only, `docker-publish` on
+  version tags only).
+- Push the task branch to `origin` for CI evidence (authorized for this
+  task; branch only, never main). The push triggers no workflow
+  automatically (`ci-test` pushes on main only, `docker-publish` on
+  version tags only). Executed: `git push origin feat/external-push-sink`
+  advanced the remote `6d7daa7..76a6f45`. The token reached git only as the
+  stdout of a `700`-mode `GIT_ASKPASS` helper that `cat`s `mytokens.txt`;
+  it was not printed, placed in argv/env/trace/URL, and the helper was
+  deleted immediately after.
+- CI: dispatched `ci-test.yml` via `workflow_dispatch` against
+  `feat/external-push-sink` (tip `76a6f45`; a SHA dispatch returned
+  `422 No ref found` twice immediately after push, so the branch name was
+  used — its tip is the exact code commit). The token was passed to `gh`
+  through a non-echoing command substitution; it was not printed, staged,
+  committed, archived or placed in any config.
+  - Branch: `feat/external-push-sink`
+  - Commit SHA: `76a6f45c9bad2a74152f96a5c4da19a4ba1f3008`
+  - Workflow: `ci-test.yml`
+  - Run: https://github.com/killbus/budva/actions/runs/38470869938
+    (databaseId 38470869938, created 2026-10-13T21:28:29Z)
+  - Steps: `go vet ./...` then `go test ./internal/...` on ubuntu-latest
+    with cached TDLib (key `tdlib-22d49d5-amd64`).
+  - Result: **success** (job `test` conclusion `success`; covers both
+    `go vet ./...` and `go test ./internal/...`). Completed within ~45s of
+    creation (TDLib cache hit). This is the Linux/CGO evidence that the
+    `internal/domain` and `internal/infra/ruleset` packages compile and the
+    new `schemaVersion` RED/GREEN tests pass.
+
+CI acceptance (increment 2a): the focused package tests that cannot run
+locally (TDLib cgo headers absent) are green on Linux CI at
+`76a6f45`. The serializer increment (`7750b19`) is pure Go and was verified
+locally. No v1 wire change, no handler change, no Telegram behavior change
+in either increment.
+
+Remaining M03 after this run: per-endpoint v2 projector wiring between the
+handler source facts and `messagev2.MarshalNotification` at the delivery
+boundary, mixed v1/v2 endpoint behavior, endpoint-isolated serialization
+failure (no v1 fallback), and the remaining RED controls (7, 8, 10). This is
+the next increment; M04 resource access remains forbidden.
+- Commit 2 (docs), message `docs: record M03 schemaVersion increment and
+  CI evidence`, including:
+  - `.trellis/tasks/10-12-telegram-webhook-semantics/progress.md` (this
+    entry with the CI run URL and result);
+  - `.trellis/tasks/10-12-telegram-webhook-semantics/task.json` (notes:
+    increment 2a status and branch/SHA/CI evidence).
+- Excluded: `.trellis/.runtime/`, caches, archives, `probe.js`,
+  `mytokens.txt` (secret, excluded) — untouched and untracked.
+- No push to main, no PR, no merge, no image publication, no release tag,
+  no deployment, no `task.py start`, no M04 work.
+
+## Takeover Increment 3 (M03 delivery-boundary wiring) — 2026-10-14
+
+Takeover of an interrupted context. No schedule/heartbeat created; no
+worktree created or switched; the existing dirty worktree is preserved.
+
+### Takeover review (phase 1)
+
+Baseline confirmed: HEAD `3007040` matches expected and `origin` tracks it;
+branch `feat/external-push-sink`. The prior draft was 17 tracked modifications
++ 2 new files, all consistent with M03 delivery-boundary wiring. No
+unexplained or out-of-scope changes found; no M04 (Attachment/Relation/media
+bytes/cache/URL/token/resource lifecycle) introduced. Draft was coherent and
+compiles for the pure-Go `internal/service/push/...` packages.
+
+Findings on the prior draft:
+- `internal/service/push/webhook.go` lost its sink body and
+  `classifyDeliveryError`; both were re-homed into the new `delivery.go`
+  together with the `RenderPayload` delivery-boundary renderer and the
+  `FailureSerialization` class. No behavior removed; this is the intended
+  M03 wiring.
+- `event.Sink`/`Submitter`/`RenderedEnvelope` and `push` aliases widened the
+  carrier to carry both the v1 `Envelope` and the optional v2
+  `*messagev2.Notification`. This is the minimal delivery-boundary interface
+  spread required for per-endpoint schema selection; it is not M04.
+- `messagev2.ValidateDiscriminator`/`ValidateBoundedString` exported so the
+  source projection can bound optional strings before emission. Consistent
+  with the frozen wire schema.
+- `projection_v2.go` is a pure source projection (no TDLib in the wire, no
+  endpoint config, no serialization). Matches the frozen M03 wire schema.
+
+### Corrections applied to the draft (minimal)
+
+1. `internal/app/handler/push_test.go:83` — fixed a leftover six-argument
+   `OnDeletedMessages` call (two stray `false`s) to the correct five-argument
+   signature `(chatID, ids, isPermanent, fromCache)`; this was a compile
+   break.
+2. `internal/app/handler/doc.go` — updated the `OnDeletedMessages` usage
+   example to the five-argument signature.
+
+No draft file was deleted, reverted or overwritten. Untracked caches,
+`.trellis/.runtime`, archives, `probe.js` and `mytokens.txt` were left
+untouched.
+
+### Changes added by this increment (minimal)
+
+- `internal/app/handler/projection_v2_test.go` (new): RED for the source
+  projection — bounded v2 facts (pinned content, bounded entities, unknown
+  content without raw TDLib data, delete facts without synthesized snapshot
+  facts). Runs on Linux/CGO CI.
+- `internal/service/push/webhook_test.go`: RED 7 (`MixedSchemasRenderPer
+  Endpoint`) and RED 8 (`V2FailureIsEndpointIsolated`) — v1 keeps the exact
+  default wire, explicit `schemaVersion=2` emits v2, and a v2
+  projection/serialization failure fails only the v2-selected endpoint with
+  the `serialization` class and never falls back to v1/raw/text-only.
+- `internal/app/handler/push_test.go`: `serialization` added to the
+  `TestPush_TelegramInvariance` outcome loop (RED 10 — a
+  serialization-class delivery failure leaves Telegram copy/forward/delete
+  untouched), plus `TestPush_MixedEndpointsDeliverSelectedSchemas` (RED 7 at
+  the handler boundary) and `TestPush_V2FailureIsEndpointIsolated` (RED 8 at
+  the handler boundary, real sinks + real projection).
+
+M04 remains untouched: no Attachment, Relation, media bytes, cache, URL,
+token or resource lifecycle.
+
+### Local verification (memory-bounded, GOPROXY=off, CGO_ENABLED=0)
+
+- `gofmt` clean on all touched files; `git diff --check` clean; new test
+  files ASCII-clean.
+- `go test ./internal/service/push/...` (pure Go) — green, including the new
+  RED 7/8 sink tests.
+- `internal/app/handler` and `cmd/engine` depend on TDLib cgo and cannot be
+  compiled or executed locally (TDLib headers absent). Their RED 10 / handler
+  RED 7/8 / projection tests are carried by the existing GitHub Actions
+  Linux CI (cached TDLib), dispatched after push.
+
+### Commit plan (recorded before committing)
+
+- Branch: `feat/external-push-sink` (existing task branch; no main touch).
+- Commit 1 (code), message `feat: wire v2 webhook schema at the delivery
+  boundary`, exactly the M03 delivery-boundary scope:
+  - `cmd/engine/main.go`
+  - `internal/app/handler/projection_v2.go` (new)
+  - `internal/app/handler/projection_v2_test.go` (new)
+  - `internal/app/handler/service.go`
+  - `internal/app/handler/push_test.go`
+  - `internal/app/handler/push_coverage_test.go`
+  - `internal/app/handler/service_test.go`
+  - `internal/app/handler/doc.go`
+  - `internal/service/push/delivery.go` (new)
+  - `internal/service/push/dispatcher.go`
+  - `internal/service/push/dispatcher_test.go`
+  - `internal/service/push/envelope.go`
+  - `internal/service/push/envelope_test.go`
+  - `internal/service/push/event/envelope.go`
+  - `internal/service/push/messagev2/serializer.go`
+  - `internal/service/push/metrics_test.go`
+  - `internal/service/push/webhook.go`
+  - `internal/service/push/webhook_test.go`
+  - `internal/service/push/webhook_security_test.go`
+  - `internal/test/support/live_stack.go`
+  - `test/bdd/suite/steps_05_sync.go`
+- Excluded from the commit: `.tmp-go-cache/`, `.trellis/.runtime/`,
+  `.trellis/scripts/`, `.trellis/.developer`, `.trellis/tasks/*/…tgz`,
+  `.zvec-grep/`, `probe.js`, and `mytokens.txt` (secret, git-excluded) — all
+  left untracked.
+- Push `feat/external-push-sink` to `origin` for CI evidence (branch only),
+  then dispatch `ci-test.yml` via `workflow_dispatch`. Token via non-echoing
+  askpass/stdin only; never in argv/env/trace/URL/config. Then record the
+  branch, code commit SHA, workflow/run URL, result and residual risk here.
+- No `task.py start`, no merge, no PR, no image publication, no release tag,
+  no deployment, no M04 work.
+
+### Commit 1 landed and first CI result
+
+- Commit 1 `8896f35` "feat: wire v2 webhook schema at the delivery boundary"
+  pushed to `origin/feat/external-push-sink` (branch only).
+- CI run 38515803215 (https://github.com/killbus/budva/actions/runs/38515803215)
+  FAILED: `go test ./internal/...` — `internal/app/handler` timed out at the
+  600s package limit. Goroutine dump: TLS `persistConn` goroutines blocked
+  inside the `synctest.Test` bubble created by the two new handler tests
+  (`TestPush_MixedEndpointsDeliverSelectedSchemas`,
+  `TestPush_V2FailureIsEndpointIsolated`). Repo convention (see
+  `TestPush_ProductionHooksDeliverCanonicalWebhook`) is real-TLS-server
+  tests without synctest; synctest only with pure transports. All other
+  packages (including `internal/service/push` and `messagev2`) passed;
+  `go vet ./...` passed.
+
+### Commit 2 (fix) — recorded before committing
+
+- Commit 2, message `fix: run mixed-schema webhook tests without synctest`,
+  exactly one file: `internal/app/handler/push_test.go`.
+- Change: drop the `synctest.Test` wrapper from the two mixed/v2-failure
+  handler tests (dedent, remove `synctest.Wait()`), and call `g.Retire()`
+  (which joins all sink workers) before draining the buffered body
+  channels; `Retire()` is idempotent. Bodies are recorded by each sink
+  before the response returns, so after `Retire()` all three bodies per
+  endpoint are in the buffered channels. Assertions unchanged.
+  `TestPush_TelegramInvariance` and the synctest-only pure-transport tests
+  are untouched.
+- Local verification (memory-bounded, GOPROXY=off, CGO_ENABLED=0):
+  gofmt clean on the touched file, `git diff --check` clean,
+  `go test ./internal/service/push/...` green. Handler package still cannot
+  compile locally (TDLib cgo); CI is the arbiter for the handler tests.
+### Commit 2 CI result and commit 3 (fix)
+
+- Commit 2 `d1e6a75` pushed; CI run 38518089554
+  (https://github.com/killbus/budva/actions/runs/38518089554) FAILED but the
+  synctest deadlock is gone: `internal/app/handler` now runs in 1.1s (previously
+  a 600s package timeout). `go vet ./...` passed; `internal/service/push` and
+  `messagev2` green.
+- Sole failure: `TestV2Projection_DeleteCarriesOnlyDeleteFacts`
+  (`internal/app/handler/projection_v2_test.go:133`) asserted a literal
+  `"delete":{"is_permanent":true,"from_cache":false}` substring, but
+  `encoding/json` sorts object keys alphabetically, so the wire bytes are
+  `{"delete":{"from_cache":false,"is_permanent":true}}`. The frozen schema
+  document (`research/m03-message-v2-wire-schema.md`, JSON example) is
+  semantically identical: both delete flags always present. This is a test
+  bug, not a serializer regression.
+- Commit 3, message `fix: assert delete facts semantically in v2 projection
+  test`, exactly one file: `internal/app/handler/projection_v2_test.go`.
+  The assertion now checks `"delete":{`, `"is_permanent":true` and
+  `"from_cache":false` independently (matching the CI-observed wire bytes)
+  and keeps the negative `sent_at` / `content` assertions. No production
+  code touched; serializer and frozen schema unchanged.
+- Local verification: gofmt clean on the touched file, `git diff --check`
+  clean, `go test ./internal/service/push/...` green. Handler package still
+  CI-only (TDLib cgo); the fixed assertion is verified against the exact
+  wire bytes emitted in run 38518089554.
+### Commit 3 CI result — M03 increment 3 evidence
+
+- Commit 3 `81a5ae9` "fix: assert delete facts semantically in v2 projection
+  test" pushed to `origin/feat/external-push-sink` (branch only).
+- CI run 38518657912
+  (https://github.com/killbus/budva/actions/runs/38518657912) on
+  `feat/external-push-sink` @ `81a5ae920908f1bd36abe6e714bc051c6e8f399a`:
+  **success** (workflow_dispatch, ci-test.yml, `test` job success:
+  `go vet ./...` + `go test ./internal/...` on Linux with cached TDLib).
+- Validation coverage of this run:
+  - `internal/app/handler`: RED 7 at the handler boundary
+    (`TestPush_MixedEndpointsDeliverSelectedSchemas`), RED 8 at the handler
+    boundary (`TestPush_V2FailureIsEndpointIsolated`, failing v2 transport
+    records a v2 body, no v1/raw/text fallback), RED 10
+    (`TestPush_TelegramInvariance` with the added `serialization` outcome and
+    strict Telegram mocks for copy/forward/delete), production canonical
+    webhook test, and all `projection_v2_test.go` source-projection REDs
+    (unknown content without raw TDLib data, bounded discriminators, delete
+    facts only).
+  - `internal/service/push`: RED 7/8 sink tests, schemaVersion ruleset
+    (0/empty→v1, 1=v1, 2=v2, others rejected), security/redirect/timeout
+    tests; `messagev2` frozen fixtures and validation all green.
+  - Handler package runtime: ~1s (synctest deadlock from run 38518089554 is
+    gone; that run had proven the deadlock fix, this run is the arbiter for
+    the semantic delete-fact fix).
+
+### M03 closure assessment
+
+M03 is CLOSED for this increment chain: the approved canonical serializer
+(increment 1, `7750b19`), per-endpoint schemaVersion opt-in with rejection
+(increment 2, `76a6f45`, CI 38470869938), and delivery-boundary wiring
+(increment 3: `8896f35` + test-only fixes `d1e6a75`, `81a5ae9`, CI
+38518657912) are all committed on the task branch and green in CI.
+`implement.md` M03 checkbox checked. Residual risk: none known inside M03
+scope; M04 (Attachment/Relation/media bytes/cache/URL/token/lifecycle)
+remains untouched and forbidden; M05/M06 are separate plan items. No main
+merge, PR, image, tag or deployment performed.

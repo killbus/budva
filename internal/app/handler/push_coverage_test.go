@@ -52,7 +52,7 @@ func TestPush_WebhookOnlySourceLifecycle(t *testing.T) {
 	state.EXPECT().GetCopiedMessageIDs(int64(100), int64(1)).Return(nil).Twice()
 	h.OnNewMessage(context.Background(), msg)
 	h.OnEditedMessage(context.Background(), msg)
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 	q.ProcessAll()
 	require.Len(t, capture.submissions, 3)
 	for i, kind := range []event.Event{event.EventNew, event.EventEdited, event.EventDeleted} {
@@ -124,7 +124,7 @@ func TestPush_AlbumNewDoesNotSupersedeEditsOrDeletes(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 		h.OnEditedMessage(context.Background(), edited)
 		time.Sleep(time.Second)
-		h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+		h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 		q.ProcessAll()
 		require.Len(t, capture.submissions, 4)
 		for i, kind := range []event.Event{event.EventNew, event.EventNew, event.EventEdited, event.EventDeleted} {

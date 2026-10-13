@@ -127,6 +127,7 @@ func RegisterSyncSteps(ctx *godog.ScenarioContext, s *State) {
 			s.Env.SourceID,
 			[]int64{s.SentMsg.Id},
 			true,
+			false,
 		)
 		if s.SkipRetryDrain {
 			s.Env.Queue.ProcessBatch()

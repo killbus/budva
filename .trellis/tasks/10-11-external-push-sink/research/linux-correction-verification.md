@@ -98,6 +98,12 @@ directory from whitespace validation to preserve its original bytes.
 
 This run is not GitHub CI or actual-account facade acceptance. The historical
 `ghcr.io/killbus/budva:dispatch-test` / `dev-run12-d58909f` image is unchanged.
-After separate push/publication authorization, require green GitHub CI
-before a replacement test image, and record its immutable digest and embedded
-version. Main merge and production deployment remain separate gates.
+After subsequent push authorization, both approved commits were pushed and
+`ci-test.yml` was dispatched at `2026-10-12T06:31:08Z` on
+`6d7daa750fb708b86c83b12f5d5c19bc10f93eb6`:
+https://github.com/killbus/budva/actions/runs/38212912036
+Observed status: `queued`; the user requested no waiting. The isolated evidence
+above does not substitute for this run's result. Require green GitHub CI before
+deciding a replacement test image, then record its immutable digest and embedded
+version. No Docker workflow was dispatched. Main merge and production deployment
+remain separate gates.

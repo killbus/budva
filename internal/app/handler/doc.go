@@ -10,7 +10,7 @@
 //
 //	h.OnNewMessage(ctx, msg)
 //	h.OnEditedMessage(ctx, msg)
-//	h.OnDeletedMessages(ctx, chatID, messageIDs, isPermanent)
+//	h.OnDeletedMessages(ctx, chatID, messageIDs, isPermanent, fromCache)
 //	h.OnMessageSendSucceeded(chatID, oldID, newID)
 //
 // Пакет не читает переменные окружения напрямую.

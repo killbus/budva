@@ -21,3 +21,7 @@ type Envelope = event.Envelope
 
 // Sink performs one delivery attempt for an accepted envelope.
 type Sink = event.Sink
+
+// RenderedEnvelope carries the v1 envelope and the optional v2 projection
+// from the source boundary to the endpoint-selected renderer.
+type RenderedEnvelope = event.RenderedEnvelope

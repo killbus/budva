@@ -14,6 +14,7 @@ import (
 
 	"github.com/pure-golang/budva-claude/internal/domain"
 	"github.com/pure-golang/budva-claude/internal/service/push/event"
+	"github.com/pure-golang/budva-claude/internal/service/push/messagev2"
 )
 
 // telegramRepo — частично применяемый интерфейс к infra/telegram.
@@ -107,8 +108,10 @@ type runtimeSnapshot struct {
 }
 
 type sourceEmission struct {
-	push       event.Submitter
-	occurredAt time.Time
+	push        event.Submitter
+	occurredAt  time.Time
+	isPermanent bool
+	fromCache   bool
 }
 
 // New создаёт новый экземпляр обработчика обновлений.
@@ -195,7 +198,7 @@ func (s *Service) handleUpdate(ctx context.Context, update client.Type) {
 			s.OnEditedMessage(ctx, msg)
 		}(u.ChatId, u.MessageId)
 	case *client.UpdateDeleteMessages:
-		s.OnDeletedMessages(ctx, u.ChatId, u.MessageIds, u.IsPermanent)
+		s.OnDeletedMessages(ctx, u.ChatId, u.MessageIds, u.IsPermanent, u.FromCache)
 	case *client.UpdateMessageSendSucceeded:
 		if u.Message == nil {
 			return
@@ -279,7 +282,7 @@ func (s *Service) OnEditedMessage(ctx context.Context, msg *client.Message) {
 }
 
 // OnDeletedMessages обрабатывает удаление сообщений.
-func (s *Service) OnDeletedMessages(ctx context.Context, chatID int64, messageIDs []int64, isPermanent bool) {
+func (s *Service) OnDeletedMessages(ctx context.Context, chatID int64, messageIDs []int64, isPermanent, fromCache bool) {
 	if !isPermanent {
 		return
 	}
@@ -291,7 +294,7 @@ func (s *Service) OnDeletedMessages(ctx context.Context, chatID int64, messageID
 		return
 	}
 
-	emission := &sourceEmission{push: rs.push, occurredAt: time.Now().UTC()}
+	emission := &sourceEmission{push: rs.push, occurredAt: time.Now().UTC(), isPermanent: isPermanent, fromCache: fromCache}
 	s.taskQueue.Add(func() {
 		s.deleteMessagesWithRetry(ctx, rs.RuleSet, chatID, messageIDs, 0, emission)
 	})
@@ -318,10 +321,11 @@ func (s *Service) processMessage(ctx context.Context, rs *domain.RuleSet, ruleID
 	switch mode {
 	case domain.FiltersOK:
 		if len(submitters) != 0 && submitters[0] != nil {
-			submitters[0].Submit(rule.PushTo, event.Envelope{
+			occurredAt := time.Now().UTC()
+			submitters[0].SubmitV2(rule.PushTo, event.Envelope{
 				SchemaVersion: event.SchemaVersion, Event: event.EventNew,
-				ChatID: msg.ChatId, MessageID: msg.Id, OccurredAt: time.Now().UTC(), Text: text.Text,
-			})
+				ChatID: msg.ChatId, MessageID: msg.Id, OccurredAt: occurredAt, Text: text.Text,
+			}, v2SnapshotFor(msg, messagev2.EventNew, occurredAt))
 		}
 		isFirstDst := true
 		for _, dstChatID := range rule.To {
@@ -576,10 +580,10 @@ func (s *Service) processMediaAlbum(ctx context.Context, albumKey string, rs *do
 				if text == nil || s.filterService.Evaluate(text.Text, rule) != domain.FiltersOK {
 					continue
 				}
-				submitters[0].Submit(rule.PushTo, event.Envelope{
+				submitters[0].SubmitV2(rule.PushTo, event.Envelope{
 					SchemaVersion: event.SchemaVersion, Event: event.EventNew,
 					ChatID: msg.ChatId, MessageID: msg.Id, OccurredAt: occurredAt, Text: text.Text,
-				})
+				}, v2SnapshotFor(msg, messagev2.EventNew, occurredAt))
 			}
 		}
 
@@ -705,7 +709,8 @@ func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *cli
 				names = append(names, rule.PushTo...)
 			}
 		}
-		emission.submit(names, event.EventEdited, msg.ChatId, msg.Id, text.Text)
+		emission.submitV2(names, event.EventEdited, msg.ChatId, msg.Id, text.Text,
+			v2SnapshotFor(msg, messagev2.EventEdited, emission.occurredAt))
 	}
 
 	_, isText := msg.Content.(*client.MessageText)
@@ -812,7 +817,8 @@ func (s *Service) deleteMessages(_ context.Context, rs *domain.RuleSet, chatID i
 				continue
 			}
 			seen[msgID] = struct{}{}
-			emissions[0].submit(names, event.EventDeleted, chatID, msgID, "")
+			emissions[0].submitV2(names, event.EventDeleted, chatID, msgID, "",
+				v2DeleteFor(chatID, msgID, emissions[0].isPermanent, emissions[0].fromCache, emissions[0].occurredAt))
 		}
 	}
 
@@ -867,11 +873,11 @@ func (s *Service) deleteMessages(_ context.Context, rs *domain.RuleSet, chatID i
 	return needRetry
 }
 
-func (e *sourceEmission) submit(names []string, kind event.Event, chatID, messageID int64, text string) {
-	e.push.Submit(names, event.Envelope{
+func (e *sourceEmission) submitV2(names []string, kind event.Event, chatID, messageID int64, text string, v2 *messagev2.Notification) {
+	e.push.SubmitV2(names, event.Envelope{
 		SchemaVersion: event.SchemaVersion, Event: kind, ChatID: chatID,
 		MessageID: messageID, OccurredAt: e.occurredAt, Text: text,
-	})
+	}, v2)
 }
 
 // copyRef содержит разобранную ссылку на копию сообщения формата "ruleID:dstChatID:tmpMsgID".

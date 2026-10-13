@@ -147,11 +147,21 @@ func run() error {
 			if target.TimeoutSeconds > 0 {
 				timeout = time.Duration(target.TimeoutSeconds) * time.Second
 			}
+			schema, err := target.EffectiveSchemaVersion()
+			if err != nil {
+				// The ruleset loader already rejects unsupported schemaVersion
+				// values, so this default is unreachable in practice; keep a
+				// v1 fallback rather than failing the whole generation load.
+				logger.Warn("Invalid push target schemaVersion; defaulting to v1",
+					slog.String("target", name), slog.Any("err", err))
+				schema = 1
+			}
 			configs[name] = push.EndpointConfig{
 				Timeout: timeout,
 				Sink: push.NewWebhookSink(push.WebhookConfig{
 					URL: target.URL, Headers: target.Headers, HMACSecret: target.HMACSecret,
 					Client: &http.Client{Timeout: timeout},
+					Schema: push.DeliverySchemaVersion(schema),
 				}),
 			}
 		}
