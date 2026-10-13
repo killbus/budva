@@ -77,11 +77,15 @@ that flaky classifier.
 
 ## Next Action And Boundaries
 
-Resume M03: verify exact canonical field names and source availability for
-edit/delete, freeze the v2 wire-schema fixtures, then implement M03 with
-RED/GREEN tests. Keep v1 as the default; do not enter M04 resource access.
-Do not push, publish an image, merge or deploy. `task.py start` requires
-recording intent and stopping for user approval.
+M03 increments in progress (see M03 execution log). Done: serializer core
+plus RED/GREEN fixtures (commit `7750b19`), `PushTarget.schemaVersion`
+ruleset parsing and rejection (this run). Next: per-endpoint v2 projector
+wiring between handler source facts and `messagev2.MarshalNotification` at
+the delivery boundary, mixed v1/v2 endpoint behavior and endpoint-isolated
+failure tests. Keep v1 as the default; do not enter M04 resource access.
+Task-branch pushes are limited to CI evidence; final main integration
+requires explicit owner agreement followed by a pull request. `task.py start`
+requires recording intent and stopping for user approval.
 
 ## Takeover execution policy update (2026-10-14)
 
@@ -208,7 +212,114 @@ Commit plan (recorded before committing, per takeover policy):
 Next action: M03 increment 2 — per-endpoint `schemaVersion` ruleset parsing
 (absent/zero/explicit-1 => v1, explicit 2 => v2, other values reject the
 ruleset) plus projector wiring between the handler source facts and
-`messagev2.MarshalNotification` at the delivery boundary. Push of this task
-branch for CI evidence remains possible only when a relevant workflow check
-is required; none is required for this pure-Go increment until the handler
-wiring lands.
+`messagev2.MarshalNotification` at the delivery boundary. (Increment 2
+split: ruleset parsing lands this run; projector wiring is the next
+increment. Push of this task branch is for CI evidence of the Linux/CGO
+packages, which cannot be compiled locally.)
+
+### 2026-10-13 — PushTarget schemaVersion ruleset parsing (single immediate run, increment 2a)
+
+Scope: per-endpoint webhook schema selection at the ruleset boundary.
+`internal/domain` and `internal/infra/ruleset` transitively import
+`go-tdlib` (cgo, linux/darwin: `domain/params.go` imports `client`), so
+these packages cannot be compiled or tested on this Linux box without the
+TDLib headers (`td_json_client.h` missing; `CGO_ENABLED=0` also fails with
+undefined `meta`/`JsonInt64`). That is the documented environment
+limitation, not a red; the focused package tests move to `ci-test.yml`.
+
+Changes (no v1 wire change, no handler change, no Telegram behavior change):
+
+- `internal/domain/ruleset.go`:
+  - `PushTarget.SchemaVersion` field (`yaml:"schemaVersion"`);
+  - `ErrInvalidSchemaVersion` sentinel;
+  - `(*PushTarget).EffectiveSchemaVersion()`: absent/0 => 1 (v1 default),
+    explicit 1 => 1, explicit 2 => 2 (Message-only v2 opt-in), any other
+    value rejected with a bounded error wrapping the sentinel. The
+    resolution is the single canonical authority used by the loader and
+    (later) by the delivery boundary.
+- `internal/infra/ruleset/repo.go`: `validate()` rejects a ruleset whose
+  any push target requests an unsupported `schemaVersion`, naming the
+  target. This makes "any other value is invalid and rejects the ruleset"
+  (frozen wire schema) true at load time; a v2 failure therefore can never
+  silently fall back to v1, because such a ruleset never loads.
+- `internal/domain/ruleset_test.go` (new): `EffectiveSchemaVersion` table —
+  absent/1/2 accepted, -1/3/99 rejected (sentinel match).
+- `internal/infra/ruleset/push_schema_test.go` (new): `validate()` RED
+  table — -1/3/20 reject (error names `schemaVersion`), absent/1/2 accept;
+  plus a mixed-target case proving the error names the offending target
+  (`"bad"`), not a valid sibling.
+
+Local verification (lightweight, memory-bounded, GOPROXY=off):
+
+- `gofmt` clean on all four touched files; `git diff --check` clean; new
+  test files ASCII-clean.
+- `go test ./internal/service/push/...` (pure Go, unaffected packages) —
+  green; no regression.
+- `go vet`/`go test` for `internal/domain` and
+  `internal/infra/ruleset` are NOT runnable locally (TDLib cgo headers
+  absent — limitation above). The RED state could not be executed locally
+  for the same reason; the rejection tests are constructed to pass only
+  with the new validation (absent/1/2 accept cases would also pass
+  without it, so the reject cases carry the red).
+
+Commit plan (recorded before committing, per takeover policy):
+
+- Branch: `feat/external-push-sink` (existing task branch).
+- Commit 1 (code), message `feat: add per-endpoint push schemaVersion
+  selection`, including exactly:
+  - `internal/domain/ruleset.go`;
+  - `internal/infra/ruleset/repo.go`;
+  - `internal/domain/ruleset_test.go` (new);
+  - `internal/infra/ruleset/push_schema_test.go` (new).
+- Push the task branch to `origin` for CI evidence (authorized for this
+  task; branch only, never main). The push triggers no workflow
+  automatically (`ci-test` pushes on main only, `docker-publish` on
+  version tags only).
+- Push the task branch to `origin` for CI evidence (authorized for this
+  task; branch only, never main). The push triggers no workflow
+  automatically (`ci-test` pushes on main only, `docker-publish` on
+  version tags only). Executed: `git push origin feat/external-push-sink`
+  advanced the remote `6d7daa7..76a6f45`. The token reached git only as the
+  stdout of a `700`-mode `GIT_ASKPASS` helper that `cat`s `mytokens.txt`;
+  it was not printed, placed in argv/env/trace/URL, and the helper was
+  deleted immediately after.
+- CI: dispatched `ci-test.yml` via `workflow_dispatch` against
+  `feat/external-push-sink` (tip `76a6f45`; a SHA dispatch returned
+  `422 No ref found` twice immediately after push, so the branch name was
+  used — its tip is the exact code commit). The token was passed to `gh`
+  through a non-echoing command substitution; it was not printed, staged,
+  committed, archived or placed in any config.
+  - Branch: `feat/external-push-sink`
+  - Commit SHA: `76a6f45c9bad2a74152f96a5c4da19a4ba1f3008`
+  - Workflow: `ci-test.yml`
+  - Run: https://github.com/killbus/budva/actions/runs/38470869938
+    (databaseId 38470869938, created 2026-10-13T21:28:29Z)
+  - Steps: `go vet ./...` then `go test ./internal/...` on ubuntu-latest
+    with cached TDLib (key `tdlib-22d49d5-amd64`).
+  - Result: **success** (job `test` conclusion `success`; covers both
+    `go vet ./...` and `go test ./internal/...`). Completed within ~45s of
+    creation (TDLib cache hit). This is the Linux/CGO evidence that the
+    `internal/domain` and `internal/infra/ruleset` packages compile and the
+    new `schemaVersion` RED/GREEN tests pass.
+
+CI acceptance (increment 2a): the focused package tests that cannot run
+locally (TDLib cgo headers absent) are green on Linux CI at
+`76a6f45`. The serializer increment (`7750b19`) is pure Go and was verified
+locally. No v1 wire change, no handler change, no Telegram behavior change
+in either increment.
+
+Remaining M03 after this run: per-endpoint v2 projector wiring between the
+handler source facts and `messagev2.MarshalNotification` at the delivery
+boundary, mixed v1/v2 endpoint behavior, endpoint-isolated serialization
+failure (no v1 fallback), and the remaining RED controls (7, 8, 10). This is
+the next increment; M04 resource access remains forbidden.
+- Commit 2 (docs), message `docs: record M03 schemaVersion increment and
+  CI evidence`, including:
+  - `.trellis/tasks/10-12-telegram-webhook-semantics/progress.md` (this
+    entry with the CI run URL and result);
+  - `.trellis/tasks/10-12-telegram-webhook-semantics/task.json` (notes:
+    increment 2a status and branch/SHA/CI evidence).
+- Excluded: `.trellis/.runtime/`, caches, archives, `probe.js`,
+  `mytokens.txt` (secret, excluded) — untouched and untracked.
+- No push to main, no PR, no merge, no image publication, no release tag,
+  no deployment, no `task.py start`, no M04 work.
