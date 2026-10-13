@@ -133,6 +133,9 @@ func validate(rs *domain.RuleSet) error {
 		if target == nil || target.URL == "" {
 			return fmt.Errorf("push target %q: URL is required", name)
 		}
+		if _, err := target.EffectiveSchemaVersion(); err != nil {
+			return fmt.Errorf("push target %q: %w", name, err)
+		}
 		parsed, err := url.ParseRequestURI(target.URL)
 		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
 			return fmt.Errorf("push target %q: URL must use https", name)
