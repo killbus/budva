@@ -1,7 +1,12 @@
 # M02 Protocol Decision
 
 Decision date: 2026-10-13.
-Status: approved by the user on 2026-10-13; M03 is active.
+Status: approved by the user on 2026-10-13; M03 completed on 2026-10-14.
+
+Amendment, 2026-10-14: M03 is complete. The exclusions below describe the
+approved and implemented M03 wire schema; they must not be read as a claim that
+Telegram-native media/file facts are non-Message facts. Any future version may
+add reviewed native source fields without creating Attachment or Relation.
 
 ## Decision Summary
 
@@ -20,8 +25,9 @@ Consequently:
   contract.
 - No download, hosting, cache, token, URL, byte-access, readiness or resource
   lifecycle contract is approved.
-- A later resource-access requirement must return through a separate product
-  and design review.
+- A later native-file requirement must return through a separate product and
+  design review, reuse the existing facade active-interaction boundary, and
+  avoid a Budva resource identity or relation mapping.
 - Delivery remains bounded, at-most-once, unordered and without replay.
 
 ## Cross-Audit Result
@@ -58,7 +64,7 @@ The canonical record owns:
 - deletion facts supplied by the delete update; and
 - sanitized forwarding provenance where the source supplies it.
 
-The record does not own:
+The approved M03 record does not include:
 
 - Attachment entities or nested TDLib media/file objects;
 - resource variants, bytes, URLs, file IDs, paths or credentials;
@@ -67,8 +73,12 @@ The record does not own:
 - queue, attempt, timeout or receiver state; or
 - download, caching, storage, preparation or availability state.
 
-The exact field spelling remains a schema-detail task. Every field must map to
-one of the approved facts above and to M01 source evidence.
+This is the frozen M03 scope, not a permanent semantic assertion that a native
+TDLib file identifier cannot be a direct message-content fact. A later schema
+revision may include the minimum reviewed native facts needed to close the
+passive webhook -> active facade flow. It must not introduce `resource_ref`,
+persist an identity mapping, or claim cross-account/permanent stability that
+Telegram does not provide.
 
 ## Identity
 
@@ -169,6 +179,8 @@ completeness, replay or end-to-end exactly-once behavior.
 A photo update establishes that the Message has canonical photo content.
 Message v2 may preserve caption and message-level source semantics. It does not
 embed photo sizes, TDLib File objects, download state or an Attachment entity.
+That sentence describes M03. It does not authorize replacing Telegram's native
+Message -> Photo -> File relationship with a Budva Attachment/Relation model.
 
 ### Document
 
@@ -203,7 +215,14 @@ and other endpoint processing remain governed by their existing contracts.
 
 The following require new evidence and a separate review:
 
-- whether consumers need an independently identifiable Attachment;
+- whether a later Message version must expose Telegram-native media/file facts
+  so a webhook consumer can invoke an active facade operation;
+- the exact account/session scope and stability semantics of a native file
+  identifier;
+- which existing facade contract should be extended for native file lookup,
+  download and cancellation;
+- whether consumers need an independently identifiable Attachment for some
+  separate business purpose;
 - which stable resource facts an Attachment would own;
 - whether any association needs independent identity, role, slot or order;
 - whether consumers need actual bytes;
@@ -212,6 +231,9 @@ The following require new evidence and a separate review:
 - resource statuses and failure reasons;
 - worker, queue, disk, size, time and concurrency budgets; and
 - packaging or scheduling of any future non-Message facts.
+
+The default answer remains no new Attachment, Relation, `resource_ref`, mapping
+store, cache, hosted URL or automatic webhook-side download.
 
 ## Approval Gate
 

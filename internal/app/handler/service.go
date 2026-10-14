@@ -236,14 +236,27 @@ func (s *Service) OnNewMessage(ctx context.Context, msg *client.Message) {
 	}
 
 	formattedText := s.messageService.GetFormattedText(msg)
-	if formattedText == nil {
-		return
-	}
 
 	// Обработка по каждому правилу.
 	for _, ruleID := range rs.OrderedForwardRules {
 		rule := rs.ForwardRules[ruleID]
 		if rule.From != srcChatID {
+			continue
+		}
+		if formattedText == nil {
+			// Webhook-only textless media: the source fact is pushed only as a
+			// canonical v2 content fact. Eligibility is independent of the
+			// Telegram copy/forward guards, albums keep their quiet-period
+			// path, and no file or network work is added. The v1 representation
+			// is absent, so a v1 endpoint stays silent at the delivery boundary.
+			// A content-less message (Content == nil) is not textless media, so
+			// it is left to the earlier no-event rule rather than fabricating a
+			// v2 fact with an "unknown" content type.
+			if rs.push != nil && len(rule.PushTo) != 0 && msg.Content != nil && msg.MediaAlbumId == 0 {
+				if v2 := v2SnapshotFor(msg, messagev2.EventNew, time.Now().UTC()); v2 != nil {
+					rs.push.SubmitV2Only(rule.PushTo, v2)
+				}
+			}
 			continue
 		}
 		if !rule.SendCopy && !msg.CanBeSaved {
@@ -699,6 +712,27 @@ func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *cli
 	src := rs.Sources[msg.ChatId]
 	text := s.messageService.GetFormattedText(msg)
 	if text == nil {
+		// Webhook-only textless media edit: a content-bearing message whose
+		// formatted text is absent is pushed only as a canonical v2 `edited`
+		// content fact. It is the full current snapshot (no prior state is read
+		// or invented), albums keep their quiet-period path, and no file or
+		// network work is added. The v1 representation is absent, so a v1
+		// endpoint stays silent at the delivery boundary; no v1 "edited" empty
+		// event is fabricated. This returns before the copies loop, so no
+		// copy/caption work runs. A content-less message (Content == nil) is not
+		// textless media, so it is left to the earlier no-event rule.
+		if emission != nil && emission.push != nil && msg.Content != nil && msg.MediaAlbumId == 0 {
+			if v2 := v2SnapshotFor(msg, messagev2.EventEdited, emission.occurredAt); v2 != nil {
+				names := make([]string, 0)
+				// Source edits must reach webhook-only routes, even after a filter exit.
+				for _, rule := range rs.ForwardRules {
+					if rule.From == msg.ChatId {
+						names = append(names, rule.PushTo...)
+					}
+				}
+				emission.push.SubmitV2Only(names, v2)
+			}
+		}
 		return false
 	}
 	if emission != nil && emission.push != nil {

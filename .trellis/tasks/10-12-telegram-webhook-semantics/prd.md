@@ -12,17 +12,21 @@ Whether and how an independent Attachment resource is delivered remains a
 separate product decision; this PRD does not assume that Budva downloads,
 caches, hosts or serves media bytes.
 
+The absence of an Attachment contract does not erase Telegram-native media
+facts. `/app/engine` is the passive Message webhook path; facade is the external
+active-interaction boundary. If a later Message version exposes a native file
+identifier for an approved facade operation, that is a direct source fact and
+must not be wrapped in `resource_ref` or backed by a Budva relation mapping.
+
 ## Status And Approval Boundary
 
-Status: active. M01 content mapping is complete and independently validated.
-The user explicitly approved the M02 Message-only design on 2026-10-13, and
-M03 is active for exact schema freezing, RED/GREEN implementation and focused
-verification.
+Status: active. M01 content mapping and M02 design are complete. M03 completed
+on 2026-10-14 with focused Linux CI evidence. M04 is resolved as a no-code
+product decision gate; M05 is the next delivery milestone.
 
-This PRD defines the product boundary to be validated by M01 and M02. It does
-not approve a schema, package layout, media transport, numerical resource
-budget or runtime implementation. Do not run `task.py start` or begin runtime
-work until the research and design are reviewed and explicitly approved.
+This PRD defines the approved product boundary and records the completed M03
+implementation scope. It does not approve media transport, a resource identity
+layer, numerical resource budgets, merge to `main`, publication or deployment.
 
 ## Confirmed Semantic Boundary
 
@@ -103,6 +107,9 @@ See `research/media-gap-baseline.md` for repository evidence and
   in Message fixtures or the Message contract.
 - Do not expose raw TDLib objects, private local paths, credentials or other
   implementation-only data in an external protocol.
+- Do not invent a Budva resource identity or persist a
+  `resource_ref -> TDLib file_id` mapping merely to connect passive Message
+  delivery to active facade operations.
 - Make new, edited and deleted notifications self-describing within the facts
   their source update supplies. Consumers must tolerate a missing predecessor
   because the transport is at-most-once.
@@ -116,6 +123,10 @@ See `research/media-gap-baseline.md` for repository evidence and
   mechanism. If actual resource access is later approved, specify it in a
   separate requirement and design review rather than presupposing download,
   hosting or caching in this PRD.
+- Preserve the architectural direction: webhook publication never triggers a
+  file download; a consumer that needs media actively calls the existing facade
+  boundary using only a reviewed Telegram-native identifier and explicit
+  account/session scope.
 
 ## Acceptance Criteria
 
@@ -149,6 +160,11 @@ See `research/media-gap-baseline.md` for repository evidence and
 - The exact Message fact mapping for each pinned TDLib content type.
 - Whether future product evidence will justify an independently delivered
   Attachment contract. M02 currently defers it.
+- Whether a later Message schema must expose minimum Telegram-native media/file
+  facts to close the webhook-to-facade interaction.
+- Which existing facade gRPC boundary should be extended for native file
+  lookup/download/cancellation; the current inspected contract has no dedicated
+  file RPC.
 - If Attachment is later required, which resource identity and metadata are
   product facts. Actual byte access remains a separate decision.
 - Whether a future business case will require `MessageAttachmentRelation`,

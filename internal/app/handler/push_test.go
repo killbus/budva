@@ -114,6 +114,11 @@ func (s *recordingSubmitter) SubmitV2(names []string, env event.Envelope, v2 *me
 	return nil
 }
 
+func (s *recordingSubmitter) SubmitV2Only(names []string, v2 *messagev2.Notification) event.SubmitResults {
+	s.submissions = append(s.submissions, recordedSubmission{names: append([]string(nil), names...), v2: v2})
+	return nil
+}
+
 func TestPush_RetryUsesCapturedSnapshotAndEmitsOnce(t *testing.T) {
 	// Strict mocks: unresolved permanent IDs cause four original Telegram
 	// attempts; retaining emission on retry would produce duplicate source facts.
@@ -170,6 +175,13 @@ func (s *captureSubmitter) SubmitV2(names []string, env event.Envelope, v2 *mess
 	s.events = append(s.events, env)
 	s.v2s = append(s.v2s, v2)
 	results := s.next.SubmitV2(names, env, v2)
+	s.results = append(s.results, results["endpoint"])
+	return results
+}
+
+func (s *captureSubmitter) SubmitV2Only(names []string, v2 *messagev2.Notification) event.SubmitResults {
+	s.v2s = append(s.v2s, v2)
+	results := s.next.SubmitV2Only(names, v2)
 	s.results = append(s.results, results["endpoint"])
 	return results
 }

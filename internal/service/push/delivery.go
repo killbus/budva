@@ -34,12 +34,25 @@ const (
 // falling back to v1, raw source data or text-only JSON.
 var ErrV2Unavailable = errors.New("push: v2 projection unavailable")
 
+// ErrV1Unavailable means the carrier has no v1 representation; a v1-selected
+// endpoint submission fails explicitly instead of emitting an empty or
+// text-only envelope for a source fact that only the v2 schema carries.
+var ErrV1Unavailable = errors.New("push: v1 representation unavailable")
+
 // RenderPayload renders the source facts for one endpoint-selected schema.
 // It never falls back to another schema: an unprojectable v2 fact fails with
-// ErrV2Unavailable and unsupported versions are rejected.
+// ErrV2Unavailable, a missing v1 fact fails with ErrV1Unavailable, and
+// unsupported versions are rejected.
 func RenderPayload(rend event.RenderedEnvelope, schema DeliverySchemaVersion) ([]byte, error) {
 	switch schema {
 	case DeliverySchemaV1:
+		// A legitimate v1 fact always carries its event kind (new, edited or
+		// deleted). An empty event marks a v2-only carrier: the fact has no v1
+		// representation, so the v1 endpoint stays silent rather than
+		// marshalling an empty-text envelope.
+		if rend.Envelope.Event == "" {
+			return nil, ErrV1Unavailable
+		}
 		return json.Marshal(rend.Envelope)
 	case DeliverySchemaV2:
 		if rend.V2 == nil {

@@ -1,9 +1,9 @@
 # Message, Attachment And Delivery Boundaries
 
 Decision date: 2026-10-12.
-Status: user-confirmed semantic boundary; protocol and runtime design remain
-unapproved. This is the authoritative record of the DBS-chatroom correction,
-not a new implementation plan or a claim of implemented behavior.
+Status: user-confirmed semantic boundary, amended on 2026-10-14 after M03.
+This is the authoritative record of the boundary correction, not a claim that
+all Telegram media or file operations are implemented.
 
 ## Decision And Rationale
 
@@ -20,7 +20,7 @@ three asynchronous webhook deliveries.
 
 | Concept | Owns | Does not own |
 | --- | --- | --- |
-| Message | Message identity, chat, sender, source time, canonical content type, text/entities, edits and deletion facts | Attachment entities, relation collections, file access or delivery progress |
+| Message | Message identity, chat, sender, source time, canonical content type, text/entities, direct Telegram content facts, edits and deletion facts | Invented Attachment identities, relation collections, file access or delivery progress |
 | Attachment | Independent media/resource identity, metadata, file representations, download/cache/access and lifecycle | Message identity or whether a consumer received all events |
 | MessageAttachmentRelation (optional) | An explicit association between message and attachment identities, with business-required role/slot/order | Message content, resource storage or delivery completeness |
 | Delivery | Queue admission, routing, HTTP attempt, timeout, loss and lack of ordering/replay | Source message or attachment truth |
@@ -31,11 +31,17 @@ it. Do not infer that requirement from normalization or transport mechanics.
 
 ## Message Webhook Boundary
 
-Message Webhook expresses only Message facts. It must not contain Attachment
-entities, bytes, resource metadata, download URLs, TDLib file IDs, local paths,
-credentials, relation collections/counts/completeness or attachment processing
-states. A canonical content discriminant is a message fact; it is not a raw
-TDLib content object containing nested media/file structures.
+Message Webhook expresses only Message facts observed by `/app/engine`. It must
+not contain invented Attachment entities, Budva resource handles, bytes,
+download URLs, local paths, credentials, relation collections/counts/
+completeness or attachment processing states. It also must not copy a raw TDLib
+object indiscriminately.
+
+This boundary does not prohibit a reviewed Message version from honestly
+projecting Telegram-native media facts, including the native file identifier
+needed to address that media through the facade. Such a field is source message
+content, not a Budva Attachment identity or a separately persisted relation.
+Its account/session scope and TDLib stability limits must remain explicit.
 
 Attachment and any explicit Relation are separate facts. Facts established by
 the same source update may be constructed together and may share a transport
@@ -54,6 +60,12 @@ Do not restore any of the following as Message fields or equivalent wrappers:
 - `none / known / unknown` as relationship-set declarations;
 - `hasAttachments`, `attachmentCount`, complete relationship snapshots;
 - `media` arrays, attachment preparation outcomes, storage or access details.
+
+Also do not introduce `resource_ref`, an opaque Budva resource identity, or a
+`resource_ref -> TDLib file_id` mapping merely to connect the webhook to active
+Telegram operations. The Telegram message already contains the native
+Message-to-media-to-File relationship. Re-wrapping it would invent lifecycle,
+persistence, expiry and recovery obligations not established by the source.
 
 Also retract the assumption that an ordinary Telegram photo message needs later
 relationship events to determine which media belongs to it. Waiting for file
@@ -87,9 +99,19 @@ Repository evidence already recorded in `media-gap-baseline.md` shows:
   `internal/app/handler/service.go:538`.
 - `internal/service/push/dispatcher.go` handles bounded generation/routing and
   enqueue; it does not establish attachment facts.
-- `internal/infra/telegram/client_adapter.go` does not expose file download APIs.
+- `internal/infra/telegram/client_adapter.go` does not currently expose TDLib
+  file download APIs through the adapter surface inspected for this task.
+- Pinned go-tdlib v0.7.6 provides `File`, `LocalFile`, `RemoteFile`,
+  `UpdateFile`, `GetFile`, `DownloadFile` and `CancelDownloadFile`; their
+  existence is upstream capability, not proof that Budva currently wires them.
+- `internal/infra/telegram/repo.go` filters the update stream to message-related
+  updates and does not currently forward `UpdateFile`.
 
-No attachment facade or relation authority is established by this evidence.
+No Attachment authority or new relation store is established by this evidence.
+`/app/engine` is the passive Message webhook path. `cmd/facade` is the existing
+external active-interaction boundary. Any future file lookup/download work must
+extend or reuse that facade boundary and the Telegram-native identifier rather
+than create a second resource identity layer.
 
 ## Webhook Responsibilities
 
@@ -98,9 +120,11 @@ event construction, queue/dispatch and HTTP delivery. Event construction encodes
 facts supported by its inputs. Dispatcher and transport deliver those facts;
 they do not create Message-Attachment relationships or resource truth.
 
-Facade is an optional internal organization pattern, not a protocol role or an
-assumed fact owner. Map responsibilities to the actual repository call chain
-before assigning new components.
+Facade is the external active-interaction boundary already present in the
+repository. Message webhook publication remains passive. A consumer may decide
+after receiving a Message that it needs the referenced Telegram media and then
+invoke a reviewed facade operation in the appropriate account/session scope.
+Webhook delivery itself must not download the file.
 
 Keep v1 default behavior and field meanings unchanged. Any v2 must be explicit
 opt-in. Existing bounded, at-most-once, unordered delivery without replay stays
@@ -113,10 +137,12 @@ representations, album meaning and representative boundary fixtures.
 
 M02 subsequently concluded that current evidence supports a Message-only v2 and
 does not justify independent Attachment or Relation contracts. See
-`m02-protocol-decision.md`. Authenticated fetch, resource lifecycle and
-numerical budgets are deferred rather than approved candidates.
+`m02-protocol-decision.md`. M03 implemented that approved narrow schema without
+nested media/file facts. Any later addition of native Telegram media facts and
+facade file actions is a versioned follow-up, not permission to invent
+Attachment, Relation, cache, hosting or resource-lifecycle infrastructure.
 
-M01 is complete and M02 awaits explicit approval. This recording action does not
-start M03, run
-`task.py start`, change runtime/spec behavior, commit, push, publish an image or
-deploy. Broader protocol approval remains a separate gate.
+M01, M02 and M03 are complete. M04 is a product decision gate, not an
+implementation stage. It may be replaced only by an explicitly approved narrow
+follow-up for Telegram-native media facts plus facade active operations. This
+record does not authorize merge to `main`, publication or deployment.
