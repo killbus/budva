@@ -130,7 +130,11 @@ func TestV2Projection_DeleteCarriesOnlyDeleteFacts(t *testing.T) {
 	body, err := messagev2.MarshalNotification(n)
 	require.NoError(t, err)
 	require.Contains(t, string(body), `"event":"deleted"`)
-	require.Contains(t, string(body), `"delete":{"is_permanent":true,"from_cache":false}`)
+	// JSON object keys sort alphabetically on the wire, so assert each
+	// delete fact semantically instead of the frozen document's key order.
+	require.Contains(t, string(body), `"delete":{`)
+	require.Contains(t, string(body), `"is_permanent":true`)
+	require.Contains(t, string(body), `"from_cache":false`)
 	require.NotContains(t, string(body), "sent_at")
 	require.NotContains(t, string(body), "content")
 }
