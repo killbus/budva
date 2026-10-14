@@ -4,6 +4,8 @@ package event
 import (
 	"context"
 	"time"
+
+	"github.com/pure-golang/budva-claude/internal/service/push/messagev2"
 )
 
 const SchemaVersion = 1
@@ -26,8 +28,23 @@ type Envelope struct {
 	Text          string    `json:"text"`
 }
 
+// Sink performs one bounded delivery attempt for one rendered envelope; the
+// concrete representation is chosen by the endpoint at render time.
 type Sink interface {
-	Push(context.Context, Envelope) error
+	Push(context.Context, RenderedEnvelope) error
+}
+
+// RenderedEnvelope pairs the v1 source-fact envelope with the optional
+// Message-only v2 projection. It is the delivery-boundary carrier: endpoint
+// schema selection happens only where the payload is rendered, never in the
+// source handler.
+type RenderedEnvelope struct {
+	// Envelope is the v1 representation; it stays the default rendering.
+	Envelope Envelope
+	// V2 is nil when the source projection could not form a valid v2
+	// notification. A v2-only endpoint then fails its submission explicitly
+	// instead of falling back to v1 or raw source data.
+	V2 *messagev2.Notification
 }
 
 type SubmitResult string
@@ -44,4 +61,7 @@ type SubmitResults map[string]SubmitResult
 // Submitter performs only non-blocking enqueue attempts against fixed routes.
 type Submitter interface {
 	Submit([]string, Envelope) SubmitResults
+	// SubmitV2 enqueues both representations; each endpoint renders the one
+	// its selected schemaVersion requests.
+	SubmitV2([]string, Envelope, *messagev2.Notification) SubmitResults
 }

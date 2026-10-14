@@ -220,7 +220,7 @@ func (s *LiveStack) processUpdates(ctx context.Context) {
 				}(u.ChatId, u.MessageId)
 			case *client.UpdateDeleteMessages:
 				if u.IsPermanent {
-					h.OnDeletedMessages(ctx, u.ChatId, u.MessageIds, u.IsPermanent)
+					h.OnDeletedMessages(ctx, u.ChatId, u.MessageIds, u.IsPermanent, u.FromCache)
 				}
 			}
 		}

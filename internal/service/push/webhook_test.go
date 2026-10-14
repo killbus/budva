@@ -10,11 +10,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/pure-golang/budva-claude/internal/service/push/messagev2"
 )
 
 func TestWebhookSink_PushCanonicalJSON(t *testing.T) {
@@ -48,7 +51,7 @@ func TestWebhookSink_PushCanonicalJSON(t *testing.T) {
 		Text:          "full edited text",
 	}
 
-	err := sink.Push(context.Background(), env)
+	err := sink.Push(context.Background(), RenderedEnvelope{Envelope: env})
 
 	require.NoError(t, err)
 	require.Equal(t, int64(1), attempts.Load())
@@ -80,14 +83,14 @@ func TestWebhookSink_PushSignsRawBody(t *testing.T) {
 		Client:     server.Client(),
 	})
 
-	require.NoError(t, sink.Push(context.Background(), Envelope{
+	require.NoError(t, sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{
 		SchemaVersion: SchemaVersion,
 		Event:         EventNew,
 		ChatID:        -1001,
 		MessageID:     7,
 		OccurredAt:    time.Unix(1, 0).UTC(),
 		Text:          "message",
-	}))
+	}}))
 
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, err := mac.Write(body)
@@ -119,7 +122,7 @@ func TestWebhookSink_PushClassifiesFailureWithoutRetry(t *testing.T) {
 			defer server.Close()
 
 			sink := NewWebhookSink(WebhookConfig{URL: server.URL, Client: server.Client()})
-			err := sink.Push(context.Background(), Envelope{})
+			err := sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}})
 
 			var deliveryErr *DeliveryError
 			require.ErrorAs(t, err, &deliveryErr)
@@ -141,7 +144,7 @@ func TestWebhookSink_PushClassifiesRedirectLimit(t *testing.T) {
 	defer server.Close()
 
 	sink := NewWebhookSink(WebhookConfig{URL: server.URL, Client: server.Client()})
-	err := sink.Push(context.Background(), Envelope{})
+	err := sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}})
 
 	var deliveryErr *DeliveryError
 	require.ErrorAs(t, err, &deliveryErr)
@@ -171,7 +174,7 @@ func TestWebhookSink_PushClassifiesTimeoutAndTransport(t *testing.T) {
 				Client: &http.Client{Transport: transport},
 			})
 
-			err := sink.Push(context.Background(), Envelope{})
+			err := sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}})
 
 			var deliveryErr *DeliveryError
 			require.ErrorAs(t, err, &deliveryErr)
@@ -192,7 +195,7 @@ func TestWebhookSink_PushContextCancellationIsTimeout(t *testing.T) {
 		Client: &http.Client{Transport: transport},
 	})
 
-	err := sink.Push(ctx, Envelope{})
+	err := sink.Push(ctx, RenderedEnvelope{Envelope: Envelope{}})
 
 	var deliveryErr *DeliveryError
 	require.ErrorAs(t, err, &deliveryErr)
@@ -224,3 +227,184 @@ type timeoutError struct{}
 func (timeoutError) Error() string   { return "timeout" }
 func (timeoutError) Timeout() bool   { return true }
 func (timeoutError) Temporary() bool { return true }
+
+// RED 7: endpoints in one generation select their own schema; the default
+// endpoint keeps the exact v1 wire and the v2 endpoint gets the v2
+// notification only.
+func TestWebhookSink_MixedSchemasRenderPerEndpoint(t *testing.T) {
+	t.Parallel()
+
+	occurredAt := time.Date(2026, time.October, 13, 8, 0, 0, 0, time.UTC)
+	env := Envelope{
+		SchemaVersion: SchemaVersion,
+		Event:         EventNew,
+		ChatID:        100,
+		MessageID:     1,
+		OccurredAt:    occurredAt,
+		Text:          "full source text",
+	}
+	v2 := &messagev2.Notification{
+		SchemaVersion: messagev2.SchemaVersion,
+		Event:         messagev2.EventNew,
+		OccurredAt:    occurredAt,
+		Message: &messagev2.Message{
+			ChatID:    100,
+			MessageID: 1,
+			SentAt:    &occurredAt,
+			Content:   &messagev2.Content{Type: "messageText"},
+		},
+	}
+
+	var v1s, v2s chan capturedTest
+	mkSink := func(schema DeliverySchemaVersion, store chan capturedTest) *WebhookSink {
+		transport := &schemaCaptureTransport{store: store}
+		return NewWebhookSink(WebhookConfig{
+			URL:    "https://push.example.test/events",
+			Schema: schema,
+			Client: &http.Client{Transport: transport},
+		})
+	}
+
+	t.Run("v1 default", func(t *testing.T) {
+		v1s = make(chan capturedTest, 1)
+		err := mkSink(DeliverySchemaV1, v1s).Push(context.Background(), RenderedEnvelope{Envelope: env, V2: v2})
+		require.NoError(t, err)
+		got := <-v1s
+		require.Equal(t, 1, got.schema)
+		var decoded Envelope
+		require.NoError(t, json.Unmarshal(got.body, &decoded))
+		require.Equal(t, env, decoded)
+	})
+
+	t.Run("v2 explicit", func(t *testing.T) {
+		v2s = make(chan capturedTest, 1)
+		err := mkSink(DeliverySchemaV2, v2s).Push(context.Background(), RenderedEnvelope{Envelope: env, V2: v2})
+		require.NoError(t, err)
+		got := <-v2s
+		require.Equal(t, 2, got.schema)
+		require.NotContains(t, string(got.body), "full source text")
+	})
+}
+
+type schemaCaptureTransport struct {
+	store chan capturedTest
+}
+
+func (t *schemaCaptureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	var probe struct {
+		SchemaVersion int `json:"schema_version"`
+	}
+	_ = json.Unmarshal(body, &probe)
+	t.store <- capturedTest{schema: probe.SchemaVersion, body: body}
+	resp := &http.Response{
+		StatusCode: http.StatusAccepted,
+		Status:     "202 Accepted",
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader("")),
+		Request:    req,
+	}
+	return resp, nil
+}
+
+// RED 8: an unprojectable or invalid v2 fact fails only the v2-selected
+// endpoint with the serialization class; no v1, raw-TDLib or text-only body
+// is ever sent, and the v1 sibling is unaffected.
+func TestWebhookSink_V2FailureIsEndpointIsolated(t *testing.T) {
+	t.Parallel()
+
+	occurredAt := time.Date(2026, time.October, 13, 8, 0, 0, 0, time.UTC)
+	env := Envelope{
+		SchemaVersion: SchemaVersion,
+		Event:         EventNew,
+		ChatID:        100,
+		MessageID:     1,
+		OccurredAt:    occurredAt,
+		Text:          "full source text",
+	}
+
+	attempts := make(chan []byte, 4)
+	transport := &bodyCaptureTransport{attempts: attempts}
+
+	cases := map[string]RenderedEnvelope{
+		"projection unavailable": {Envelope: env, V2: nil},
+		"invalid v2 fact": {
+			Envelope: env,
+			V2: &messagev2.Notification{
+				SchemaVersion: messagev2.SchemaVersion,
+				Event:         messagev2.EventNew,
+				OccurredAt:    occurredAt,
+				Message:       nil,
+			},
+		},
+	}
+
+	for name, rend := range cases {
+		t.Run(name, func(t *testing.T) {
+			sink := NewWebhookSink(WebhookConfig{
+				URL:    "https://push.example.test/events",
+				Schema: DeliverySchemaV2,
+				Client: &http.Client{Transport: transport},
+			})
+			err := sink.Push(context.Background(), rend)
+
+			var deliveryErr *DeliveryError
+			require.ErrorAs(t, err, &deliveryErr)
+			require.Equal(t, FailureSerialization, deliveryErr.Class)
+
+			select {
+			case body := <-attempts:
+				t.Fatalf("v2 failure must not send any body, sent %s", body)
+			default:
+			}
+		})
+	}
+
+	t.Run("v1 sibling unaffected", func(t *testing.T) {
+		sink := NewWebhookSink(WebhookConfig{
+			URL:    "https://push.example.test/events",
+			Schema: DeliverySchemaV1,
+			Client: &http.Client{Transport: &bodyCaptureTransport{attempts: attempts}},
+		})
+		require.NoError(t, sink.Push(context.Background(), RenderedEnvelope{Envelope: env, V2: nil}))
+		body := <-attempts
+		var decoded Envelope
+		require.NoError(t, json.Unmarshal(body, &decoded))
+		require.Equal(t, env, decoded)
+	})
+}
+
+// capturedTest is one captured delivery attempt for schema-selection tests.
+type capturedTest struct {
+	schema int
+	body   []byte
+}
+
+type bodyCaptureTransport struct {
+	attempts chan []byte
+}
+
+func (t *bodyCaptureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	t.attempts <- body
+	resp := &http.Response{
+		StatusCode: http.StatusAccepted,
+		Status:     "202 Accepted",
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader("")),
+		Request:    req,
+	}
+	return resp, nil
+}

@@ -90,14 +90,14 @@ func TestEnvelope_HasNoRawPayloadField(t *testing.T) {
 func TestSinkContract(t *testing.T) {
 	t.Parallel()
 
-	var sink Sink = sinkFunc(func(context.Context, Envelope) error {
+	var sink Sink = sinkFunc(func(context.Context, RenderedEnvelope) error {
 		return nil
 	})
-	require.NoError(t, sink.Push(context.Background(), Envelope{}))
+	require.NoError(t, sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}}))
 }
 
-type sinkFunc func(context.Context, Envelope) error
+type sinkFunc func(context.Context, RenderedEnvelope) error
 
-func (f sinkFunc) Push(ctx context.Context, env Envelope) error {
-	return f(ctx, env)
+func (f sinkFunc) Push(ctx context.Context, rend RenderedEnvelope) error {
+	return f(ctx, rend)
 }

@@ -272,7 +272,7 @@ func (m *Message) validateContext() error {
 		return fmt.Errorf("%w: negative identifier", ErrInvalidNotification)
 	}
 	if m.ReplyTo != nil {
-		if err := validateDiscriminator(m.ReplyTo.Type); err != nil {
+		if err := ValidateDiscriminator(m.ReplyTo.Type); err != nil {
 			return fmt.Errorf("%w: reply_to.type: %v", ErrInvalidNotification, err)
 		}
 		// Chat IDs are legitimately negative (supergroups, channels);
@@ -296,7 +296,7 @@ func validateSender(s *Sender) error {
 	if s == nil {
 		return nil
 	}
-	if err := validateDiscriminator(s.Type); err != nil {
+	if err := ValidateDiscriminator(s.Type); err != nil {
 		return fmt.Errorf("%w: sender.type: %v", ErrInvalidNotification, err)
 	}
 	switch s.Type {
@@ -321,12 +321,12 @@ func validateSender(s *Sender) error {
 }
 
 func (c *Content) validate() error {
-	if err := validateDiscriminator(c.Type); err != nil {
+	if err := ValidateDiscriminator(c.Type); err != nil {
 		return fmt.Errorf("%w: content.type: %v", ErrInvalidNotification, err)
 	}
 	if c.Type == UnknownContentType {
 		if c.SourceType != "" {
-			if err := validateDiscriminator(c.SourceType); err != nil {
+			if err := ValidateDiscriminator(c.SourceType); err != nil {
 				return fmt.Errorf("%w: content.source_type: %v", ErrInvalidNotification, err)
 			}
 		}
@@ -342,7 +342,7 @@ func (c *Content) validate() error {
 			if e.Offset < 0 || e.Length < 0 {
 				return fmt.Errorf("%w: negative entity offset or length", ErrInvalidNotification)
 			}
-			if err := validateDiscriminator(e.Type); err != nil {
+			if err := ValidateDiscriminator(e.Type); err != nil {
 				return fmt.Errorf("%w: entity.type: %v", ErrInvalidNotification, err)
 			}
 		}
@@ -352,7 +352,7 @@ func (c *Content) validate() error {
 
 func validateForward(f *Forward) error {
 	if f.Origin != nil {
-		if err := validateDiscriminator(f.Origin.Type); err != nil {
+		if err := ValidateDiscriminator(f.Origin.Type); err != nil {
 			return fmt.Errorf("%w: origin.type: %v", ErrInvalidNotification, err)
 		}
 	}
@@ -363,21 +363,23 @@ func validateForward(f *Forward) error {
 		if err := validateSender(f.Source.Sender); err != nil {
 			return err
 		}
-		if err := validateBoundedString(f.Source.SenderName); err != nil {
+		if err := ValidateBoundedString(f.Source.SenderName); err != nil {
 			return fmt.Errorf("%w: forward.source.sender_name: %v", ErrInvalidNotification, err)
 		}
 	}
 	if f.PublicServiceAnnouncementType != "" {
-		if err := validateDiscriminator(f.PublicServiceAnnouncementType); err != nil {
+		if err := ValidateDiscriminator(f.PublicServiceAnnouncementType); err != nil {
 			return fmt.Errorf("%w: public_service_announcement_type: %v", ErrInvalidNotification, err)
 		}
 	}
 	return nil
 }
 
-// validateDiscriminator accepts only bounded TDLib discriminators: ASCII
+// ValidateDiscriminator accepts only bounded TDLib discriminators: ASCII
 // letters, digits, dot and hyphen, at most MaxDiscriminatorBytes bytes.
-func validateDiscriminator(s string) error {
+// Source projection uses it before emitting optional bounded strings so an
+// out-of-bounds value is omitted instead of failing the whole endpoint.
+func ValidateDiscriminator(s string) error {
 	if len(s) == 0 {
 		return fmt.Errorf("empty discriminator")
 	}
@@ -397,9 +399,11 @@ func validateDiscriminator(s string) error {
 	return nil
 }
 
-// validateBoundedString accepts a sanitized non-empty source string: no
-// control characters, at most MaxBoundedStringBytes bytes.
-func validateBoundedString(s string) error {
+// ValidateBoundedString accepts a sanitized non-empty source string: no
+// control characters, at most MaxBoundedStringBytes bytes. Source projection
+// uses it before emitting optional bounded strings so an out-of-bounds value
+// is omitted instead of failing the whole endpoint.
+func ValidateBoundedString(s string) error {
 	if s == "" || len(s) > MaxBoundedStringBytes {
 		return fmt.Errorf("string exceeds %d bytes or is empty", MaxBoundedStringBytes)
 	}

@@ -59,7 +59,7 @@ func TestMetrics_BufferRejectionAndDepth(t *testing.T) {
 
 type outcomeSink struct{ err error }
 
-func (s *outcomeSink) Push(context.Context, Envelope) error { return s.err }
+func (s *outcomeSink) Push(context.Context, RenderedEnvelope) error { return s.err }
 
 func collectMetric(t *testing.T, reader *sdkmetric.ManualReader, name string) int64 {
 	t.Helper()

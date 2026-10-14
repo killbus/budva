@@ -167,7 +167,7 @@ func newBlockingSink() *blockingSink {
 	}
 }
 
-func (s *blockingSink) Push(context.Context, Envelope) error {
+func (s *blockingSink) Push(context.Context, RenderedEnvelope) error {
 	s.startedOnce.Do(func() { close(s.started) })
 	<-s.release
 	return nil
@@ -184,15 +184,15 @@ func (s *blockingSink) Release() {
 
 type recordingSink struct {
 	mu       sync.Mutex
-	messages []Envelope
+	messages []RenderedEnvelope
 	received chan struct{}
 	attempts atomic.Int64
 }
 
-func (s *recordingSink) Push(_ context.Context, env Envelope) error {
+func (s *recordingSink) Push(_ context.Context, rend RenderedEnvelope) error {
 	s.attempts.Add(1)
 	s.mu.Lock()
-	s.messages = append(s.messages, env)
+	s.messages = append(s.messages, rend)
 	s.mu.Unlock()
 	if s.received != nil {
 		select {
@@ -206,7 +206,11 @@ func (s *recordingSink) Push(_ context.Context, env Envelope) error {
 func (s *recordingSink) Messages() []Envelope {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return append([]Envelope(nil), s.messages...)
+	out := make([]Envelope, 0, len(s.messages))
+	for _, rend := range s.messages {
+		out = append(out, rend.Envelope)
+	}
+	return out
 }
 
 func messageIDs(messages []Envelope) []int64 {
@@ -252,7 +256,7 @@ func TestGeneration_WorkerTimeoutBoundsRetirement(t *testing.T) {
 
 type deadlineSink struct{ attempts atomic.Int64 }
 
-func (s *deadlineSink) Push(ctx context.Context, _ Envelope) error {
+func (s *deadlineSink) Push(ctx context.Context, _ RenderedEnvelope) error {
 	s.attempts.Add(1)
 	<-ctx.Done()
 	return ctx.Err()

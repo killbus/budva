@@ -410,7 +410,7 @@ func TestOnDeletedMessages_PermanentWithCopies(t *testing.T) {
 	stateRepo.EXPECT().DeleteCopiedMessageIDs(int64(100), int64(1)).Return(nil)
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 	taskQueue.ProcessAll()
 }
 
@@ -446,7 +446,7 @@ func TestOnDeletedMessages_IndelibleRule(t *testing.T) {
 	stateRepo.EXPECT().DeleteCopiedMessageIDs(int64(100), int64(1)).Return(nil)
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 	taskQueue.ProcessAll()
 }
 
@@ -497,7 +497,7 @@ func TestOnDeletedMessages_RetryOnMissingNewID(t *testing.T) {
 	stateRepo.EXPECT().DeleteAnswerMessageID(int64(200), int64(500)).Return(nil)
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 	taskQueue.ProcessAll()
 }
 
@@ -2810,7 +2810,7 @@ func TestOnDeletedMessages_NotPermanent(t *testing.T) {
 		func(_ []int64) DedupTracker { return mocks.NewDedupTracker(t) })
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, false)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, false, false)
 	taskQueue.ProcessAll()
 }
 
@@ -2832,7 +2832,7 @@ func TestOnDeletedMessages_NoRuleSet(t *testing.T) {
 		func(_ []int64) DedupTracker { return mocks.NewDedupTracker(t) })
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 	taskQueue.ProcessAll()
 }
 
@@ -2864,7 +2864,7 @@ func TestOnDeletedMessages_UnknownSource(t *testing.T) {
 	h.SetRuleSet(rs)
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 999, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 999, []int64{1}, true, false)
 	taskQueue.ProcessAll()
 }
 
@@ -2898,7 +2898,7 @@ func TestOnDeletedMessages_NoCopies(t *testing.T) {
 	stateRepo.EXPECT().GetCopiedMessageIDs(int64(100), int64(1)).Return(nil)
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 	taskQueue.ProcessAll()
 }
 
@@ -2933,7 +2933,7 @@ func TestOnDeletedMessages_BadCopyRef(t *testing.T) {
 	stateRepo.EXPECT().DeleteCopiedMessageIDs(int64(100), int64(1)).Return(errors.New("del fail"))
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 	taskQueue.ProcessAll()
 }
 
@@ -2974,7 +2974,7 @@ func TestOnDeletedMessages_RuleMissing(t *testing.T) {
 	stateRepo.EXPECT().DeleteCopiedMessageIDs(int64(100), int64(1)).Return(nil)
 
 	// Act
-	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true)
+	h.OnDeletedMessages(context.Background(), 100, []int64{1}, true, false)
 	taskQueue.ProcessAll()
 }
 
