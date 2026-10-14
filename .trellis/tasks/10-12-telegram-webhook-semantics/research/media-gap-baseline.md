@@ -1,8 +1,9 @@
 # Media Gap: Repository Baseline
 
 Observed 2026-10-12 at `6d7daa750fb708b86c83b12f5d5c19bc10f93eb6` on
-`feat/external-push-sink`. This is scoped source inspection, not an exhaustive
-TDLib type audit or actual media-delivery acceptance.
+`feat/external-push-sink`, amended on 2026-10-14 after a read-only native-file
+behavior investigation. This is scoped source inspection, not actual
+media-delivery acceptance.
 
 ## Evidence
 
@@ -25,8 +26,19 @@ TDLib type audit or actual media-delivery acceptance.
   `internal/app/handler/service.go:541` captures shared first-ingress time.
   It emits per-member v1 caption facts, not album relationship/usable media data.
 - `internal/infra/telegram/client_adapter.go` lists the repository's actual
-  partial client surface. No GetFile/DownloadFile method is present; media access
-  cannot be assumed available just because upstream TDLib exposes file APIs.
+  partial client surface. No `GetFile`, `DownloadFile` or
+  `CancelDownloadFile` method is exposed there today.
+- Pinned go-tdlib v0.7.6 does provide `File`, `LocalFile`, `RemoteFile`,
+  `UpdateFile`, `GetFile`, `DownloadFile` and `CancelDownloadFile`. The gap is
+  therefore not absence from Telegram/TDLib; it is that Budva has not wired
+  those native facts and actions through its adapter and facade paths.
+- `internal/infra/telegram/repo.go` currently rejects `UpdateFile` in its
+  relevant-update filter, so Budva does not consume the native pushed file
+  state machine.
+- `/app/engine` is the passive webhook producer. `cmd/facade` is the existing
+  external active-interaction entry point. The current gRPC service exposes
+  message and chat actions but no dedicated file lookup/download RPC in the
+  inspected contract.
 - Pinned generated dependency:
   `C:/Users/ying/go/pkg/mod/github.com/zelenin/go-tdlib@v0.7.6/client/type.go:2589`
   defines MessageContent; text/entity/file/message structures and media variants
@@ -46,7 +58,13 @@ No completion result, new image or rich-media runtime claim follows from that.
 
 ## What Remains Unknown
 
-Full content-type policy, exact entity/relationship schema, supported media
-variants, transport/hosting/auth, immutable ownership, all numerical budgets,
-cleanup and migration are open. Keep these explicit in design review; do not
-replace a media-delivery problem with opaque IDs or flattening to captions.
+The Message-to-media-to-File relationship already exists in Telegram's source
+model. Do not replace it with `resource_ref`, a Budva identity mapping, an
+Attachment table or a Relation authority.
+
+The remaining question is deliberately narrower: whether a later Message
+version should expose the minimum Telegram-native media/file facts required for
+the consumer to call an active facade operation, and which existing facade
+surface should be extended to perform that operation in the correct
+account/session scope. This does not imply automatic download, cache, hosting,
+permanent URLs, object storage or a generic resource lifecycle.

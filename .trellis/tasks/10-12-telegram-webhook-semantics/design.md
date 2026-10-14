@@ -1,8 +1,9 @@
 # Draft: Versioned Telegram Message Facts
 
-Status: M02 approved by the user on 2026-10-13. M03 is active for exact
-source-field verification, wire-schema fixtures and runtime implementation.
-Commit, push, image publication and deployment remain unauthorized.
+Status: M02 approved on 2026-10-13; M03 completed on 2026-10-14. M04 is
+resolved as a no-code product decision gate. M05 is the next delivery
+milestone. Integration into `main`, image publication and deployment remain
+unauthorized.
 
 ## Design Authority
 
@@ -13,9 +14,11 @@ Read these records in order:
 3. `research/m01-representative-fixtures.jsonl`
 4. `research/m02-protocol-decision.md`
 
-The M02 decision supersedes the earlier candidates for authenticated fetch,
-Attachment preparation, blob/token lifecycle, resource status, independent
-Relation delivery and numerical resource budgets.
+The amended boundary decision supersedes earlier candidates for authenticated
+fetch, Attachment preparation, opaque resource handles, blob/token lifecycle,
+resource status, independent Relation delivery and numerical resource budgets.
+Telegram-native media facts remain part of the source Message model; Budva must
+not recreate their relationship through `resource_ref` or a mapping store.
 
 ## Scope
 
@@ -36,6 +39,12 @@ The approved M03 implementation scope is:
 
 Media byte access, hosting, authentication, expiry, cleanup and capacity design
 are outside this scope.
+
+`/app/engine` remains the passive Message webhook path. Facade remains the
+external active-interaction boundary. A future approved schema may project the
+minimum Telegram-native file facts needed by a facade operation, but webhook
+publication must not trigger downloading and no Budva resource identity or
+Message-to-file relation may be invented.
 
 ## Domain Boundaries
 
