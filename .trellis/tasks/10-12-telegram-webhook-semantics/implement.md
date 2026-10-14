@@ -16,7 +16,7 @@ authorized. Read `research/message-attachment-boundaries.md` first.
   Relation, byte access and all resource infrastructure because current evidence
   does not justify those product contracts. The user approved this design on
   2026-10-13, authorizing M03 (AC1, AC3, AC5).
-- [ ] M03: Implement the approved canonical serializer and opt-in/version
+- [x] M03: Implement the approved canonical serializer and opt-in/version
   migration with known-red type/entity/unknown/nil/limit fixtures. Keep v1
   compatibility and avoid raw TDLib exposure (AC1, AC5).
 - [ ] M04: Deferred. Define or implement resource access only after a separate
