@@ -682,6 +682,11 @@ Branch `feat/external-push-sink`, code commit `7108e0c`, docs commit
   the single read and reuses it for both the JSON assertions and the
   file-reference absence checks (one read of a one-element channel).
   gofmt clean; the package stays TDLib-cgo CI-only locally.
-- Run 2 (fix commit, below) re-dispatched on `feat/external-push-sink`;
-  result recorded when it lands. GATE: no main/PR/release/deploy/tag,
-  no schedule/heartbeat, no `task.py start`; M04 untouched.
+- Run 2: https://github.com/killbus/budva/actions/runs/38618093819
+  (head `50e15a6`) — **success**: full `go test ./internal/...` (including
+  the TDLib cgo `internal/app/handler` package with the new
+  `TestTextlessMedia_PushesV2FactOnlyV1Silent` and the widened
+  `SubmitV2Only` interface across all submitters) is green, plus `go vet`.
+  The M05 webhook-only textless-media increment now has full CI evidence.
+- GATE: no main/PR/release/deploy/tag, no schedule/heartbeat, no
+  `task.py start`; M04 untouched.
