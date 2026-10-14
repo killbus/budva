@@ -64,4 +64,9 @@ type Submitter interface {
 	// SubmitV2 enqueues both representations; each endpoint renders the one
 	// its selected schemaVersion requests.
 	SubmitV2([]string, Envelope, *messagev2.Notification) SubmitResults
+	// SubmitV2Only enqueues a carrier with no v1 representation. It is the
+	// webhook-only path: a v2-selected endpoint renders the fact, a
+	// v1-selected endpoint reports the fact unavailable and sends nothing
+	// instead of emitting an empty or text-only envelope.
+	SubmitV2Only([]string, *messagev2.Notification) SubmitResults
 }

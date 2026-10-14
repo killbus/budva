@@ -116,6 +116,14 @@ func (g *Generation) SubmitV2(endpointNames []string, env Envelope, v2 *messagev
 	return g.submit(endpointNames, event.RenderedEnvelope{Envelope: env, V2: v2})
 }
 
+// SubmitV2Only enqueues a carrier with no v1 representation. A v2-selected
+// endpoint renders the fact; a v1-selected endpoint fails its submission
+// explicitly because it cannot represent the source fact, so the endpoint
+// stays silent rather than emitting an empty or text-only envelope.
+func (g *Generation) SubmitV2Only(endpointNames []string, v2 *messagev2.Notification) SubmitResults {
+	return g.submit(endpointNames, event.RenderedEnvelope{V2: v2})
+}
+
 func (g *Generation) submit(endpointNames []string, rend event.RenderedEnvelope) SubmitResults {
 	if !g.acquireLease() {
 		results := make(SubmitResults, len(endpointNames))

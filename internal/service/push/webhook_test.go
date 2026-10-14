@@ -122,7 +122,7 @@ func TestWebhookSink_PushClassifiesFailureWithoutRetry(t *testing.T) {
 			defer server.Close()
 
 			sink := NewWebhookSink(WebhookConfig{URL: server.URL, Client: server.Client()})
-			err := sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}})
+			err := sink.Push(context.Background(), RenderedEnvelope{Envelope: testV1Envelope()})
 
 			var deliveryErr *DeliveryError
 			require.ErrorAs(t, err, &deliveryErr)
@@ -144,7 +144,7 @@ func TestWebhookSink_PushClassifiesRedirectLimit(t *testing.T) {
 	defer server.Close()
 
 	sink := NewWebhookSink(WebhookConfig{URL: server.URL, Client: server.Client()})
-	err := sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}})
+	err := sink.Push(context.Background(), RenderedEnvelope{Envelope: testV1Envelope()})
 
 	var deliveryErr *DeliveryError
 	require.ErrorAs(t, err, &deliveryErr)
@@ -174,7 +174,7 @@ func TestWebhookSink_PushClassifiesTimeoutAndTransport(t *testing.T) {
 				Client: &http.Client{Transport: transport},
 			})
 
-			err := sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}})
+			err := sink.Push(context.Background(), RenderedEnvelope{Envelope: testV1Envelope()})
 
 			var deliveryErr *DeliveryError
 			require.ErrorAs(t, err, &deliveryErr)
@@ -195,7 +195,7 @@ func TestWebhookSink_PushContextCancellationIsTimeout(t *testing.T) {
 		Client: &http.Client{Transport: transport},
 	})
 
-	err := sink.Push(ctx, RenderedEnvelope{Envelope: Envelope{}})
+	err := sink.Push(ctx, RenderedEnvelope{Envelope: testV1Envelope()})
 
 	var deliveryErr *DeliveryError
 	require.ErrorAs(t, err, &deliveryErr)
@@ -378,6 +378,105 @@ func TestWebhookSink_V2FailureIsEndpointIsolated(t *testing.T) {
 		require.NoError(t, json.Unmarshal(body, &decoded))
 		require.Equal(t, env, decoded)
 	})
+}
+
+// testV1Envelope is a minimal valid v1 source fact. A v1 envelope always
+// carries a real event kind; the empty-event envelope is now reserved as the
+// v2-only carrier sentinel, so throwaway v1 fixtures use an explicit event.
+func testV1Envelope() Envelope {
+	return Envelope{SchemaVersion: SchemaVersion, Event: EventNew, ChatID: 100, MessageID: 1}
+}
+
+// textlessV2 is a valid captionless-photo v2 fact: the canonical content
+// type is present but there is no text, exactly the webhook-only carrier the
+// source handler submits via SubmitV2Only.
+func textlessV2() *messagev2.Notification {
+	occurredAt := time.Date(2026, time.October, 13, 8, 0, 0, 0, time.UTC)
+	return &messagev2.Notification{
+		SchemaVersion: messagev2.SchemaVersion,
+		Event:         messagev2.EventNew,
+		OccurredAt:    occurredAt,
+		Message: &messagev2.Message{
+			ChatID:    100,
+			MessageID: 1,
+			SentAt:    &occurredAt,
+			Content:   &messagev2.Content{Type: "messagePhoto"},
+		},
+	}
+}
+
+// RED: a v1-selected endpoint given a v2-only carrier (no v1 representation)
+// must fail its submission with the serialization class and send zero HTTP
+// attempts, so the endpoint stays silent instead of emitting an empty or
+// text-only envelope. Silence is an explicit carrier signal (empty event),
+// never inferred from empty text: a legitimate v1 delete with empty text
+// still renders.
+func TestWebhookSink_V1SilentForV2OnlyCarrier(t *testing.T) {
+	t.Parallel()
+
+	// A v1 endpoint receiving the textless v2-only carrier is silent.
+	v1attempts := make(chan []byte, 1)
+	v1sink := NewWebhookSink(WebhookConfig{
+		URL:    "https://push.example.test/events",
+		Schema: DeliverySchemaV1,
+		Client: &http.Client{Transport: &bodyCaptureTransport{attempts: v1attempts}},
+	})
+	err := v1sink.Push(context.Background(), RenderedEnvelope{V2: textlessV2()})
+	var deliveryErr *DeliveryError
+	require.ErrorAs(t, err, &deliveryErr)
+	require.Equal(t, FailureSerialization, deliveryErr.Class)
+	require.ErrorIs(t, deliveryErr.Err, ErrV1Unavailable)
+	select {
+	case body := <-v1attempts:
+		t.Fatalf("silent v1 endpoint must send no body, sent %s", body)
+	default:
+	}
+
+	// The same fact rendered by a v2 endpoint is delivered as the v2 wire.
+	v2attempts := make(chan []byte, 1)
+	v2sink := NewWebhookSink(WebhookConfig{
+		URL:    "https://push.example.test/events",
+		Schema: DeliverySchemaV2,
+		Client: &http.Client{Transport: &bodyCaptureTransport{attempts: v2attempts}},
+	})
+	require.NoError(t, v2sink.Push(context.Background(), RenderedEnvelope{V2: textlessV2()}))
+	var probe struct {
+		SchemaVersion int `json:"schema_version"`
+		Event         string
+		Message       map[string]any `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(<-v2attempts, &probe))
+	require.Equal(t, 2, probe.SchemaVersion)
+	require.Equal(t, "new", probe.Event)
+	require.Equal(t, "messagePhoto", probe.Message["content"].(map[string]any)["type"])
+}
+
+// RED: v1 silence is keyed on the absent v1 representation (empty event), not
+// on empty text. A legitimate v1 delete has empty text and must still render.
+func TestRenderPayload_V1SilenceIsExplicit(t *testing.T) {
+	t.Parallel()
+
+	occurredAt := time.Date(2026, time.October, 13, 8, 0, 0, 0, time.UTC)
+
+	// v2-only carrier: no v1 representation, so the v1 render fails.
+	_, err := RenderPayload(RenderedEnvelope{V2: textlessV2()}, DeliverySchemaV1)
+	require.ErrorIs(t, err, ErrV1Unavailable)
+
+	// A legitimate v1 delete carries an empty Text but a non-empty event, so
+	// it must still render the default wire.
+	deleted := Envelope{
+		SchemaVersion: SchemaVersion,
+		Event:         EventDeleted,
+		ChatID:        100,
+		MessageID:     1,
+		OccurredAt:    occurredAt,
+		Text:          "",
+	}
+	body, err := RenderPayload(RenderedEnvelope{Envelope: deleted}, DeliverySchemaV1)
+	require.NoError(t, err)
+	var decoded Envelope
+	require.NoError(t, json.Unmarshal(body, &decoded))
+	require.Equal(t, deleted, decoded)
 }
 
 // capturedTest is one captured delivery attempt for schema-selection tests.

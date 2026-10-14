@@ -236,14 +236,24 @@ func (s *Service) OnNewMessage(ctx context.Context, msg *client.Message) {
 	}
 
 	formattedText := s.messageService.GetFormattedText(msg)
-	if formattedText == nil {
-		return
-	}
 
 	// Обработка по каждому правилу.
 	for _, ruleID := range rs.OrderedForwardRules {
 		rule := rs.ForwardRules[ruleID]
 		if rule.From != srcChatID {
+			continue
+		}
+		if formattedText == nil {
+			// Webhook-only textless media: the source fact is pushed only as a
+			// canonical v2 content fact. Eligibility is independent of the
+			// Telegram copy/forward guards, albums keep their quiet-period
+			// path, and no file or network work is added. The v1 representation
+			// is absent, so a v1 endpoint stays silent at the delivery boundary.
+			if rs.push != nil && len(rule.PushTo) != 0 && msg.MediaAlbumId == 0 {
+				if v2 := v2SnapshotFor(msg, messagev2.EventNew, time.Now().UTC()); v2 != nil {
+					rs.push.SubmitV2Only(rule.PushTo, v2)
+				}
+			}
 			continue
 		}
 		if !rule.SendCopy && !msg.CanBeSaved {

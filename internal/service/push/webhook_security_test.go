@@ -18,7 +18,7 @@ func TestWebhookSink_RejectsPlaintextAndDowngrade(t *testing.T) {
 		t.Run(initial, func(t *testing.T) {
 			transport := &redirectTransport{}
 			sink := NewWebhookSink(WebhookConfig{URL: initial, Client: &http.Client{Transport: transport}})
-			err := sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}})
+			err := sink.Push(context.Background(), RenderedEnvelope{Envelope: testV1Envelope()})
 			require.Error(t, err)
 			require.NotContains(t, err.Error(), "secret")
 			want := 0
@@ -37,7 +37,7 @@ func TestWebhookSink_CanonicalHeadersAndNoSecretError(t *testing.T) {
 		URL: "https://push.test/bearer-secret", Headers: map[string]string{"Content-Type": "text/plain"},
 		Client: &http.Client{Transport: transport, Timeout: -1},
 	})
-	err := sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}})
+	err := sink.Push(context.Background(), RenderedEnvelope{Envelope: testV1Envelope()})
 	require.Error(t, err)
 	require.Equal(t, "application/json", transport.contentType)
 	require.NotContains(t, err.Error(), "bearer-secret")
@@ -51,7 +51,7 @@ func TestWebhookSink_TransportCannotReplayRequest(t *testing.T) {
 		URL: "https://push.test/events", Headers: map[string]string{"Idempotency-Key": "external-key"},
 		Client: &http.Client{Transport: transport},
 	})
-	require.NoError(t, sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{}}))
+	require.NoError(t, sink.Push(context.Background(), RenderedEnvelope{Envelope: testV1Envelope()}))
 	require.False(t, transport.replayable)
 }
 
@@ -76,7 +76,7 @@ func TestWebhookSink_PreservesBodyAcrossHTTPSRedirect(t *testing.T) {
 	}))
 	defer server.Close()
 	sink := NewWebhookSink(WebhookConfig{URL: server.URL, Client: server.Client()})
-	require.NoError(t, sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{Text: "full source"}}))
+	require.NoError(t, sink.Push(context.Background(), RenderedEnvelope{Envelope: Envelope{Event: EventNew, Text: "full source"}}))
 	require.Contains(t, body, `"text":"full source"`)
 }
 
