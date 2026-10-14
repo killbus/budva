@@ -662,3 +662,26 @@ system-message actions, plus Telegram invariance under full buffers/delivery
 failure/reload/shutdown for the new path — each as its own minimal TDD
 increment. M04 and M06 remain untouched; main integration requires explicit
 owner agreement and a pull request.
+
+### 2026-10-14 — M05 CI evidence (run 1) and channel-read fix
+
+Branch `feat/external-push-sink`, code commit `7108e0c`, docs commit
+`e50d448` pushed; `ci-test.yml` dispatched on the branch name.
+
+- Run 1: https://github.com/killbus/budva/actions/runs/38614765938
+  (head `e50d448`) — **failure**, `go test ./internal/...` timed out at
+  10m in `internal/app/handler`. Dump shows
+  `TestTextlessMedia_PushesV2FactOnlyV1Silent` running for 10m: the test
+  read `<-v2Bodies` twice, but the channel holds exactly one delivered
+  body (one webhook-only submission), so the second read blocked forever.
+  The `tls_transport`/`serialization` WARN lines in the same dump belong
+  to the pre-existing M03 v2-failure-isolation test, as designed. The
+  bug was in the new test's drain, not in the production path: the v2
+  fact was delivered once, v1 stayed silent, and `Retire()` completed.
+- Fix: `internal/app/handler/textless_push_test.go` keeps the raw body of
+  the single read and reuses it for both the JSON assertions and the
+  file-reference absence checks (one read of a one-element channel).
+  gofmt clean; the package stays TDLib-cgo CI-only locally.
+- Run 2 (fix commit, below) re-dispatched on `feat/external-push-sink`;
+  result recorded when it lands. GATE: no main/PR/release/deploy/tag,
+  no schedule/heartbeat, no `task.py start`; M04 untouched.

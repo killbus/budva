@@ -95,8 +95,9 @@ func TestTextlessMedia_PushesV2FactOnlyV1Silent(t *testing.T) {
 	require.Len(t, v2Bodies, 1)
 	require.Empty(t, v1Bodies)
 
+	body := <-v2Bodies
 	var v2 v2Probe
-	require.NoError(t, json.Unmarshal(<-v2Bodies, &v2))
+	require.NoError(t, json.Unmarshal(body, &v2))
 	require.Equal(t, 2, v2.SchemaVersion)
 	require.Equal(t, "new", v2.Event)
 	require.Equal(t, float64(100), v2.Message["chat_id"])
@@ -108,7 +109,6 @@ func TestTextlessMedia_PushesV2FactOnlyV1Silent(t *testing.T) {
 
 	// The wire is a content fact, not a file: the projection never surfaces the
 	// photo's file identifier, so no file or network reference leaks out.
-	body := <-v2Bodies
 	require.NotContains(t, string(body), "photo-file-id-42")
 	require.NotContains(t, string(body), "file_id")
 }
