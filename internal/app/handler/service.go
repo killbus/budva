@@ -709,14 +709,16 @@ func (s *Service) editMessages(ctx context.Context, rs *domain.RuleSet, msg *cli
 	src := rs.Sources[msg.ChatId]
 	text := s.messageService.GetFormattedText(msg)
 	if text == nil {
-		// Webhook-only textless media edit: the source fact is pushed only as a
-		// canonical v2 `edited` content fact. It is the full current snapshot
-		// (no prior state is read or invented), albums keep their quiet-period
-		// path, and no file or network work is added. The v1 representation is
-		// absent, so a v1 endpoint stays silent at the delivery boundary; no
-		// v1 "edited" empty event is fabricated. This returns before the copies
-		// loop, so no copy/caption work runs.
-		if emission != nil && emission.push != nil && msg.MediaAlbumId == 0 {
+		// Webhook-only textless media edit: a content-bearing message whose
+		// formatted text is absent is pushed only as a canonical v2 `edited`
+		// content fact. It is the full current snapshot (no prior state is read
+		// or invented), albums keep their quiet-period path, and no file or
+		// network work is added. The v1 representation is absent, so a v1
+		// endpoint stays silent at the delivery boundary; no v1 "edited" empty
+		// event is fabricated. This returns before the copies loop, so no
+		// copy/caption work runs. A content-less message (Content == nil) is not
+		// textless media, so it is left to the earlier no-event rule.
+		if emission != nil && emission.push != nil && msg.Content != nil && msg.MediaAlbumId == 0 {
 			if v2 := v2SnapshotFor(msg, messagev2.EventEdited, emission.occurredAt); v2 != nil {
 				names := make([]string, 0)
 				// Source edits must reach webhook-only routes, even after a filter exit.
