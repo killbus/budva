@@ -1227,3 +1227,108 @@ Landed + CI evidence:
   `internal/app/handler` carrying both new tests.
 - Commit 3 (docs, this commit): `progress.md` (this entry + CI result) and
   `implement.md` (M05 status note). Docs-only; no additional CI run required.
+
+### 2026-10-15 — M05 increment: ALBUM path scope judgment (DOCUMENTATION GATE — user decision required)
+
+Chosen increment (from "Remaining M05 REDs"): **webhook semantics for
+textless media that takes the album collection path** (a captionless media
+member with `MediaAlbumId != 0`). The scope judgment the plan calls for comes
+first, and it lands here as a **documentation gate, not a test or code
+increment**: the album textless semantics are a genuine behavior gap that a
+pure-test lock cannot honestly describe, so no code or test is written and no
+album membership or v1 behavior is changed this increment.
+
+Scope judgment (read `OnNewMessage` service.go:246-278, `processMediaAlbum`
+service.go:555-628, the message service `GetFormattedText`, the existing
+`TestPush_AlbumPipelineInvariant`, `TestPush_AlbumMembersEmitOnce`, the M03
+`TestPush_MixedEndpointsDeliverSelectedSchemas`, and the design/PRD album
+boundaries):
+
+1. **A captionless media member never reaches `processMediaAlbum`.** `GetFormattedText`
+   returns `nil` for any captionless/nil-caption media content, and the
+   `OnNewMessage` guard at service.go:255 is `msg.Content != nil &&
+   msg.MediaAlbumId == 0` — its comment explicitly says "albums keep their
+   quiet-period path." So a captionless album member (`Content != nil`,
+   `MediaAlbumId != 0`) skips the textless block, hits `continue`, is **not
+   added to the album service** (`AddMessage` is only reached when
+   `formattedText != nil`), and produces **no v1 and no v2 webhook fact at
+   ingress**. This is the exact pre-textless no-event behavior — M05 never
+   changed it for album members.
+2. **Within `processMediaAlbum` (service.go:592-594) the only per-member gate
+   is `text == nil`.** A captionless member that somehow appeared in the
+   album collection is also dropped from the webhook submission — again with
+   no v1 and no v2 fact. The two existing album tests
+   (`TestPush_AlbumMembersEmitOnce`, `TestPush_AlbumPipelineInvariant`) both
+   pin this: the captionless member contributes an empty-`Text` v1 submission
+   **only because its mock `GetFormattedText` returns an empty (non-nil)
+   caption**, never `nil`.
+3. **No existing test locks the captionless-album-member v2 projection
+   behavior.** There is no test asserting (or even expressing) a v2 `new`
+   content fact for a captionless album member, and no mixed-endpoint album
+   test asserting v1-silence vs v2-fact for that member. So the "consistent
+   semantics under v1/v2" condition for the pure-test-lock branch is
+   **not** met: the v2 side is simply absent, not consistent.
+
+Why this is a real gap, not a lockable invariant: M05's established rule for
+textless media (single media, `MediaAlbumId == 0`) is to push a canonical v2
+content fact with the v1 endpoint silent — the webhook consumer still learns
+the photo exists and its type. The album path does **not** honor that rule for
+captionless members: it drops them entirely (no v2 fact). A consumer of a
+webhook-only rule that sends a 3-photo album where one photo has no caption
+receives v2 facts for the two captioned photos and **nothing** for the
+third — the v2 projection is not the full album the rule intends to publish.
+This is a semantic asymmetry between the single-media and album paths, and
+deciding which is correct is a product decision (see the two candidate
+semantics below). Locking the current drop with a pure test would paper over
+that decision.
+
+Two candidate semantics (no decision made this increment):
+
+- **(A) Keep the drop (status quo; pure-test lock).** A captionless album
+  member emits no v1 and no v2 fact; the album's v2 projection is partial
+  (one fact per captioned member). Rationale: it is exactly the pre-M05
+  v1 behavior, and the approved design deliberately does not model "album
+  completeness" (PRD: "V2 only preserves the source-provided
+  `media_album_id` on each member"; boundaries doc: album completeness is an
+  independent aggregate out of scope). Impact: no production change; a v2
+  consumer must treat an album's member set as "members that carried a
+  caption." This is the conservative, no-behavior-change option and the only
+  one this increment could lock honestly.
+- **(B) Push a v2 content fact for captionless album members.** A captionless
+  album member (content-bearing, `MediaAlbumId != 0`) emits a canonical v2
+  `new` content fact (full current snapshot, `content.formatted_text`
+  absent) through the same quiet-period/post-collection `SubmitV2` loop, with
+  the v1 endpoint silent at the delivery boundary (the v2-only render path
+  `RenderPayload` → `ErrV1Unavailable` keeps a v1-selected endpoint silent,
+  the same mechanism the single-media textless path relies on). Rationale:
+  makes the album v2 projection complete and consistent with the
+  single-media textless rule. Impact: a genuine **behavior change** to the
+  album path (new webhook deliveries the endpoint did not previously
+  receive), plus a production change to `OnNewMessage` (let content-bearing
+  captionless album members enter `AddMessage`/`processMediaAlbum`) and/or
+  `processMediaAlbum` (emit v2 facts for `text == nil` members) — and it must
+  be reconciled with the `!rule.SendCopy && !msg.CanBeSaved` forward guard,
+  which currently gates album ingress too. Out of scope for this increment
+  (the plan forbids changing album membership or v1 behavior without a
+  decision).
+
+Decision required from the user before any test or code: pick (A) or (B) (or
+a refinement) for captionless album members. Under (A) the next increment is
+a pure-test lock of the current drop; under (B) the next increment is a
+production change with its own RED/lock. Either way this increment writes no
+album code and changes no v1 or membership behavior.
+
+RED / commit plan for THIS increment: none (documentation gate). Local
+verification: `git diff --check` and a re-read of the cited lines only; the
+`internal/app/handler` package is TDLib cgo and cannot be compiled locally,
+and no test or production file changes, so there is nothing to run. Commit
+plan: one docs-only commit — `progress.md` (this entry) and `implement.md`
+(M05 status note marking the album increment a documentation gate pending a
+user decision). Push `feat/external-push-sink` to `origin` (branch only).
+Docs-only, so no `ci-test.yml` run is required this increment (the previous
+increment's run `38765952927` on head `673bf36` is the last green CI).
+Excluded (untracked, left as-is): the same protected set as the prior
+increments, including `mytokens.txt` (secret, git-excluded). No
+main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`, no
+M04 work. Remaining M05 REDs (albums — blocked on this decision, and shutdown
+invariance) continue as separate minimal increments.

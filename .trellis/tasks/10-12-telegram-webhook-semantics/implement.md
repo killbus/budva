@@ -97,7 +97,23 @@ gate rather than an implementation milestone. Read
   joining it in flight, then filling the bound (the
   `TestPush_TelegramInvariance` pattern). Final CI `38765952927` (head
   `673bf36`) is green across all packages. Remaining REDs (albums/replies,
-  and shutdown invariance) continue as separate minimal increments.
+  and shutdown invariance) continue as separate minimal increments. Seventh
+  increment 2026-10-15 (documentation gate, no code or test) — the ALBUM path
+  for textless media: a scope judgment found that a captionless album member
+  (`Content != nil`, `MediaAlbumId != 0`) is dropped at `OnNewMessage` ingress
+  (the textless guard is scoped to `MediaAlbumId == 0`) and again in
+  `processMediaAlbum` (the `text == nil` gate), so it produces no v1 AND no v2
+  fact — the album's v2 projection is partial, unlike the single-media textless
+  rule that pushes a v2 content fact with v1 silent. No existing test locks
+  that captionless-album-member v2 behavior, so this is a genuine behavior gap,
+  not a lockable invariant. Two candidate semantics are recorded in
+  `progress.md` (A: keep the drop, pure-test lock — the no-change option;
+  B: push a v2 content fact for captionless album members — a behavior change
+  touching album membership/ingress and v1 guard reconciliation). This
+  increment marks the album item **pending a user decision**; no album
+  membership or v1 behavior is changed. The next album increment (test lock
+  under A, or production change under B) is separate. Shutdown invariance
+  remains a separate minimal increment.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
