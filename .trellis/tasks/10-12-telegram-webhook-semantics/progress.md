@@ -1519,6 +1519,121 @@ captured submission, the task queue never re-enqueues push work, and
 Remaining M05 items (open, separate increments): album EDIT path, replies,
 and the overall M05 closure assessment.
 
+## M05 increment 11 — reply/thread projection lock on the textless/album v2 paths (LOCK-ONLY, no behavioral RED) — 2026-10-15
+
+Chosen increment (from "Remaining M05 items"): **replies**. Per the
+pre-agreed decision rule the item was first checked for a real behavioral
+gap before any test was written.
+
+Facts (targeted reads; the handler package is cgo and is judged by CI only):
+
+1. `v2SnapshotFor` (`internal/app/handler/projection_v2.go`) projects the
+   reply and thread facts UNCONDITIONALLY from `*client.Message`:
+   `ReplyTo: v2ReplyFor(msg.ReplyTo)` (bounded discriminator, and chat +
+   message id for the `messageReplyToMessage` variant),
+   `MessageThreadID: msg.MessageThreadId` and
+   `SavedMessagesTopicID: msg.SavedMessagesTopicId`. There is no
+   `IsTopicMessage`/topic gate anywhere in the repo (zero `rg` hits), so
+   forum-thread messages are never special-cased before the projection.
+2. `v2SnapshotFor` is the ONLY snapshot builder and it is the one used on all
+   three locked paths: NEW single-media textless
+   (`service.go` `OnNewMessage` -> `SubmitV2Only`), captionless album member
+   (`processMediaAlbum` member loop -> `SubmitV2Only`), and textless EDIT
+   including album members (`editMessages` -> `SubmitV2Only`), plus the
+   captioned paths' `SubmitV2` facts.
+3. No gate on these paths drops or mutates a reply-bearing message: the
+   ingress/album/edit gates only read `Content`, `MediaAlbumId` and
+   `GetFormattedText(msg)`, and the message passes through by pointer
+   untouched, so `ReplyTo`/`MessageThreadId` survive to submission.
+4. The wire serializer already emits `reply_to` / `message_thread_id` /
+   `saved_messages_topic_id` and validates them
+   (`internal/service/push/messagev2/serializer.go`, pinned by
+   `serializer_test.go` at the messagev2 level).
+5. Existing M05 handler tests pin NOTHING about reply projection on the
+   textless/album paths (zero `ReplyTo`/`IsTopicMessage` references in
+   `textless_*_test.go`; the only handler `ReplyTo` tests are pre-M05
+   copy-routing tests around `resolveReplyTo` in `service_test.go`).
+
+Decision: the reply/thread projection already flows on all three locked
+paths — the only gap is the missing test lock. This is therefore a
+**pure-test, lock-only increment with NO behavioral RED** (the new tests are
+expected GREEN immediately; CI proves no regression). No production change,
+no doc gate (no product decision is open: replies are not v1-specific —
+the v1 envelope does not carry reply facts at all, so there is nothing to
+reconcile on the v1 side).
+
+Test commit `31c8035` (`test: lock reply/thread projection on the
+textless/album v2 paths`), new file
+`internal/app/handler/textless_reply_lock_test.go`, four locks:
+
+- `TestTextlessReply_NewSingleMediaCarriesReplyThreadFact`: a reply-bearing
+  textless single-media NEW (photo, `CanBeSaved == false`,
+  `ReplyTo = MessageReplyToMessage{ChatId: 100, MessageId: 9}`,
+  `MessageThreadId: 7`) on a webhook-only rule, driven through the real
+  `OnNewMessage` with the captured generation (outcomeSink). Locks exactly
+  one v2 `new` fact carrying the reply projection verbatim
+  (discriminator `messageReplyToMessage`, chat 100, message 9) and
+  `message_thread_id` 7, the `messagePhoto` content fact, no fabricated v1
+  envelope, accepted result, queue convergence, strict zero-expectation
+  Telegram/State/RateLimiter/Transform mocks (no copy/forward/state/limiter
+  work).
+- `TestTextlessReply_NewCaptionlessAlbumMemberCarriesReplyThreadFact`:
+  the same reply-bearing facts on a captionless ALBUM member
+  (`MediaAlbumId: 42`), driven through the real NEW-path flow (ingress ->
+  album collection -> quiet-period member loop, `q.ProcessAll()`), album
+  mocks bound to the first-member end state. Locks exactly one v2 `new`
+  fact with `media_album_id` 42 plus the verbatim reply/thread projection,
+  no v1 envelope, queue convergence, zero Telegram/album-side work.
+- `TestTextlessReply_EditCarriesReplyThreadFact` (subtests
+  `single_media` and `album_member`): an edited reply-bearing textless
+  member (both `MediaAlbumId` 0 and 42, `EditDate` set) driven through the
+  real `OnEditedMessage` -> queue task. Locks exactly one v2 `edited` fact
+  per case with `edited_at` present, the verbatim reply/thread projection
+  (`media_album_id` 42 in the album case), no v1 envelope, strict album
+  mock zero calls (album collection stays NEW-only), queue convergence.
+- `TestTextlessReply_ContentlessNewMessageEmitsNoReplyFact` (negative): a
+  content-LESS new message (`Content == nil`) that DOES carry
+  `ReplyTo`/`MessageThreadId` on the source must produce NOTHING — no v1
+  envelope, no v2 fact, no submission of any kind; in particular no v2
+  snapshot is fabricated carrying a reply without a content fact (which the
+  serializer would reject as a snapshot without content). The
+  `recordingSubmitter` records zero submissions and the queue converges.
+
+All four reuse existing M05 fixtures/helpers (`captureSubmitter`,
+`outcomeSink`, `recordingSubmitter`, `NewGeneration`, strict mock
+constructors, `domain.MediaAlbumKey`); one new shared helper
+(`textlessReplyService`) plus the shared `replyPhotoMember`/
+`requireReplyThreadFact` builders.
+
+Verification (local = LIGHT ONLY): `gofmt -l` clean on the new file;
+`git diff --check` clean; every referenced identifier resolves by `rg`
+(`SubmitAccepted` in `internal/service/push/event`,
+`NewGeneration` in `internal/service/push/dispatcher.go`,
+`MessageThreadId`/`SavedMessagesTopicId`/
+`MessageReplyToMessage{ChatId,MessageId}` in
+go-tdlib v0.7.6 `client/type.go`, `TypeMessageReplyToMessage` in
+`client/type.go`); `CGO_ENABLED=0 GOPROXY=off GOCACHE=$PWD/.tmp-go-cache
+go test ./internal/service/push/...` green (ok push, ok push/messagev2,
+event no test files). Handler (TDLib cgo) judged by CI only; no
+full-repo build/typecheck/vet/race, no parallel heavy jobs, no dep
+installs locally.
+
+CI evidence (this increment; branch `feat/external-push-sink`):
+
+(pending — dispatched after this record is committed)
+
+No production change: the increment is a lock-only increment; if CI is
+green the three locked textless/album v2 paths are proven to carry the
+reply/thread projection verbatim, closing the "replies" M05 item.
+Remaining M05 items after this increment: the overall M05 closure
+assessment only (all REDs in the M05 test list — textless single/album
+new+edit+delete, protected eligibility, reload/retire, delivery/shutdown
+invariance, albums, replies — now have production behavior plus green CI
+locks; full-buffer/delivery-failure invariance for the edit path was
+covered by increment 6's invariance series, and the album path's
+delivery-invariance series is the one remaining candidate to confirm
+against the M05 checklist during closure).
+
 ## M05 increment: edited captionless album member v2-only edited fact (B semantics, symmetric edit case)
 
 Scope judgment (pre-agreed decision rule, applied without a doc gate): tracing

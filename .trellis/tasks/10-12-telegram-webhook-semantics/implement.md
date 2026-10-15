@@ -173,6 +173,28 @@ gate rather than an implementation milestone. Read
   `38803082371` (head `9541175`) is green across all packages — the cgo
   handler tests pass in CI and no existing test regressed. Remaining M05
   items: replies, and the overall M05 closure assessment.
+  Eleventh increment landed 2026-10-15 (pure-test lock, no production
+  change) — REPLIES on the three locked textless/album v2 paths. The
+  decision-rule check found no behavioral gap: `v2SnapshotFor` projects
+  `ReplyTo` (bounded discriminator + chat/message id for
+  `messageReplyToMessage`), `MessageThreadID` and `SavedMessagesTopicID`
+  unconditionally from `*client.Message`, is the only snapshot builder, and
+  is what all three locked paths submit (NEW single-media, captionless
+  album member, textless EDIT incl. album member); no `IsTopicMessage`/
+  topic gate exists anywhere, and the message reaches submission by
+  pointer untouched, so the only gap was the missing test lock. The new
+  handler test
+  `internal/app/handler/textless_reply_lock_test.go` (commit `31c8035`)
+  locks: a reply-bearing textless single-media NEW with the verbatim
+  reply/thread projection (v2-only, v1 silent, no Telegram work), a
+  reply-bearing captionless album member (same projection through the
+  quiet-period member loop, `media_album_id` carried), a reply-bearing
+  textless EDIT for both single-media and album member (`edited` fact with
+  the projection, no album re-collection), and the content-less negative
+  (a `Content == nil` source that carries reply/thread facts emits
+  nothing — no fabricated reply-bearing v2 snapshot). No behavioral RED:
+  the projection already flowed; CI proves no regression.
+  Remaining M05 items: the overall M05 closure assessment.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
