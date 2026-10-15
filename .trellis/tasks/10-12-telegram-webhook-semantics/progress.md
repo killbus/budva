@@ -1620,7 +1620,19 @@ installs locally.
 
 CI evidence (this increment; branch `feat/external-push-sink`):
 
-(pending — dispatched after this record is committed)
+- First dispatch on the test + docs head `19dee01` — run `38805879327`,
+  conclusion **failure**. Not a product RED: a compile-only error in this
+  increment's own helper — `client.Message.MediaAlbumId` is
+  `client.JsonInt64` (an `int64`-based named type in go-tdlib v0.7.6), so the
+  helper's typed `int64` parameter needed a cast; the untyped literals used
+  by the existing M05 fixtures were unaffected. Fix commit `b7c60fd`
+  (`test: fix reply lock helper JsonInt64 album id cast`) changes exactly
+  that one line.
+- Second dispatch on head `b7c60fd` — run `38806730626`, conclusion
+  **success** across all packages: the four reply/thread locks pass in CI
+  (the handler package is cgo and is only exercised there), and no existing
+  handler or push test regressed. The final head of this increment is
+  GREEN.
 
 No production change: the increment is a lock-only increment; if CI is
 green the three locked textless/album v2 paths are proven to carry the
