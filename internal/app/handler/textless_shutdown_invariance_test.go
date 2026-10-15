@@ -125,14 +125,15 @@ func requireNoSubmission(t *testing.T, capture *captureSubmitter) {
 // test.
 func TestTextlessMediaNew_ShutdownInvariant(t *testing.T) {
 	t.Run("delivered", func(t *testing.T) {
-		// Real servers run outside synctest (repo convention: pure
-		// transports inside synctest, real servers outside). The v1 endpoint
-		// is a counter so "silent" means zero HTTP requests at the wire, not
-		// just a missing capture. Retire() drains every endpoint and joins
-		// the sink workers before the body channels are read, so no
-		// goroutine outlives the test and no send can block.
+		// Real TLS servers run outside synctest (repo convention: pure
+		// transports inside synctest, real servers outside). Each sink gets
+		// its own server's client so the test certificate is trusted. The v1
+		// endpoint is a counter so "silent" means zero HTTP requests at the
+		// wire, not just a missing capture. Retire() drains every endpoint
+		// and joins the sink workers before the body channels are read, so
+		// no goroutine outlives the test and no send can block.
 		v1Hits := make(chan struct{}, 4)
-		v1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		v1Server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = io.Copy(io.Discard, r.Body)
 			v1Hits <- struct{}{}
 			w.WriteHeader(http.StatusAccepted)
@@ -140,7 +141,7 @@ func TestTextlessMediaNew_ShutdownInvariant(t *testing.T) {
 		defer v1Server.Close()
 
 		v2Bodies := make(chan []byte, 4)
-		v2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		v2Server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := io.ReadAll(r.Body)
 			require.NoError(t, err)
 			v2Bodies <- body
@@ -149,8 +150,8 @@ func TestTextlessMediaNew_ShutdownInvariant(t *testing.T) {
 		defer v2Server.Close()
 
 		g := push.NewGeneration(map[string]push.EndpointConfig{
-			"v1": {Sink: push.NewWebhookSink(push.WebhookConfig{URL: v1Server.URL}), BufferCapacity: 8, Timeout: time.Second},
-			"v2": {Sink: push.NewWebhookSink(push.WebhookConfig{URL: v2Server.URL, Schema: push.DeliverySchemaV2}), BufferCapacity: 8, Timeout: time.Second},
+			"v1": {Sink: push.NewWebhookSink(push.WebhookConfig{URL: v1Server.URL, Client: v1Server.Client()}), BufferCapacity: 8, Timeout: time.Second},
+			"v2": {Sink: push.NewWebhookSink(push.WebhookConfig{URL: v2Server.URL, Client: v2Server.Client(), Schema: push.DeliverySchemaV2}), BufferCapacity: 8, Timeout: time.Second},
 		})
 		capture := &captureSubmitter{next: g}
 		h, q, msg := protectedTextlessService(t, []string{"v1", "v2"}, capture)
