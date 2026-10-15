@@ -78,7 +78,26 @@ gate rather than an implementation milestone. Read
   outcomeSink, captured submission accepted, replacement receives nothing).
   Remaining REDs (albums/replies, and full-buffer/delivery-failure/reload/
   shutdown invariance for the edit path) continue as separate minimal
-  increments.
+  increments. Sixth increment landed 2026-10-15 (pure-test lock, no
+  production change) — the EDIT textless path is delivery-invariant: under
+  `buffer_full`, `timeout`, `http_5xx`, `serialization` and retired
+  generation the webhook-only textless media EDIT fact stays submitted
+  exactly once as the canonical v2 `edited` content fact through the
+  submitter captured at the `OnEditedMessage` entry (v2-only submission
+  happens inside the queue task, driven by `q.ProcessAll()`), with strict
+  zero-expectation mocks pinning no Telegram copy/caption/state/limiter
+  work, no fabricated v1 envelope, and the task queue converged to zero;
+  the reload/retired outcome stays on the captured generation (the
+  replacement submitter receives nothing). The new handler test
+  `internal/app/handler/textless_edit_invariance_test.go` pins both the
+  outcome loop and the captured-route reload/retired outcome. First CI on
+  the test commit exposed a test-only sequencing flaw in the `buffer_full`
+  prefill (both prefills enqueued before the worker ran, so the bound was
+  not actually full at submission time); it is fixed by pre-filling one,
+  joining it in flight, then filling the bound (the
+  `TestPush_TelegramInvariance` pattern). Final CI `38765952927` (head
+  `673bf36`) is green across all packages. Remaining REDs (albums/replies,
+  and shutdown invariance) continue as separate minimal increments.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly

@@ -1126,3 +1126,104 @@ Landed + CI evidence:
   `TestTextlessMedia_ReloadRetiredOutcomeStaysCaptured`.
 - Commit 2 (docs, this commit): `progress.md` (this entry + CI result) and
   `implement.md` (M05 status note). Docs-only; no additional CI run required.
+
+### 2026-10-15 — M05 increment: delivery invariance of the EDIT textless path (RED scope + commit plan)
+
+Chosen increment (from "Remaining M05 REDs"): **delivery invariance for the
+edit textless path** — the webhook-only textless media EDIT fact (edited
+v2-only, caption stripped) stays delivery-invariant under full buffer,
+delivery failure (timeout / http_5xx / serialization), retired generation,
+and ruleset reload: Telegram behavior unchanged (strict mocks, zero
+expectations), no v1 empty event fabricated, and the task queue converges.
+This is a **pure-test lock increment**; zero production code changes are
+expected. The edit path differs from the new path in one structural way: the
+v2 fact is submitted **inside the queue task** (`editMessagesWithRetry`,
+snapshot captured at `OnEditedMessage` entry), so the test must drive
+`q.ProcessAll()` (or the retired/reload ordering per `push_test.go`'s retry
+convention) before `Retire()` and draining.
+
+Why it is a lock, not a behavior change: `editMessages` already submits the
+textless `edited` fact via `emission.push.SubmitV2Only` (captured at entry,
+immutable captured route) inside the task, before the copies loop, so no
+copy/caption/state/limiter work can run. The RED is the absence of
+invariance coverage for the edit path.
+
+RED (written first; must pass against unchanged code):
+- New handler test `internal/app/handler/textless_edit_invariance_test.go`
+  (new file, CI-only cgo):
+  - `TestTextlessMediaEdit_InvariantUnderDeliveryOutcomes` — outcome loop
+    over `buffer_full`, `timeout`, `http_5xx`, `serialization`, `retired`,
+    mirroring `TestPush_TelegramInvariance`'s `outcomeSink` convention but on
+    the edit path: single `endpoint` on an `outcomeSink` (class set per
+    outcome; `buffer_full` prefilled `BufferCapacity:1` twice, `retired`
+    pre-retires the generation), behind a `captureSubmitter{next: g}`. One
+    captionless source photo through `OnEditedMessage`, then
+    `q.ProcessAll()`. Asserts: exactly one v2-only submission recorded with
+    no v1 envelope (`capture.events` empty), `content.type = messagePhoto`,
+    `edited` event, the expected `SubmitResult` per outcome, and the queue
+    converges to zero (no Telegram work re-enqueued; the textless path never
+    retries, so no re-enqueue either).
+  - `TestTextlessMediaEdit_ReloadRetiredOutcomeStaysCaptured` — mirror of
+    `TestTextlessMedia_ReloadRetiredOutcomeStaysCaptured` for the edit path:
+    the queue task submits through the generation captured at
+    `OnEditedMessage` entry; after `g.Retire()` + `SetRuleSetWithPush` to a
+    replacement, the replacement receives nothing, the captured submission is
+    the only one, and the queue converges. Pure transport, inside
+    `synctest.Test`.
+- Shared helpers in-file: `editTextlessMessage()` (captionless photo,
+  `Content != nil`, `MediaAlbumId == 0`, `CanBeSaved: false`, real file id on
+  the source size) and `editTextlessService()` (webhook-only rule, strict
+  mocks: `GetCopiedMessageIDs -> nil`, `GetFormattedText -> nil`, zero-
+  expectation TelegramRepo/StateRepo/Limiter/Transform/Album).
+- FAILING-as-RED rationale: the RED is coverage. If the edit textless
+  submission lost immutability (used the live submitter after reload),
+  fabricated a v1 envelope, enqueued Telegram work, or retried, the
+  assertions above fail.
+
+Local verification (lightweight, memory-bounded, GOPROXY=off, CGO_ENABLED=0):
+`gofmt` on the new file, `git diff --check`, `rg` identifier checks, `go test
+./internal/service/push/...` (pure Go) green. `internal/app/handler` is TDLib
+cgo and cannot compile locally; CI is the arbiter.
+
+Commit plan (recorded before committing, per takeover policy):
+- Branch: `feat/external-push-sink` (no main touch).
+- Commit 1 (test): `internal/app/handler/textless_edit_invariance_test.go`
+  (new). No production file changes. (If the test exposes a real behavior
+  defect, a minimal production fix lands as a separate commit with its own
+  note; scope does not expand.)
+- Commit 2 (docs): `progress.md` (this entry + CI result) and `implement.md`
+  (M05 status note).
+- Push `feat/external-push-sink` to `origin` (branch only), dispatch
+  `ci-test.yml` via `workflow_dispatch --ref feat/external-push-sink`; token
+  via non-echoing askpass/stdin only, never in argv/env/trace/URL/config.
+- Excluded (untracked, left as-is): the same protected set as the prior
+  increments, including `mytokens.txt` (secret, git-excluded).
+- No main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`,
+  no M04 work. Remaining M05 REDs (albums/replies, and shutdown invariance)
+  continue as separate minimal increments.
+
+Landed + CI evidence:
+- Commit 1 (test): `2f4f1de` — `internal/app/handler/textless_edit_invariance_test.go`
+  (new): `TestTextlessMediaEdit_InvariantUnderDeliveryOutcomes` (outcome loop
+  over `buffer_full`, `timeout`, `http_5xx`, `serialization`, `retired`, each
+  inside `synctest.Test`) and
+  `TestTextlessMediaEdit_ReloadRetiredOutcomeStaysCaptured` (captured-route
+  mirror of the new-path retired outcome). No production file changes.
+- First CI: `ci-test.yml` dispatched via `workflow_dispatch --ref
+  feat/external-push-sink`; run `38764274663` on head `2f4f1de` was **RED**,
+  solely in `TestTextlessMediaEdit_InvariantUnderDeliveryOutcomes/buffer_full`
+  (expected `buffer_full`, got `accepted`): both prefills were enqueued before
+  the worker goroutine had run, so the `synctest.Wait()` after them left one
+  prefill in flight (blocked in the timeout sink) and the edit submission
+  found an empty queue. Test-only sequencing flaw, no production behavior
+  defect — the invariance semantics themselves held.
+- Commit 2 (test fix, separate per the plan): `673bf36` — pre-fill one, join
+  it in flight with `synctest.Wait`, then fill the bound (the same pattern
+  `TestPush_TelegramInvariance` uses). No production file changes.
+- Final CI: `ci-test.yml` dispatched via `workflow_dispatch --ref
+  feat/external-push-sink`; run `38765952927` on head `673bf36` (branch
+  `feat/external-push-sink`) is **GREEN** (`status=completed`,
+  `conclusion=success`) across all packages, including the cgo-gated
+  `internal/app/handler` carrying both new tests.
+- Commit 3 (docs, this commit): `progress.md` (this entry + CI result) and
+  `implement.md` (M05 status note). Docs-only; no additional CI run required.
