@@ -44,7 +44,7 @@ func textlessReplyService(t *testing.T, submitter event.Submitter) (*Service, *q
 // forum-thread facts the v2 projection must carry through verbatim; the
 // caller sets MediaAlbumId to select the single-media or album-member path.
 func replyPhotoMember(id int64, albumID int64) *client.Message {
-	return &client.Message{ChatId: 100, Id: id, Date: 1791868800, CanBeSaved: false, MediaAlbumId: albumID,
+	return &client.Message{ChatId: 100, Id: id, Date: 1791868800, CanBeSaved: false, MediaAlbumId: client.JsonInt64(albumID),
 		SenderId:        &client.MessageSenderUser{UserId: 42},
 		ReplyTo:         &client.MessageReplyToMessage{ChatId: 100, MessageId: 9},
 		MessageThreadId: 7,
