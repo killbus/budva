@@ -48,7 +48,7 @@ func protectedTextlessMessage() *client.Message {
 // TelegramRepo, StateRepo, RateLimiter, TransformService and AlbumService with
 // zero expectations fail on any copy/forward, state or limiter work, so
 // Telegram invariance on the webhook-only path is enforced.
-func protectedTextlessService(t *testing.T, submitter *push.Generation) (*Service, *queue.Repo, *client.Message) {
+func protectedTextlessService(t *testing.T, submitter event.Submitter) (*Service, *queue.Repo, *client.Message) {
 	t.Helper()
 	state, message, filter, q := mocks.NewStateRepo(t), mocks.NewMessageService(t), mocks.NewFilterService(t), queue.New()
 	h := New(mocks.NewTelegramRepo(t), state, message, filter, mocks.NewTransformService(t), mocks.NewAlbumService(t), q,
