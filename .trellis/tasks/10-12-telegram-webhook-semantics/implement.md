@@ -37,10 +37,15 @@ gate rather than an implementation milestone. Read
   reload and shutdown without file/network work added to the Telegram serial
   queue/limiter (AC2, AC4). Progress 2026-10-14: first increment landed —
   webhook-only textless media pushes as a canonical v2 content fact with the
-  v1 endpoint silent (user decision "v2 fact only, v1 silent"); remaining
-  REDs (albums/replies, edits/deletes, missing predecessors, protected
-  eligibility, full-buffer/delivery-failure/reload/shutdown invariance for the
-  new path) continue as separate minimal increments.
+  v1 endpoint silent (user decision "v2 fact only, v1 silent"); second
+  increment landed — a textless media EDIT now pushes a v2-only `edited`
+  content fact (full current snapshot, no prior state invented), the v1
+  endpoint stays silent (no v1 empty event), and no Telegram copy/caption
+  work runs; the delete path was audited and already needed no change (it
+  emits content-agnostic identity+delete facts, so "missing predecessor" is
+  handled honestly with no v1 empty event). Remaining REDs (albums/replies,
+  protected eligibility, full-buffer/delivery-failure/reload/shutdown
+  invariance for the new path) continue as separate minimal increments.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
