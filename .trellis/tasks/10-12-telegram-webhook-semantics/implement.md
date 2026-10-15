@@ -46,10 +46,16 @@ gate rather than an implementation milestone. Read
   handled honestly with no v1 empty event). The guard is scoped to
   content-bearing textless media (`msg.Content != nil && MediaAlbumId == 0`),
   so a content-less edit stays silent per the earlier no-event rule; final CI
-  `38666202864` (head `30f4d81`) is green across all packages. Remaining
-  REDs (albums/replies, protected eligibility, full-buffer/delivery-failure/
-  reload/shutdown invariance for the new path) continue as separate minimal
-  increments.
+  `38666202864` (head `30f4d81`) is green across all packages. Third increment
+  landed 2026-10-15 — the NEW-path textless block in `OnNewMessage` is now
+  scoped the same way the edit path already was (`msg.Content != nil &&
+  MediaAlbumId == 0`), so a content-LESS new message (Content == nil, non-
+  system, nil formatted text) is left to the earlier no-event rule instead of
+  fabricating a v2 `new` fact with `content.type = "unknown"`; the already-green
+  textless-media NEW delivery (captionless photo, Content != nil) is unchanged
+  and keeps the v2-only content fact with v1 silent. Remaining REDs (albums/
+  replies, protected eligibility, full-buffer/delivery-failure/reload/shutdown
+  invariance for the new path) continue as separate minimal increments.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly

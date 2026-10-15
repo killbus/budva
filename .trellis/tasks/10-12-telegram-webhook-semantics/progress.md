@@ -792,3 +792,90 @@ Commit plan:
   increment, including `mytokens.txt` (secret, git-excluded).
 - No main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`,
   no M04 work.
+
+### 2026-10-15 — M05 increment: scope the NEW-path textless v2 fact (mirror of 30f4d81)
+
+Chosen increment: **a content-LESS new message (`Content == nil`) must not be
+pushed as a fabricated v2 `new` fact.** The edit path was already scoped to
+content-bearing textless media in commit `30f4d81` (`msg.Content != nil &&
+msg.MediaAlbumId == 0`), but the new-message textless block in `OnNewMessage`
+was never given the same guard, leaving a one-line asymmetry.
+
+Gap found: `internal/app/handler/service.go` `OnNewMessage`, the `formattedText
+== nil` textless block (line 252), gated only on
+`rs.push != nil && len(rule.PushTo) != 0 && msg.MediaAlbumId == 0`. A
+content-less message reaches this block because `message.IsSystemMessage`
+returns `false` for `Content == nil` (so the system-message early-return does
+not fire) and `message.GetFormattedText` returns `nil` for `Content == nil`
+(so the `continue` is taken). With no `Content != nil` guard, `v2SnapshotFor`
+projects `v2ContentFor(nil) == &Content{Type: UnknownContentType}` and emits a
+v2 `new` fact whose `content.type` is `"unknown"` — fabricating a content fact
+where the source has no content. The scope is "textless media" (content
+present, formatted text absent), not "any nil-text message".
+
+Semantics protected:
+- v1 behavior unchanged; textless media stays v2-only; no v1 empty event;
+- no fabricated prior state and no fabricated content fact;
+- no Telegram copy/forward/download added to the serial queue/limiter;
+- FORBIDDEN items (resource_ref, extra file_id mapping, Attachment/Relation,
+  new facade API, cache/object storage) untouched;
+- the already-green textless-media NEW delivery (`TestTextlessMedia_PushesV2FactOnlyV1Silent`,
+  a captionless *photo* with `Content != nil`) is unchanged: it still pushes
+  the v2 content fact and keeps v1 silent.
+
+RED (write first, must fail before the GREEN change):
+- New handler test `internal/app/handler/textless_push_test.go`
+  `TestTextlessMedia_ContentlessNewMessageStaysSilent` (CI-only cgo): one
+  content-less source message (`&client.Message{ChatId: 100, Id: 1}`,
+  `Content == nil`, `MediaAlbumId == 0`) driven through `OnNewMessage` with a
+  single rule (`From == 100`, non-empty `PushTo`), a `recordingSubmitter`
+  capture, and strict zero-expectation Telegram/State/Limiter/Transform mocks.
+  Strict `message.EXPECT()` binds only `IsSystemMessage -> false` and
+  `GetFormattedText -> nil` (the two reads the handler performs before the
+  textless branch). Asserts an empty task queue and
+  `require.Empty(capture.submissions)`.
+- FAILING reason: before the GREEN change the guard fires for the content-less
+  message, `v2SnapshotFor` returns a non-nil `unknown`-content `new` fact, and
+  `SubmitV2Only` records a submission — so `require.Empty` fails.
+
+GREEN (minimal, single logical change):
+- `internal/app/handler/service.go` `OnNewMessage`, add `msg.Content != nil` to
+  the textless block guard:
+  `rs.push != nil && len(rule.PushTo) != 0 && msg.Content != nil &&
+  msg.MediaAlbumId == 0`. A content-bearing captionless media still pushes the
+  v2-only `new` fact; a content-less message is left to the earlier no-event
+  `continue`. Mirrors the edit-path guard at `editMessages`.
+
+Local verification (lightweight, memory-bounded, GOPROXY=off, CGO_ENABLED=0):
+`gofmt` on both touched files (clean) and `git diff --check` (clean); `go test
+./internal/service/push/...` (pure Go) green. `internal/app/handler` is TDLib
+cgo and cannot compile locally; the RED/GREEN is carried by GitHub CI.
+
+Outcome and CI evidence:
+- RED test + GREEN fix committed as `5282917`; this docs entry lands as the
+  follow-up commit. Pushed to `feat/external-push-sink` and `ci-test.yml`
+  dispatched via `workflow_dispatch --ref feat/external-push-sink`.
+- CI run (green, verified): run `38681131316` (head `5282917c`,
+  `feat/external-push-sink`) — GREEN across all packages, including the freshly
+  built cgo-gated `internal/app/handler` that carries both
+  `TestTextlessMedia_ContentlessNewMessageStaysSilent` and
+  `TestTextlessMedia_PushesV2FactOnlyV1Silent` (handler package `ok ... 1.105s`,
+  no FAIL lines in the test job).
+
+Commit plan:
+- Branch: `feat/external-push-sink` (no main touch).
+- Commit 1 (code + tests, already landed `5282917`):
+  `internal/app/handler/service.go` and
+  `internal/app/handler/textless_push_test.go`.
+- Commit 2 (docs, this commit): `progress.md` (this entry + CI result) and
+  `implement.md` (M05 status note).
+- Push `feat/external-push-sink` to `origin` (branch only), dispatch
+  `ci-test.yml` via `workflow_dispatch --ref`; token via non-echoing
+  askpass/stdin only, never in argv/env/trace/URL/config. Run SHA + number
+  recorded above (`5282917c`, `38681131316`).
+- Excluded (untracked, left as-is): the same protected set as the prior
+  increments, including `mytokens.txt` (secret, git-excluded).
+- No main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`,
+  no M04 work. Remaining M05 REDs (albums/replies, protected eligibility,
+  full-buffer/delivery-failure/reload/shutdown invariance for the new path)
+  continue as separate minimal increments.
