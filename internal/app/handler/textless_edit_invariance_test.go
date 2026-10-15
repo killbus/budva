@@ -75,14 +75,16 @@ func TestTextlessMediaEdit_InvariantUnderDeliveryOutcomes(t *testing.T) {
 				sink := &outcomeSink{}
 				switch outcome {
 				case "buffer_full":
-					// Fill the bound to capacity so the edit submission is
-					// rejected before any worker consumes it; the timeout class
-					// fills the bound without rendering.
+					// The first submission is taken in flight by the worker,
+					// which blocks in the timeout class; synctest.Wait joins it
+					// there. The second submission then fills the bound to
+					// capacity, so the edit submission is rejected before any
+					// worker consumes it (mirrors TestPush_TelegramInvariance).
 					sink.class = push.FailureTimeout
 					g := push.NewGeneration(map[string]push.EndpointConfig{"endpoint": {Sink: sink, BufferCapacity: 1, Timeout: time.Second}})
 					g.Submit([]string{"endpoint"}, event.Envelope{})
-					g.Submit([]string{"endpoint"}, event.Envelope{})
 					synctest.Wait()
+					g.Submit([]string{"endpoint"}, event.Envelope{})
 					capture := &captureSubmitter{next: g}
 					h, q, msg := editTextlessService(t, capture)
 					h.OnEditedMessage(context.Background(), msg)
