@@ -1029,3 +1029,100 @@ Commit plan:
   no M04 work. Remaining M05 REDs (albums/replies, the reload outcome for the
   protected/textless new path, and full-buffer/delivery-failure/reload/shutdown
   invariance for the edit path) continue as separate minimal increments.
+
+### 2026-10-15 — M05 increment: reload outcome (immutable captured route) for the new textless path
+
+Chosen increment: the RED named "the reload outcome for the new textless path"
+from the prior increment's tail. This is the **reload / immutable captured
+route** semantics for the **new** (webhook-only textless) path — the last new-
+path delivery RED that was left after the protected-eligibility increment.
+Pure-test lock; expected zero production code changes.
+
+Semantics protected: the handler reads the ruleset snapshot once at the
+`OnNewMessage` entry and submits the textless v2 fact through the submitter
+**captured with that snapshot** (immutable captured route). A ruleset reload
+(`SetRuleSetWithPush`) that swaps in a new ruleset and a new (replacement)
+submitter must not reroute a textless message already processed:
+- the already-processed message's v2 fact still goes to the captured
+  (pre-reload) generation, not the replacement submitter;
+- the replacement (post-reload) submitter receives nothing;
+- the v1 endpoint stays silent (no empty/text-only envelope is fabricated);
+- the task queue converges to zero (a textless webhook-only delivery performs
+  no Telegram copy/forward/state/limiter work).
+
+This mirrors `push_test.go`'s reload conventions
+(`TestPush_RetryUsesCapturedSnapshotAndEmitsOnce`,
+`TestPush_SourceEditRetainsSnapshotAcrossReload`) but for the new-path textless
+branch, which submits **synchronously** inside `OnNewMessage` via
+`rs.push.SubmitV2Only(rule.PushTo, v2)` (no task-queue work).
+
+RED (two tests, `internal/app/handler/textless_reload_push_test.go`, new file):
+- `TestTextlessMedia_ReloadKeepsCapturedRoute` (live reload, real transports):
+  one webhook-only rule on an **active (not pre-retired)** `push.Generation`
+  with real TLS `v1` and `v2` endpoints (v2 schema-selected). Processing the
+  captionless photo message synchronously submits to the captured generation;
+  then `SetRuleSetWithPush` swaps in a replacement ruleset/submitter and
+  `g.Retire()` joins the captured workers. Asserts: the replacement submitter
+  received nothing; exactly one v2 body was delivered on the captured route
+  (schema 2, event `new`, `chat_id`/`message_id`, `content.type=messagePhoto`,
+  no `formatted_text`, no `file_id`/source file id on the wire); the v1 endpoint
+  stayed silent; the task queue is zero. Real TLS servers run **outside**
+  `synctest` (repo convention: pure transports inside, real servers outside),
+  matching `textless_edit_push_test.go`.
+- `TestTextlessMedia_ReloadRetiredOutcomeStaysCaptured` (retired outcome, pure
+  `synctest`): a single `endpoint` on an `outcomeSink` behind a
+  `captureSubmitter{next: g}`. Processing the message records the v2-only
+  submission as `SubmitAccepted` (the generation is not yet retired) with no v1
+  envelope. `g.Retire()` then `SetRuleSetWithPush` to a replacement submitter:
+  the replacement receives nothing and the captured fact is still the only one
+  recorded. Pure transport, so it runs **inside** `synctest.Test`.
+
+Shared helper `reloadTextlessService` mirrors `protectedTextlessService`: a
+webhook-only rule (no `SendCopy`/`To`), the two bound message-service reads
+(`IsSystemMessage -> false`, `GetFormattedText -> nil`), and strict
+`TelegramRepo`/`StateRepo`/`RateLimiter`/`TransformService`/`AlbumService`
+with zero expectations, so any copy/forward, state or limiter work fails. It
+takes `pushTo []string` and the captured `event.Submitter` so each test names
+its own endpoint(s) and submitter.
+
+No production file changes. No behavior defect was exposed: the code already
+implements the immutable captured route, so the tests are a lock (RED =
+coverage absence, not a forced failure).
+
+Local verification (memory-bounded, GOPROXY=off, CGO_ENABLED=0):
+- `gofmt` clean on the new file; `git diff --check` clean.
+- `rg`-confirmed every identifier used by the new file exists in-package or in
+  its deps: the eight `mocks.New*` constructors; `captureSubmitter` /
+  `recordingSubmitter` / `outcomeSink` / `v2Probe` (push_test.go);
+  `queue.New`/`Len`; `push.NewGeneration`/`NewWebhookSink`/`EndpointConfig` /
+  `WebhookConfig{URL,Client,Schema}` / `DeliverySchemaV2`; `event.SubmitResult` /
+  `event.SubmitAccepted`; `v2SnapshotFor`; `testing/synctest` sibling usage.
+- `go test ./internal/service/push/...` (pure Go) green. `internal/app/handler`
+  cannot compile locally (TDLib cgo); CI is the final arbiter.
+
+Commit plan:
+- Branch: `feat/external-push-sink` (no main touch).
+- Commit 1 (test): `internal/app/handler/textless_reload_push_test.go` (new).
+  No production file changes.
+- Commit 2 (docs, this commit): `progress.md` (this entry + CI result) and
+  `implement.md` (M05 status note).
+- Pushed `feat/external-push-sink` to `origin` (branch only); `ci-test.yml`
+  dispatched via `workflow_dispatch --ref feat/external-push-sink`; token via
+  non-echoing askpass/stdin only, never in argv/env/trace/URL/config.
+- Excluded (untracked, left as-is): the same protected set as the prior
+  increments, including `mytokens.txt` (secret, git-excluded).
+- No main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`,
+  no M04 work. Remaining M05 REDs continue as separate minimal increments.
+
+Landed + CI evidence:
+- Commit 1 (test): `585f63c` — `internal/app/handler/textless_reload_push_test.go`
+  (new). No production file changes. Pushed `feat/external-push-sink` to `origin`
+  (branch only).
+- CI: `ci-test.yml` dispatched via `workflow_dispatch --ref feat/external-push-sink`;
+  run `38750426088` on head `585f63c` (branch `feat/external-push-sink`) is
+  **GREEN** (`status=completed`, `conclusion=success`) across all packages,
+  including the cgo-gated `internal/app/handler` carrying
+  `TestTextlessMedia_ReloadKeepsCapturedRoute` and
+  `TestTextlessMedia_ReloadRetiredOutcomeStaysCaptured`.
+- Commit 2 (docs, this commit): `progress.md` (this entry + CI result) and
+  `implement.md` (M05 status note). Docs-only; no additional CI run required.

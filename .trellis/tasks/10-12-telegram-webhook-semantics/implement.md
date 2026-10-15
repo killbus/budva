@@ -63,11 +63,22 @@ gate rather than an implementation milestone. Read
   outcome (one v2 body carrying the protected facts verbatim, v1 silent, queue
   converged to 0) and the `buffer_full` outcome (the protected v2 fact is still
   built from the source, the submission is rejected `buffer_full` and isolated
-  to the endpoint, no v1 envelope fabricated, queue converged). Final CI
-  `38738578362` (head `19736fd`) is green across all packages. Remaining REDs
-  (albums/replies, the reload outcome for the new textless path, and
-  full-buffer/delivery-failure/reload/shutdown invariance for the edit path)
-  continue as separate minimal increments.
+  to the endpoint, no v1 envelope fabricated, queue converged). Fifth
+  increment landed 2026-10-15 (pure-test lock, no production change) — the
+  RELOAD outcome for the new textless path: the handler reads the ruleset
+  snapshot once at the `OnNewMessage` entry and submits through the submitter
+  captured with that snapshot (immutable captured route); after a
+  `SetRuleSetWithPush` reload swaps in a new ruleset/submitter, an already-
+  processed textless message still routes to the captured (old) generation,
+  the post-reload submitter receives nothing, v1 stays silent, and the task
+  queue converges to zero. The new handler test
+  `internal/app/handler/textless_reload_push_test.go` pins both the live-reload
+  outcome (real TLS v1/v2 endpoints, active generation not pre-retired, mirroring
+  production `pushManager.Replace`) and the retired outcome (synctest +
+  outcomeSink, captured submission accepted, replacement receives nothing).
+  Remaining REDs (albums/replies, and full-buffer/delivery-failure/reload/
+  shutdown invariance for the edit path) continue as separate minimal
+  increments.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
