@@ -1227,3 +1227,368 @@ Landed + CI evidence:
   `internal/app/handler` carrying both new tests.
 - Commit 3 (docs, this commit): `progress.md` (this entry + CI result) and
   `implement.md` (M05 status note). Docs-only; no additional CI run required.
+
+### 2026-10-15 — M05 increment: ALBUM path scope judgment (DOCUMENTATION GATE — user decision required)
+
+Chosen increment (from "Remaining M05 REDs"): **webhook semantics for
+textless media that takes the album collection path** (a captionless media
+member with `MediaAlbumId != 0`). The scope judgment the plan calls for comes
+first, and it lands here as a **documentation gate, not a test or code
+increment**: the album textless semantics are a genuine behavior gap that a
+pure-test lock cannot honestly describe, so no code or test is written and no
+album membership or v1 behavior is changed this increment.
+
+Scope judgment (read `OnNewMessage` service.go:246-278, `processMediaAlbum`
+service.go:555-628, the message service `GetFormattedText`, the existing
+`TestPush_AlbumPipelineInvariant`, `TestPush_AlbumMembersEmitOnce`, the M03
+`TestPush_MixedEndpointsDeliverSelectedSchemas`, and the design/PRD album
+boundaries):
+
+1. **A captionless media member never reaches `processMediaAlbum`.** `GetFormattedText`
+   returns `nil` for any captionless/nil-caption media content, and the
+   `OnNewMessage` guard at service.go:255 is `msg.Content != nil &&
+   msg.MediaAlbumId == 0` — its comment explicitly says "albums keep their
+   quiet-period path." So a captionless album member (`Content != nil`,
+   `MediaAlbumId != 0`) skips the textless block, hits `continue`, is **not
+   added to the album service** (`AddMessage` is only reached when
+   `formattedText != nil`), and produces **no v1 and no v2 webhook fact at
+   ingress**. This is the exact pre-textless no-event behavior — M05 never
+   changed it for album members.
+2. **Within `processMediaAlbum` (service.go:592-594) the only per-member gate
+   is `text == nil`.** A captionless member that somehow appeared in the
+   album collection is also dropped from the webhook submission — again with
+   no v1 and no v2 fact. The two existing album tests
+   (`TestPush_AlbumMembersEmitOnce`, `TestPush_AlbumPipelineInvariant`) both
+   pin this: the captionless member contributes an empty-`Text` v1 submission
+   **only because its mock `GetFormattedText` returns an empty (non-nil)
+   caption**, never `nil`.
+3. **No existing test locks the captionless-album-member v2 projection
+   behavior.** There is no test asserting (or even expressing) a v2 `new`
+   content fact for a captionless album member, and no mixed-endpoint album
+   test asserting v1-silence vs v2-fact for that member. So the "consistent
+   semantics under v1/v2" condition for the pure-test-lock branch is
+   **not** met: the v2 side is simply absent, not consistent.
+
+Why this is a real gap, not a lockable invariant: M05's established rule for
+textless media (single media, `MediaAlbumId == 0`) is to push a canonical v2
+content fact with the v1 endpoint silent — the webhook consumer still learns
+the photo exists and its type. The album path does **not** honor that rule for
+captionless members: it drops them entirely (no v2 fact). A consumer of a
+webhook-only rule that sends a 3-photo album where one photo has no caption
+receives v2 facts for the two captioned photos and **nothing** for the
+third — the v2 projection is not the full album the rule intends to publish.
+This is a semantic asymmetry between the single-media and album paths, and
+deciding which is correct is a product decision (see the two candidate
+semantics below). Locking the current drop with a pure test would paper over
+that decision.
+
+Two candidate semantics (no decision made this increment):
+
+- **(A) Keep the drop (status quo; pure-test lock).** A captionless album
+  member emits no v1 and no v2 fact; the album's v2 projection is partial
+  (one fact per captioned member). Rationale: it is exactly the pre-M05
+  v1 behavior, and the approved design deliberately does not model "album
+  completeness" (PRD: "V2 only preserves the source-provided
+  `media_album_id` on each member"; boundaries doc: album completeness is an
+  independent aggregate out of scope). Impact: no production change; a v2
+  consumer must treat an album's member set as "members that carried a
+  caption." This is the conservative, no-behavior-change option and the only
+  one this increment could lock honestly.
+- **(B) Push a v2 content fact for captionless album members.** A captionless
+  album member (content-bearing, `MediaAlbumId != 0`) emits a canonical v2
+  `new` content fact (full current snapshot, `content.formatted_text`
+  absent) through the same quiet-period/post-collection `SubmitV2` loop, with
+  the v1 endpoint silent at the delivery boundary (the v2-only render path
+  `RenderPayload` → `ErrV1Unavailable` keeps a v1-selected endpoint silent,
+  the same mechanism the single-media textless path relies on). Rationale:
+  makes the album v2 projection complete and consistent with the
+  single-media textless rule. Impact: a genuine **behavior change** to the
+  album path (new webhook deliveries the endpoint did not previously
+  receive), plus a production change to `OnNewMessage` (let content-bearing
+  captionless album members enter `AddMessage`/`processMediaAlbum`) and/or
+  `processMediaAlbum` (emit v2 facts for `text == nil` members) — and it must
+  be reconciled with the `!rule.SendCopy && !msg.CanBeSaved` forward guard,
+  which currently gates album ingress too. Out of scope for this increment
+  (the plan forbids changing album membership or v1 behavior without a
+  decision).
+
+Decision required from the user before any test or code: pick (A) or (B) (or
+a refinement) for captionless album members. Under (A) the next increment is
+a pure-test lock of the current drop; under (B) the next increment is a
+production change with its own RED/lock. Either way this increment writes no
+album code and changes no v1 or membership behavior.
+
+RED / commit plan for THIS increment: none (documentation gate). Local
+verification: `git diff --check` and a re-read of the cited lines only; the
+`internal/app/handler` package is TDLib cgo and cannot be compiled locally,
+and no test or production file changes, so there is nothing to run. Commit
+plan: one docs-only commit — `progress.md` (this entry) and `implement.md`
+(M05 status note marking the album increment a documentation gate pending a
+user decision). Push `feat/external-push-sink` to `origin` (branch only).
+Docs-only, so no `ci-test.yml` run is required this increment (the previous
+increment's run `38765952927` on head `673bf36` is the last green CI).
+Excluded (untracked, left as-is): the same protected set as the prior
+increments, including `mytokens.txt` (secret, git-excluded). No
+main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`, no
+M04 work. Remaining M05 REDs (albums — blocked on this decision, and shutdown
+invariance) continue as separate minimal increments.
+
+### 2026-10-15 — M05 increment: captionless album member v2 delivery (USER DECISION — candidate B)
+
+Chosen increment (from "Remaining M05 REDs — albums"): **v2 delivery for a
+captionless album member** on the NEW path. The user decided on
+**candidate B** (the push-a-v2-fact option) on 2026-10-15, in response to the
+prior increment's documentation gate. This is a genuine, user-approved
+production change to the album NEW path; no other path (edits, replies) is
+touched this increment.
+
+Decision source: user, 2026-10-15, candidate B from the two options recorded in
+the prior increment's entry above.
+
+Exact semantics implemented this increment:
+
+1. **A captionless album member is v2-only delivered.** A member with
+   `Content != nil`, `MediaAlbumId != 0`, and `GetFormattedText == nil` must,
+   after the quiet-period/collection completes, produce one canonical v2 `new`
+   content fact (full current snapshot, `content.formatted_text` absent),
+   consistent with the single-media textless rule, so the album's v2
+   projection is complete. The v2 endpoint receives the content fact; the v1
+   endpoint stays silent. Reuses the existing v2-only carrier
+   (`SubmitV2Only`: zero `Envelope`, v1 branch of `RenderPayload` returns
+   `ErrV1Unavailable`), exactly the mechanism the single-media textless path
+   already uses.
+2. **Eligibility is independent of the forward guard.** A protected
+   (`CanBeSaved == false`) captionless member is delivered the same way,
+   mirroring single-media textless and the locked protected-textless behavior.
+   The captionless member enters album collection from the
+   `formattedText == nil` block, which precedes the
+   `!rule.SendCopy && !msg.CanBeSaved` guard, so the guard never suppresses it.
+3. **Captioned members are completely unchanged.** Still gated by the forward
+   guard, unchanged v1 representation (including the existing "empty non-nil
+   caption → v1 empty-`Text` submission" semantics) and unchanged v2 fact.
+4. **No fabricated facts, no Telegram work.** Content-less
+   (`Content == nil`) members stay dropped (no fact). v1 emits no (empty)
+   event for a captionless member. No Telegram copy/forward/download runs;
+   strict zero-expectation mocks pin that.
+5. **`isFirst` / captionless-first-member.** When a captionless member is the
+   first to arrive, `AddMessage` returns `isFirst == true` and
+   `processMediaAlbum` is triggered; both the quiet-period flow and the
+   member-level projection must handle the v2-only case.
+6. **Boundary: NEW path only.** If the album EDIT path has the same gap it is
+   recorded as a remaining item, not fixed here. Replies are out of scope this
+   round.
+
+Production change (two minimal edits in `internal/app/handler/service.go`):
+
+- `OnNewMessage` (service.go:246-261), the `formattedText == nil` block: add an
+  album branch so a content-bearing captionless album member
+  (`msg.Content != nil && msg.MediaAlbumId != 0`) is added to album collection
+  via `albumService.AddMessage`, and on `isFirst` triggers
+  `processMediaAlbum` (passing `nil` formattedText, which the function already
+  ignores). This sits inside the `formattedText == nil` block, before the
+  forward guard, so eligibility stays independent of it. The existing
+  single-media textless branch (`MediaAlbumId == 0`) is left unchanged.
+- `processMediaAlbum` (service.go:592-601), member submit loop: when
+  `text == nil` and the member is content-bearing (`msg.Content != nil`),
+  submit the v2-only content fact via `SubmitV2Only` (when the snapshot is
+  non-nil), then `continue`. Content-less members (`Content == nil`) remain
+  dropped. The captioned `SubmitV2` path is untouched.
+
+RED design (forced failure; the handler package is TDLib cgo and cannot be
+compiled locally, so CI RED is the evidence): new handler test
+`internal/app/handler/textless_album_push_test.go`,
+`TestTextlessAlbumMember_PushesV2FactOnlyV1Silent`. It drives one captionless,
+protected (`CanBeSaved == false`) album member through the real NEW-path flow:
+two real TLS webhook endpoints (v1 default wire, v2 `DeliverySchemaV2`), a
+webhook-only rule (`PushTo: [v1, v2]`, no `To`, no `SendCopy`) so zero Telegram
+work is possible, strict zero-expectation Telegram/State/RateLimiter/Transform
+mocks, and album mocks bound to the desired end state (`AddMessage("r:42") →
+true` isFirst, `LastReceivedAge` ≥ 3s so the quiet loop breaks without a real
+sleep, `PopMessages` → the member, `GetFormattedText` nil ×2 — ingress read +
+member-loop read). It asserts, after `q.ProcessAll()` + `g.Retire()`: the v2
+endpoint received exactly one `new` content fact (`content.type ==
+"messagePhoto"`, `media_album_id` present, no `formatted_text`, no file
+identifier leak), the v1 endpoint received zero bodies, and the task queue
+converged to zero. Pre-GREEN the test is forced to fail on several assertions:
+the captionless member is dropped at ingress (guard `MediaAlbumId == 0` false),
+so `AddMessage` is never called (strict-mock failure), no album task is
+enqueued (`q.Len()` is 0, not 1), `GetFormattedText` is called once (expected
+2), and the v2 endpoint is empty (expected 1).
+
+Commit plan: (1) RED — this test file only; (2) GREEN — the two `service.go`
+edits; (3) docs — `progress.md` CI evidence + `implement.md` status note. Push
+`feat/external-push-sink` (branch only) after each; dispatch
+`ci-test.yml` via `workflow_dispatch --ref feat/external-push-sink` after the
+RED and GREEN commits. The RED run failing is expected and recorded; the GREEN
+run must be fully green.
+
+Excluded (untracked, left as-is): the same protected set as the prior
+increments, including `mytokens.txt` (secret, git-excluded). No
+main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`, no M04
+work. Local verification is `gofmt`, `git diff --check`, `rg` identifier
+resolution and the pure-Go `go test ./internal/service/push/...` only; the
+handler package is compiled and tested by CI. Remaining M05 REDs (album EDIT
+path if the same gap exists, replies, and shutdown invariance) continue as
+separate minimal increments.
+
+CI evidence (this increment; branch `feat/external-push-sink`):
+
+- RED commit `d56aa52800b50217bcdf286030d2f99c50a47126` (test file only) — run
+  `38787762004`, conclusion **failure**. This is the required forced-RED: the
+  handler package compiles and every other handler test passes; only
+  `TestTextlessAlbumMember_PushesV2FactOnlyV1Silent` fails. The CI log shows the
+  exact forced assertions: `require.Equal(t, 1, q.Len(), ...)` → "expected: 1,
+  actual: 0" (textless_album_push_test.go:113 — no album task enqueued because
+  the captionless member is dropped at ingress), the album mock "0 out of 3
+  expectation(s) were met" (the never-called `AddMessage` /
+  `LastReceivedAge` / `PopMessages`), and the message mock `GetFormattedText`
+  "1 out of 2". The package did NOT fail to compile; the failure is behavioral,
+  proving the test is a genuine forced-RED and not a compile error.
+- GREEN commit `3df297092648dc03100934bda60f005ad36e4cd4` (the two
+  `service.go` edits) — run `38790312809`, head
+  `3df297092648dc03100934bda60f005ad36e4cd4`, conclusion **success** across all
+  packages. This is the final criterion: the GREEN branch run is fully green
+  with the forced-RED test now passing.
+
+## M05 increment 6 — shutdown invariance for the textless/album v2-only paths — 2026-10-15
+
+Locked shutdown/stop invariance for the three new M05 paths (single-media
+textless NEW, textless EDIT, captionless album member) with a pure-test
+increment: new file
+`internal/app/handler/textless_shutdown_invariance_test.go`, zero production
+changes. Service shutdown is modeled as generation retirement (the
+carrier's only stop mechanism), and each path is driven under it:
+
+- No v1 event ever: the NEW "delivered" case proves v1 silence at the wire
+  (a real v1-counting endpoint receives zero HTTP requests while the v2
+  endpoint receives exactly one content fact through the real retirement
+  drain); the buffer-full/retired cases assert `capture.events` stays empty
+  (no fabricated v1 envelope).
+- v2 fact submitted at most once: every subtest re-drains the queue after
+  shutdown (`requireAtMostOnceReDrain`) and asserts the captured fact stays
+  exactly one and no Telegram work was re-enqueued.
+- No Telegram copy/forward/caption/status/network work: strict
+  zero-expectation `TelegramRepo`/`StateRepo`/`RateLimiter`/`TransformService`
+  (and album-path mocks bound only to collection) fail on any such work.
+- Queue convergence / no hang / no worker outliving the test: `q.Len()` is
+  asserted zero after the task and after the re-drain; `Retire()` (idempotent
+  second call) joins the sink workers — including the one parked in the
+  blocking `outcomeSink{class: FailureTimeout}` from the buffer-full prefill
+  pattern ("prefill one → synctest.Wait() parks it in-flight → fill the
+  bound") — before the test ends.
+- Content-less messages produce nothing: per-path contentless subtests
+  (`Content == nil`, including the album member, which never enters
+  collection) assert no v1, no v2, and no submission outcome.
+
+Subtests per path: NEW — delivered (real servers + retirement drain),
+buffer_full, retired, contentless; EDIT — buffer_full (driven with
+`q.ProcessAll()`), retired, contentless; album member — buffer_full,
+retired, contentless. Helpers mirror the existing M05 fixtures:
+`protectedTextlessService`/`protectedSnapshot`, `editTextlessService`,
+`captureSubmitter`/`outcomeSink`, `v2Probe`; one new shared helper
+(`albumShutdownService`) binds the same album end state as
+`textlessAlbumFixture`.
+
+Verification (local = LIGHT only): `gofmt -l` clean, `git diff --check`
+clean, `rg` identifier resolution for every reused helper/constant,
+`CGO_ENABLED=0 GOPROXY=off go test ./internal/service/push/...` green
+(pure Go). The handler package (TDLib cgo) was judged by CI only.
+
+CI evidence (this increment; branch `feat/external-push-sink`):
+
+- Test commit `19fc75b2f1f7901b1602f208e146565af5de8e9e` — run
+  `38798652816`, conclusion **failure**. Not a product RED: the failure was a
+  test-harness defect in this increment's own NEW/delivered subtest, which
+  used plain `httptest.NewServer` with the default (non-trusting) client, so
+  the v2 webhook delivery failed TLS (`class=tls_transport`) and `v2Bodies`
+  stayed empty (`require.Len(t, v2Bodies, 1)` failed at line 166). Every other
+  subtest in the file passed, and no production test was touched.
+- Test-only fix commit
+  `fc71940721e7fade8e51581b76903e7edc5e64ca` — switched the delivered case to
+  `httptest.NewTLSServer` with each sink wired to its own server's client
+  (matching `textlessFixture`/`textlessAlbumFixture`), same convention as the
+  other M05 wire tests. Run `38799241697`, head
+  `fc71940721e7fade8e51581b76903e7edc5e64ca`, conclusion **success** across
+  all packages: the full shutdown-invariance lock is green in CI.
+
+No production change was required: RED never proved a behavioral defect —
+the paths were already shutdown-invariant (retired generations reject the
+captured submission, the task queue never re-enqueues push work, and
+`Retire()` drains and joins).
+
+Remaining M05 items (open, separate increments): album EDIT path, replies,
+and the overall M05 closure assessment.
+
+## M05 increment: edited captionless album member v2-only edited fact (B semantics, symmetric edit case)
+
+Scope judgment (pre-agreed decision rule, applied without a doc gate): tracing
+the real edit path (`OnEditedMessage` -> `editMessagesWithRetry` ->
+`editMessages` in `internal/app/handler/service.go`) shows the gap is exactly
+the obvious case. Today, when a captionless album member (Content != nil,
+MediaAlbumId != 0, nil formatted text) is edited, `editMessages` reads
+`GetCopiedMessageIDs` (nil on webhook-only routes) and `GetFormattedText`
+(nil), enters the `text == nil` branch, but the textless guard
+`msg.Content != nil && msg.MediaAlbumId == 0` is false for album members, so
+the function falls through to `return false`: the edited album member is
+**dropped on the v2 side, v1 silent, nothing emitted** — while the identical
+single-media case submits a v2-only `edited` fact. No existing test pinned
+that behavior (no `OnEditedMessage` test sets `MediaAlbumId`;
+`TestPush_AlbumNewDoesNotSupersedeEditsOrDeletes` uses a captioned edited
+message with `MediaAlbumId == 0`, `TestPush_EditWithoutCopies` a
+non-album photo). No re-collection entanglement exists (the edit path never
+touches `albumService`; album collection is driven only by `OnNewMessage`),
+captioned album member edits are unaffected (their `text != nil`), and
+`Content == nil` is already excluded by the guard's existing term. Gap == the
+approved B case => implemented directly.
+
+RED (commit `897bdf4`, test file
+`internal/app/handler/textless_album_edit_test.go`):
+- `TestTextlessAlbumMemberEdit_PushesV2EditedFactOnlyV1Silent`: an edited
+  captionless protected album member (album 42, photo sizes carrying a real
+  file identifier) on a webhook-only rule, driven through the real
+  `OnEditedMessage` -> queue task; strict zero-expectation Telegram/Rate
+  Limiter/Transform/Album mocks (zero Telegram copy/forward/caption/state/
+  limiter work AND zero album-service calls — album collection stays
+  NEW-only), `GetCopiedMessageIDs -> nil` and `GetFormattedText -> nil` bound
+  once each; asserts exactly one v2 `edited` fact (chat 100, message 1,
+  `media_album_id` 42, `edited_at` present, content type `messagePhoto`, no
+  text fact), no v1 envelope, accepted result, queue convergence. RED
+  expectation: fails today because the guard's `MediaAlbumId == 0` term
+  excludes the album member (zero submissions).
+- `TestTextlessAlbumMemberEdit_ContentlessProducesNothing` (negative pin): an
+  edited content-less album member (Content == nil, MediaAlbumId 42) produces
+  nothing — no v1 envelope, no v2 fact, no submission outcome, no album
+  re-collection, queue converges. GREEN both before and after the change
+  (locks the no-event rule).
+
+GREEN (commit `9541175`): the smallest production change — the edit-path
+textless guard in `editMessages` extends from
+`msg.Content != nil && msg.MediaAlbumId == 0` to `msg.Content != nil`
+(album members admitted, v2-only `edited` fact via the existing
+`SubmitV2Only` + captured-route name collection), comment updated to state
+the symmetric album rule and that the edit path submits directly without
+re-entering album collection. Zero changes elsewhere; no file/network/
+Telegram work added; the path still returns before the copies loop.
+
+Verification (local = LIGHT ONLY): `gofmt -l` clean on both touched files;
+`git diff --check` clean; every referenced identifier resolves
+(`mocks.NewStateRepo/NewMessageService`, `captureSubmitter`/`outcomeSink`/
+`requireNoSubmission` in `push_test.go`/shutdown-invariance test,
+`messagev2.Notification`/`Content`/`SubmitResult` fields per
+`internal/service/push/messagev2/model.go`);
+`CGO_ENABLED=0 GOPROXY=off GOCACHE=$PWD/.tmp-go-cache go test
+./internal/service/push/...` green (ok push, ok push/messagev2, event no
+test files). Note: go requires an absolute GOCACHE, so the protected
+`.tmp-go-cache` was used via an absolute path (same directory, not a new
+cache). Handler (TDLib cgo) is judged by CI only; no full-repo
+build/typecheck/vet/race, no parallel heavy jobs, no dep installs locally.
+
+CI evidence (this increment; branch `feat/external-push-sink`):
+- Dispatch `gh workflow run ci-test.yml --ref feat/external-push-sink`
+  against the GREEN head: run `38803082371`, head `9541175`, conclusion
+  **success** across all packages — the new album-edit tests pass in CI
+  (the handler package is cgo and is only exercised there), and the
+  extended guard regressed no existing handler or push test.
+
+No further iterations were required. Remaining M05 items: replies, and the
+overall M05 closure assessment.
