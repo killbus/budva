@@ -1,7 +1,8 @@
 # Draft Execution Plan
 
-Status: active; M01-M03 are complete and M05 is in progress (first increment
-done on 2026-10-14). The 2026-10-14 decision correction makes M04 a product
+Status: active; M01-M03 and M05 are complete (M05 closed 2026-10-15 at
+`d5e96b4`, CI `38812463685` green; closure checklist in `progress.md`).
+The 2026-10-14 decision correction makes M04 a product
 gate rather than an implementation milestone. Read
 `research/message-attachment-boundaries.md` first.
 
@@ -28,7 +29,7 @@ gate rather than an implementation milestone. Read
   follow-up that projects reviewed native message/file facts and extends the
   existing facade in account/session scope. No automatic download, cache,
   hosting or generic resource lifecycle is implied.
-- [ ] M05: Integrate source-handler lifecycle and immutable captured routes.
+- [x] M05: Integrate source-handler lifecycle and immutable captured routes.
   Test webhook-only textless media, albums/replies, edits/deletes, missing
   predecessors, protected eligibility and unchanged system-message actions.
   Here "textless media" means lifecycle eligibility and canonical content facts
@@ -194,7 +195,10 @@ gate rather than an implementation milestone. Read
   (a `Content == nil` source that carries reply/thread facts emits
   nothing — no fabricated reply-bearing v2 snapshot). No behavioral RED:
   the projection already flowed; CI proves no regression.
-  Remaining M05 items: the overall M05 closure assessment.
+  M05 closed 2026-10-15: closure assessment confirmed every checklist item
+  has a named test; the one coverage gap (album NEW delivery-failure outcome
+  loop) was filled by a lock-only test (`d5e96b4`, CI `38812463685` green);
+  see the "M05 closure assessment" entry in `progress.md`.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly

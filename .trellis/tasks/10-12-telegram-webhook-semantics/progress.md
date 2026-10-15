@@ -1719,3 +1719,126 @@ CI evidence (this increment; branch `feat/external-push-sink`):
 
 No further iterations were required. Remaining M05 items: replies, and the
 overall M05 closure assessment.
+
+## M05 closure assessment — 2026-10-15
+
+Part A (read-only coverage audit) + one lock-only test increment for the
+single gap found, then this closure record. Baseline verified at takeover:
+branch `feat/external-push-sink`, HEAD `8ebcc99` in sync with origin,
+tracked worktree clean, only the protected untracked entries present.
+
+### Checklist table (every M05 RED/checklist item -> named test -> CI run)
+
+| # | Checklist item | Covering test(s) file:func | CI run (head) |
+|---|---|---|---|
+| 1 | Webhook-only textless media (single media) NEW -> v2 content fact only, v1 silent, no Telegram copy/forward/download work | `textless_push_test.go:TestTextlessMedia_PushesV2FactOnlyV1Silent` (+ carrier: `internal/service/push/dispatcher_test.go`, `webhook_test.go`) | `38618093819` (7108e0c era, green) |
+| 2 | Textless media EDIT -> v2-only `edited` full snapshot, v1 silent, no prior state invented, no Telegram work | `textless_edit_push_test.go:TestTextlessMediaEdit_PushesV2EditedFactOnlyV1Silent` | `38666202864` (30f4d81) |
+| 3 | Content-LESS new message (Content == nil, non-system) -> no fabricated v2 `new` fact (no-event rule) | `textless_push_test.go:TestTextlessMedia_ContentlessNewMessageStaysSilent` | `38681131316` (5282917c) |
+| 4 | PROTECTED textless media (CanBeSaved == false) stays eligible; eligibility does not inherit the copy/forward guard | `textless_protected_push_test.go:TestTextlessMediaProtected_PushesV2FactOnlyV1Silent` | `38738578362` (19736fd) |
+| 5 | New-path delivery invariance: buffer-full isolation (v2 fact still built, submission rejected buffer_full, no v1 envelope, queue converges) | `textless_protected_push_test.go:TestTextlessMediaProtected_InvariantUnderFullBuffer` | `38738578362` (19736fd) |
+| 6 | New-path reload (immutable captured route): reloaded ruleset/submitter never receives an already-processed textless fact; captured generation carries it | `textless_reload_push_test.go:TestTextlessMedia_ReloadKeepsCapturedRoute`, `TestTextlessMedia_ReloadRetiredOutcomeStaysCaptured` | `38750426088` (585f63c) |
+| 7 | Edit-path delivery-outcome invariance: full 5-outcome loop (buffer_full / timeout / http_5xx / serialization / retired) — v2 fact exactly once, no v1 envelope, zero Telegram work, queue converges | `textless_edit_invariance_test.go:TestTextlessMediaEdit_InvariantUnderDeliveryOutcomes` (all five subtests) | `38765952927` (673bf36) |
+| 8 | Edit-path reload captured route (replacement submitter receives nothing) | `textless_edit_invariance_test.go:TestTextlessMediaEdit_ReloadRetiredOutcomeStaysCaptured` | `38765952927` (673bf36) |
+| 9 | Album path scope decision (user-approved candidate B: captionless album member is v2-only) | doc gate `bcfe6b1`; behavior: `textless_album_push_test.go:TestTextlessAlbumMember_PushesV2FactOnlyV1Silent` | RED `38787762004` (d56aa52), GREEN `38790312809` (3df2970) |
+| 10 | Album NEW delivery-failure outcome loop (buffer_full / timeout / http_5xx / serialization) | `textless_album_push_test.go:TestTextlessAlbumMember_InvariantUnderDeliveryOutcomes` (four subtests; retired covered by item 12) — **this closure's lock increment** | `38812463685` (d5e96b4) |
+| 11 | Album EDIT path: edited captionless member -> v2-only `edited` fact; content-less edited member produces nothing | `textless_album_edit_test.go:TestTextlessAlbumMemberEdit_PushesV2EditedFactOnlyV1Silent`, `TestTextlessAlbumMemberEdit_ContentlessProducesNothing` | RED `897bdf4`/GREEN `9541175`, CI `38803082371` (9541175) |
+| 12 | Shutdown invariance on the three new paths: NEW delivered/buffer_full/retired/contentless; EDIT buffer_full/retired/contentless; album buffer_full/retired/contentless — no v1 event ever, v2 fact at most once (re-drain adds nothing), zero Telegram work, no worker outlives the test | `textless_shutdown_invariance_test.go:TestTextlessMediaNew_ShutdownInvariant`, `TestTextlessMediaEdit_ShutdownInvariant`, `TestTextlessAlbumMember_ShutdownInvariant` (all subtests) | `38799241697` (fc71940; run `38799965060` head 9321016 re-verified green) |
+| 13 | Replies: reply/thread projection verbatim on all three locked paths + content-less negative (no fabricated reply-bearing snapshot) | `textless_reply_lock_test.go:TestTextlessReply_NewSingleMediaCarriesReplyThreadFact`, `TestTextlessReply_NewCaptionlessAlbumMemberCarriesReplyThreadFact`, `TestTextlessReply_EditCarriesReplyThreadFact` (single_media + album_member), `TestTextlessReply_ContentlessNewMessageEmitsNoReplyFact` | `38806730626` (b7c60fd) |
+| 14 | Deletes + missing predecessors: content-agnostic identity+delete facts; delete-without-copies emits one source fact; no predecessor state needed | `push_test.go:TestPush_DeleteWithoutCopiesHonorsSourceFact`, `push_test.go:TestPush_TelegramInvariance` (delete leg), `service_test.go:TestOnDeletedMessages_*` suite, `projection_v2_test.go:TestV2Projection_DeleteCarriesOnlyDeleteFacts`, `push_coverage_test.go:TestPush_AlbumNewDoesNotSupersedeEditsOrDeletes` | pre-M05 era (M01-M03); re-verified green on every M05 run, last `38812463685` (d5e96b4) |
+| 15 | Unchanged system-message actions (delete-flag handling, v1/v2 behavior untouched by M05) | `service_test.go:TestOnNewMessage_SystemMessage_DeleteEnabled`, `TestOnNewMessage_SystemMessage_NoDeleteFlag`, `TestOnNewMessage_SystemMessage_DeleteFails` | pre-M05 era; re-verified green, last `38812463685` (d5e96b4) |
+| 16 | General Telegram invariance under full buffers / delivery failure / reload (all pre-existing outcomes incl. http_4xx, redirect, tls_transport, serialization, disabled) | `push_test.go:TestPush_TelegramInvariance` (10-outcome loop), `push_test.go:TestPush_V2FailureIsolatesEndpoint`, `push_album_invariance_test.go:TestPush_AlbumPipelineInvariant` (forward/copy x 6 outcomes), `push_source_routing_test.go:TestPush_SourceEditRetainsSnapshotAcrossReload` | pre-M05 era; re-verified green, last `38812463685` (d5e96b4) |
+
+No checklist item rests on "implicitly covered": every row names at least one
+concrete test function (several name the exact subtests).
+
+### Gap finding
+
+One gap: the **captionless album member NEW** path (increment 9) had locks for
+`success` (item 9), `buffer_full`/`retired`/`contentless` (item 12) and reply
+projection (item 13), but NOT the `timeout` / `http_5xx` /
+`serialization` delivery-failure outcomes that the EDIT path carries via the
+full 5-outcome loop (item 7). Filled by one lock-only increment:
+`textless_album_push_test.go:TestTextlessAlbumMember_InvariantUnderDeliveryOutcomes`
+(subtests buffer_full / timeout / http_5xx / serialization), driving the real
+NEW flow (OnNewMessage ingress -> album collection -> quiet-period member-loop
+`SubmitV2Only`) through an `outcomeSink` generation per outcome class.
+Assertions per outcome: the v2-only `new` photo content fact is submitted
+exactly once through the captured route (re-drain adds nothing), no v1
+envelope is fabricated, strict zero-expectation Telegram/State/RateLimiter/
+Transform/Album mocks fail on any copy/forward/state/limiter/album work, and
+the task queue converges; the buffer_full prefill mirrors the
+`TestPush_TelegramInvariance` pattern (parked timeout prefill joined by
+`synctest.Wait` before the bound is filled; `Retire()` joins the parked
+worker). The retired-generation outcome is already locked on this exact path
+by `TestTextlessAlbumMember_ShutdownInvariant/retired` (item 12), so the loop
+deliberately holds the four un-covered classes. No production change.
+
+### Final state of every M05 increment
+
+1. textless single-media NEW v2-only — green, `38618093819`.
+2. textless EDIT v2-only + `Content != nil` guard — green, `38666202864`.
+3. new-path content-less scope fix — green, `38681131316` (5282917c).
+4. protected eligibility + buffer-full lock — green, `38738578362` (19736fd).
+5. new-path reload/retired captured route — green, `38750426088` (585f63c).
+6. edit-path full 5-outcome invariance loop — green, `38765952927` (673bf36).
+7. album doc gate -> user approved candidate B — `bcfe6b1`.
+8. captionless album member NEW v2-only — green, `38790312809` (3df2970).
+9. shutdown invariance (NEW/EDIT/album outcome sets) — green,
+   `38799241697` (fc71940) and `38799965060` (9321016).
+10. album EDIT path (edited captionless member v2-only; guard extended to
+    `Content != nil`) — green, `38803082371` (9541175).
+11. replies projection lock-only (all three paths + content-less negative) —
+    green, `38806730626` (b7c60fd).
+12. **closure gap-fill (this assessment)**: album NEW
+    timeout/http_5xx/serialization outcome loop — lock-only test commit
+    `d5e96b4`, CI `38812463685` **success** (job `test`), head `d5e96b4`.
+
+Local verification (light only): `gofmt -l` clean on the touched test file;
+`git diff --check` clean; new symbols (`albumOutcomeService`,
+`requireAlbumOutcomeSubmission`, `TestTextlessAlbumMember_InvariantUnderDeliveryOutcomes`)
+resolve with no package-level duplicates; `CGO_ENABLED=0 GOPROXY=off
+GOCACHE=$PWD/.tmp-go-cache go test ./internal/service/push/...` green. The
+handler package is TDLib cgo and is compiled/tested by CI only (no local
+full-repo build/typecheck/vet/race, no parallel heavy jobs, no dep installs).
+
+### What M05 does NOT include
+
+- M04 remains a **product decision gate with no code**: nothing in M05 opens
+  or bypasses the no-download decision; final M05 does not include any file
+  access, download, cache, hosting, or resource lifecycle.
+- **Nothing is auto-downloaded**: no media byte, file_id surface, or network
+  fetch of message content is added; the v2 facts are content-identity
+  projections (the source file identifier is asserted absent from every wire
+  body by the wire test).
+- **No `resource_ref`** (or any `resource_ref -> TDLib file_id` mapping) is
+  introduced, persisted, or projected; Attachment/Relation authority is
+  untouched.
+- **`main` untouched**: all work is on `feat/external-push-sink`; no merge,
+  no PR, no release/deploy/tag.
+- No Telegram queue/limiter file/network work is added under full buffers,
+  delivery failure, reload or shutdown (AC2/AC4 invariance locked by items
+  5, 7, 8, 10, 12, 16).
+
+### CI record (this assessment)
+
+- Test increment commit `d5e96b4` pushed to `origin/feat/external-push-sink`;
+  `gh workflow run ci-test.yml --ref feat/external-push-sink` -> run
+  `38812463685` (https://github.com/killbus/budva/actions/runs/38812463685),
+  head `d5e96b4`, conclusion **success** (job `test`: `go vet ./...` +
+  `go test ./internal/...`, green across all packages; new handler tests
+  exercised in CI only).
+- Final verified head: `d5e96b4` (run `38812463685` green).
+
+## M05 closure statement
+
+M05 is **closed**. Every item in the M05 checklist (webhook-only textless
+media; albums — including the user-approved candidate-B captionless-member
+semantics on both NEW and EDIT; replies; edits/deletes with honest
+missing-predecessor behavior; protected eligibility; unchanged
+system-message actions; and Telegram invariance under full buffers, delivery
+failure (all classes), reload, and shutdown for every new path) is covered by
+a named test referenced in the checklist table above, and the branch is
+green at `d5e96b4` with all evidence recorded. The only open remainder in
+the plan is M06 (real-TDLib focused CI verification and final integration),
+which is a separate milestone and is NOT part of M05 scope; no new M05
+remainder was found or invented by this assessment.
