@@ -53,9 +53,51 @@ gate rather than an implementation milestone. Read
   system, nil formatted text) is left to the earlier no-event rule instead of
   fabricating a v2 `new` fact with `content.type = "unknown"`; the already-green
   textless-media NEW delivery (captionless photo, Content != nil) is unchanged
-  and keeps the v2-only content fact with v1 silent. Remaining REDs (albums/
-  replies, protected eligibility, full-buffer/delivery-failure/reload/shutdown
-  invariance for the new path) continue as separate minimal increments.
+  and keeps the v2-only content fact with v1 silent. Fourth increment landed
+  2026-10-15 (pure-test lock, no production change) — a PROTECTED textless media
+  message (Telegram cannot save/copy it: `CanBeSaved == false`, carrying
+  `HasSensitiveContent`/`RestrictionReason`) is still eligible for the
+  webhook-only v2 content fact; eligibility deliberately does NOT inherit the
+  copy/forward guard. The new handler test
+  `internal/app/handler/textless_protected_push_test.go` pins the `success`
+  outcome (one v2 body carrying the protected facts verbatim, v1 silent, queue
+  converged to 0) and the `buffer_full` outcome (the protected v2 fact is still
+  built from the source, the submission is rejected `buffer_full` and isolated
+  to the endpoint, no v1 envelope fabricated, queue converged). Fifth
+  increment landed 2026-10-15 (pure-test lock, no production change) — the
+  RELOAD outcome for the new textless path: the handler reads the ruleset
+  snapshot once at the `OnNewMessage` entry and submits through the submitter
+  captured with that snapshot (immutable captured route); after a
+  `SetRuleSetWithPush` reload swaps in a new ruleset/submitter, an already-
+  processed textless message still routes to the captured (old) generation,
+  the post-reload submitter receives nothing, v1 stays silent, and the task
+  queue converges to zero. The new handler test
+  `internal/app/handler/textless_reload_push_test.go` pins both the live-reload
+  outcome (real TLS v1/v2 endpoints, active generation not pre-retired, mirroring
+  production `pushManager.Replace`) and the retired outcome (synctest +
+  outcomeSink, captured submission accepted, replacement receives nothing).
+  Remaining REDs (albums/replies, and full-buffer/delivery-failure/reload/
+  shutdown invariance for the edit path) continue as separate minimal
+  increments. Sixth increment landed 2026-10-15 (pure-test lock, no
+  production change) — the EDIT textless path is delivery-invariant: under
+  `buffer_full`, `timeout`, `http_5xx`, `serialization` and retired
+  generation the webhook-only textless media EDIT fact stays submitted
+  exactly once as the canonical v2 `edited` content fact through the
+  submitter captured at the `OnEditedMessage` entry (v2-only submission
+  happens inside the queue task, driven by `q.ProcessAll()`), with strict
+  zero-expectation mocks pinning no Telegram copy/caption/state/limiter
+  work, no fabricated v1 envelope, and the task queue converged to zero;
+  the reload/retired outcome stays on the captured generation (the
+  replacement submitter receives nothing). The new handler test
+  `internal/app/handler/textless_edit_invariance_test.go` pins both the
+  outcome loop and the captured-route reload/retired outcome. First CI on
+  the test commit exposed a test-only sequencing flaw in the `buffer_full`
+  prefill (both prefills enqueued before the worker ran, so the bound was
+  not actually full at submission time); it is fixed by pre-filling one,
+  joining it in flight, then filling the bound (the
+  `TestPush_TelegramInvariance` pattern). Final CI `38765952927` (head
+  `673bf36`) is green across all packages. Remaining REDs (albums/replies,
+  and shutdown invariance) continue as separate minimal increments.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
