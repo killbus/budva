@@ -112,3 +112,34 @@ func TestTextlessMedia_PushesV2FactOnlyV1Silent(t *testing.T) {
 	require.NotContains(t, string(body), "photo-file-id-42")
 	require.NotContains(t, string(body), "file_id")
 }
+
+// RED: a content-LESS new message (Content == nil) is not textless media.
+// Mirroring the edit-path scope fix, the new-path v2 fact must be limited to
+// content-bearing messages; a content-less message must stay silent rather
+// than fabricating a v2 `new` fact whose content.type is "unknown".
+func TestTextlessMedia_ContentlessNewMessageStaysSilent(t *testing.T) {
+	t.Parallel()
+	state, message, q := mocks.NewStateRepo(t), mocks.NewMessageService(t), queue.New()
+	capture := &recordingSubmitter{}
+	h := New(mocks.NewTelegramRepo(t), state, message, mocks.NewFilterService(t), mocks.NewTransformService(t),
+		mocks.NewAlbumService(t), q, mocks.NewRateLimiter(t), nil)
+	rule := &domain.ForwardRule{From: 100, PushTo: []string{"endpoint"}}
+	h.SetRuleSetWithPush(&domain.RuleSet{
+		Sources:             map[int64]*domain.Source{100: {ChatID: 100}},
+		ForwardRules:        map[string]*domain.ForwardRule{"r": rule},
+		OrderedForwardRules: []string{"r"},
+		UniqueSources:       map[int64]struct{}{100: {}},
+	}, capture)
+
+	// Content == nil: not a system message and no formatted text, so the source
+	// is neither forwardable nor textless media. Strict mocks bind only the two
+	// reads the handler performs before the textless branch.
+	msg := &client.Message{ChatId: 100, Id: 1}
+	message.EXPECT().IsSystemMessage(msg).Return(false).Once()
+	message.EXPECT().GetFormattedText(msg).Return(nil).Once()
+
+	h.OnNewMessage(context.Background(), msg)
+	require.Zero(t, q.Len(), "a content-less message must enqueue no Telegram work")
+	require.Empty(t, capture.submissions,
+		"a content-less new message must not be pushed as a fabricated v2 fact")
+}

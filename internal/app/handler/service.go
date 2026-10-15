@@ -249,7 +249,10 @@ func (s *Service) OnNewMessage(ctx context.Context, msg *client.Message) {
 			// Telegram copy/forward guards, albums keep their quiet-period
 			// path, and no file or network work is added. The v1 representation
 			// is absent, so a v1 endpoint stays silent at the delivery boundary.
-			if rs.push != nil && len(rule.PushTo) != 0 && msg.MediaAlbumId == 0 {
+			// A content-less message (Content == nil) is not textless media, so
+			// it is left to the earlier no-event rule rather than fabricating a
+			// v2 fact with an "unknown" content type.
+			if rs.push != nil && len(rule.PushTo) != 0 && msg.Content != nil && msg.MediaAlbumId == 0 {
 				if v2 := v2SnapshotFor(msg, messagev2.EventNew, time.Now().UTC()); v2 != nil {
 					rs.push.SubmitV2Only(rule.PushTo, v2)
 				}
