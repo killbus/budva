@@ -1430,3 +1430,22 @@ resolution and the pure-Go `go test ./internal/service/push/...` only; the
 handler package is compiled and tested by CI. Remaining M05 REDs (album EDIT
 path if the same gap exists, replies, and shutdown invariance) continue as
 separate minimal increments.
+
+CI evidence (this increment; branch `feat/external-push-sink`):
+
+- RED commit `d56aa52800b50217bcdf286030d2f99c50a47126` (test file only) — run
+  `38787762004`, conclusion **failure**. This is the required forced-RED: the
+  handler package compiles and every other handler test passes; only
+  `TestTextlessAlbumMember_PushesV2FactOnlyV1Silent` fails. The CI log shows the
+  exact forced assertions: `require.Equal(t, 1, q.Len(), ...)` → "expected: 1,
+  actual: 0" (textless_album_push_test.go:113 — no album task enqueued because
+  the captionless member is dropped at ingress), the album mock "0 out of 3
+  expectation(s) were met" (the never-called `AddMessage` /
+  `LastReceivedAge` / `PopMessages`), and the message mock `GetFormattedText`
+  "1 out of 2". The package did NOT fail to compile; the failure is behavioral,
+  proving the test is a genuine forced-RED and not a compile error.
+- GREEN commit `3df297092648dc03100934bda60f005ad36e4cd4` (the two
+  `service.go` edits) — run `38790312809`, head
+  `3df297092648dc03100934bda60f005ad36e4cd4`, conclusion **success** across all
+  packages. This is the final criterion: the GREEN branch run is fully green
+  with the forced-RED test now passing.

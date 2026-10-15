@@ -110,10 +110,23 @@ gate rather than an implementation milestone. Read
   `progress.md` (A: keep the drop, pure-test lock — the no-change option;
   B: push a v2 content fact for captionless album members — a behavior change
   touching album membership/ingress and v1 guard reconciliation). This
-  increment marks the album item **pending a user decision**; no album
-  membership or v1 behavior is changed. The next album increment (test lock
-  under A, or production change under B) is separate. Shutdown invariance
-  remains a separate minimal increment.
+  increment marked the album item **pending a user decision**; no album
+  membership or v1 behavior was changed. Eighth increment landed 2026-10-15
+  under the user's decision (candidate B — a production behavior change): a
+  captionless album member (`Content != nil`, `MediaAlbumId != 0`, nil
+  formatted text) is now v2-only delivered, consistent with the single-media
+  textless rule. Two minimal `service.go` edits — `OnNewMessage` lets a
+  content-bearing captionless album member enter the quiet-period album
+  collection (before the forward guard, so a protected `CanBeSaved == false`
+  member is collected too) and, as the first member, triggers
+  `processMediaAlbum`; `processMediaAlbum` routes a `text == nil`
+  content-bearing member through the v2-only carrier (`SubmitV2Only`) so the
+  v1 endpoint stays silent at the delivery boundary, while content-less
+  members stay dropped. Captioned members are unchanged. Forced-RED
+  `38787762004` (head `d56aa52`) failed behaviorally (no compile error), and
+  the GREEN run `38790312809` (head `3df2970`) is fully green. Shutdown
+  invariance and the album EDIT path (if the same gap exists) remain separate
+  minimal increments; replies are out of scope this round.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
