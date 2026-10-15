@@ -246,16 +246,30 @@ func (s *Service) OnNewMessage(ctx context.Context, msg *client.Message) {
 		if formattedText == nil {
 			// Webhook-only textless media: the source fact is pushed only as a
 			// canonical v2 content fact. Eligibility is independent of the
-			// Telegram copy/forward guards, albums keep their quiet-period
-			// path, and no file or network work is added. The v1 representation
-			// is absent, so a v1 endpoint stays silent at the delivery boundary.
-			// A content-less message (Content == nil) is not textless media, so
-			// it is left to the earlier no-event rule rather than fabricating a
-			// v2 fact with an "unknown" content type.
-			if rs.push != nil && len(rule.PushTo) != 0 && msg.Content != nil && msg.MediaAlbumId == 0 {
-				if v2 := v2SnapshotFor(msg, messagev2.EventNew, time.Now().UTC()); v2 != nil {
-					rs.push.SubmitV2Only(rule.PushTo, v2)
+			// Telegram copy/forward guards, and no file or network work is
+			// added. The v1 representation is absent, so a v1 endpoint stays
+			// silent at the delivery boundary. A content-less message
+			// (Content == nil) is not textless media, so it is left to the
+			// earlier no-event rule rather than fabricating a v2 fact with an
+			// "unknown" content type.
+			if rs.push != nil && len(rule.PushTo) != 0 && msg.Content != nil {
+				if msg.MediaAlbumId == 0 {
+					// Single media: submit the v2-only content fact directly.
+					if v2 := v2SnapshotFor(msg, messagev2.EventNew, time.Now().UTC()); v2 != nil {
+						rs.push.SubmitV2Only(rule.PushTo, v2)
+					}
+					continue
 				}
+				// Album member: enter the same quiet-period collection as a
+				// captioned member so it is projected as a v2-only content fact
+				// after collection. This sits before the forward guard, so a
+				// protected (CanBeSaved == false) member is collected the same
+				// way eligibility is independent of it.
+				albumKey := fmt.Sprintf("%s:%d", ruleID, int64(msg.MediaAlbumId))
+				if isFirst := s.albumService.AddMessage(albumKey, msg); isFirst {
+					s.processMediaAlbum(ctx, albumKey, rs.RuleSet, ruleID, msg, nil, rs.push)
+				}
+				continue
 			}
 			continue
 		}
@@ -590,7 +604,21 @@ func (s *Service) processMediaAlbum(ctx context.Context, albumKey string, rs *do
 				}
 				seen[key] = struct{}{}
 				text := s.messageService.GetFormattedText(msg)
-				if text == nil || s.filterService.Evaluate(text.Text, rule) != domain.FiltersOK {
+				if text == nil {
+					// Captionless member: content-bearing media is projected as a
+					// v2-only content fact (the v1 endpoint stays silent at the
+					// delivery boundary), consistent with the single-media
+					// textless rule. A content-less member (Content == nil)
+					// carries no fact and is not textless media, so it is
+					// dropped rather than fabricating an "unknown" content type.
+					if msg.Content != nil {
+						if v2 := v2SnapshotFor(msg, messagev2.EventNew, occurredAt); v2 != nil {
+							submitters[0].SubmitV2Only(rule.PushTo, v2)
+						}
+					}
+					continue
+				}
+				if s.filterService.Evaluate(text.Text, rule) != domain.FiltersOK {
 					continue
 				}
 				submitters[0].SubmitV2(rule.PushTo, event.Envelope{
