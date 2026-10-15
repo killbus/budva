@@ -1,7 +1,8 @@
 # Draft Execution Plan
 
-Status: active; M01-M03 are complete and M05 is in progress (first increment
-done on 2026-10-14). The 2026-10-14 decision correction makes M04 a product
+Status: active; M01-M03 and M05 are complete (M05 closed 2026-10-15 at
+`d5e96b4`, CI `38812463685` green; closure checklist in `progress.md`).
+The 2026-10-14 decision correction makes M04 a product
 gate rather than an implementation milestone. Read
 `research/message-attachment-boundaries.md` first.
 
@@ -28,7 +29,7 @@ gate rather than an implementation milestone. Read
   follow-up that projects reviewed native message/file facts and extends the
   existing facade in account/session scope. No automatic download, cache,
   hosting or generic resource lifecycle is implied.
-- [ ] M05: Integrate source-handler lifecycle and immutable captured routes.
+- [x] M05: Integrate source-handler lifecycle and immutable captured routes.
   Test webhook-only textless media, albums/replies, edits/deletes, missing
   predecessors, protected eligibility and unchanged system-message actions.
   Here "textless media" means lifecycle eligibility and canonical content facts
@@ -173,6 +174,31 @@ gate rather than an implementation milestone. Read
   `38803082371` (head `9541175`) is green across all packages — the cgo
   handler tests pass in CI and no existing test regressed. Remaining M05
   items: replies, and the overall M05 closure assessment.
+  Eleventh increment landed 2026-10-15 (pure-test lock, no production
+  change) — REPLIES on the three locked textless/album v2 paths. The
+  decision-rule check found no behavioral gap: `v2SnapshotFor` projects
+  `ReplyTo` (bounded discriminator + chat/message id for
+  `messageReplyToMessage`), `MessageThreadID` and `SavedMessagesTopicID`
+  unconditionally from `*client.Message`, is the only snapshot builder, and
+  is what all three locked paths submit (NEW single-media, captionless
+  album member, textless EDIT incl. album member); no `IsTopicMessage`/
+  topic gate exists anywhere, and the message reaches submission by
+  pointer untouched, so the only gap was the missing test lock. The new
+  handler test
+  `internal/app/handler/textless_reply_lock_test.go` (commit `31c8035`)
+  locks: a reply-bearing textless single-media NEW with the verbatim
+  reply/thread projection (v2-only, v1 silent, no Telegram work), a
+  reply-bearing captionless album member (same projection through the
+  quiet-period member loop, `media_album_id` carried), a reply-bearing
+  textless EDIT for both single-media and album member (`edited` fact with
+  the projection, no album re-collection), and the content-less negative
+  (a `Content == nil` source that carries reply/thread facts emits
+  nothing — no fabricated reply-bearing v2 snapshot). No behavioral RED:
+  the projection already flowed; CI proves no regression.
+  M05 closed 2026-10-15: closure assessment confirmed every checklist item
+  has a named test; the one coverage gap (album NEW delivery-failure outcome
+  loop) was filled by a lock-only test (`d5e96b4`, CI `38812463685` green);
+  see the "M05 closure assessment" entry in `progress.md`.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
