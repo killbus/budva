@@ -53,9 +53,21 @@ gate rather than an implementation milestone. Read
   system, nil formatted text) is left to the earlier no-event rule instead of
   fabricating a v2 `new` fact with `content.type = "unknown"`; the already-green
   textless-media NEW delivery (captionless photo, Content != nil) is unchanged
-  and keeps the v2-only content fact with v1 silent. Remaining REDs (albums/
-  replies, protected eligibility, full-buffer/delivery-failure/reload/shutdown
-  invariance for the new path) continue as separate minimal increments.
+  and keeps the v2-only content fact with v1 silent. Fourth increment landed
+  2026-10-15 (pure-test lock, no production change) — a PROTECTED textless media
+  message (Telegram cannot save/copy it: `CanBeSaved == false`, carrying
+  `HasSensitiveContent`/`RestrictionReason`) is still eligible for the
+  webhook-only v2 content fact; eligibility deliberately does NOT inherit the
+  copy/forward guard. The new handler test
+  `internal/app/handler/textless_protected_push_test.go` pins the `success`
+  outcome (one v2 body carrying the protected facts verbatim, v1 silent, queue
+  converged to 0) and the `buffer_full` outcome (the protected v2 fact is still
+  built from the source, the submission is rejected `buffer_full` and isolated
+  to the endpoint, no v1 envelope fabricated, queue converged). Final CI
+  `38738578362` (head `19736fd`) is green across all packages. Remaining REDs
+  (albums/replies, the reload outcome for the new textless path, and
+  full-buffer/delivery-failure/reload/shutdown invariance for the edit path)
+  continue as separate minimal increments.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly

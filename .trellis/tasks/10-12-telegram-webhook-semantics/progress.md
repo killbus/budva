@@ -878,4 +878,154 @@ Commit plan:
 - No main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`,
   no M04 work. Remaining M05 REDs (albums/replies, protected eligibility,
   full-buffer/delivery-failure/reload/shutdown invariance for the new path)
-  continue as separate minimal increments.
+
+### 2026-10-15 — M05 increment: protected-message eligibility on the new textless path + new-path delivery invariance
+
+Chosen increment (from "Remaining M05 REDs"): the **priority-1 protected-message
+eligibility** semantics for the *new* textless path, closed together with the
+**pure-test invariance** of the new path under a full buffer and a ruleset
+reload. This is a **lock increment** — the code already honors the required
+semantics (the guard at `OnNewMessage` is
+`rs.push != nil && len(rule.PushTo) != 0 && msg.Content != nil &&
+msg.MediaAlbumId == 0`, deliberately independent of `CanBeSaved`/forwarding),
+so the RED is the *absence of coverage* for a protected message (the existing
+green textless test uses `CanBeSaved:false` but never binds the protected
+`has_sensitive_content`/`restriction_reason` facts on the wire) and of the
+new-path invariance. The test is written first; it must pass against the
+unchanged code. No production code changes are made in this increment.
+
+Why this closes the protected-eligibility RED with no behavior change:
+- "Protected eligibility" = a source message that Telegram cannot save/copy
+  (`CanBeSaved == false`, protected content, optionally flagged sensitive and
+  carrying a restriction reason) must still be eligible for the webhook-only
+  v2 textless fact, and that eligibility must not inherit the Telegram
+  copy/forward guard (`!rule.SendCopy && !msg.CanBeSaved`).
+- The new path already returns before any copy/forward/state/limiter work, so a
+  protected textless photo is pushed as a canonical v2 `new` content fact with
+  the v1 endpoint silent, and its protected facts (`has_sensitive_content:true`,
+  `restriction_reason`) are carried verbatim by the projection. The test binds
+  those facts on the wire (the gap the existing test left open) and proves no
+  Telegram work runs (strict mocks), v1 stays silent, and the task queue stays
+  converged (0) under success, a full push buffer, and a ruleset reload.
+
+Semantics protected (invariant):
+- v1 behavior unchanged; textless stays v2-only; no v1 empty event;
+- no fabricated prior state or content fact;
+- no Telegram copy/forward/download added to the serial queue/limiter;
+- FORBIDDEN items (resource_ref, extra file_id mapping, Attachment/Relation,
+  new facade API, cache/object storage) untouched;
+- no production code change in this increment.
+
+RED (written first; green against unchanged code):
+- New handler test `internal/app/handler/textless_protected_push_test.go`:
+  `TestTextlessMediaProtected_PushesV2FactV1SilentUnderOutcomes` (CI-only cgo).
+  One protected captionless source photo (`Content != nil` MessagePhoto, no
+  caption, `CanBeSaved:false`, `HasSensitiveContent:true`,
+  `RestrictionReason:"restricted"`, `MediaAlbumId:0`) driven through
+  `OnNewMessage` under three outcomes.
+  - `success`: two real TLS endpoints (v1 default wire, v2 selected); asserts
+    exactly one v2 body with `has_sensitive_content:true` and
+    `restriction_reason:"restricted"`, `content.type = messagePhoto`, no
+    `formatted_text`, no file id, and zero v1 bodies; task queue `q.Len()==0`.
+  - `buffer_full`: single endpoint, `outcomeSink` (`FailureTimeout`), prefilled
+    to a full buffer (album-test convention); asserts the protected v2 fact is
+    still built from the source (v1 silent) and the queue converges.
+  - `reload`: capture into the active generation, then
+    `SetRuleSetWithPush(&domain.RuleSet{}, next)` before draining; asserts the
+    new fact goes to the captured (pre-reload) generation with the v1 carrier
+    absent and the post-reload submitter receives nothing; queue converges.
+  Strict `message.EXPECT()` binds only `IsSystemMessage->false` and
+  `GetFormattedText->nil` (the two reads the handler performs before the
+  textless branch); strict TelegramRepo/StateRepo/Limiter/Transform/Album mocks
+  with zero expectations fail on any copy/forward/state/limiter work.
+- FAILING-as-RED rationale: the RED is coverage, not a forced failure. If a
+  future change made the textless guard depend on `msg.CanBeSaved` (inheriting
+  the forward guard) or routed the protected message through the album path,
+  the success subtest (missing the v2 body / presence of a v1 body) and the
+  strict-mock invariance assertions would fail. No change is made to turn this
+  into a forced RED, per the minimal-increment constraint.
+
+GREEN (minimal): none — the increment is test-only; the code already satisfies
+the guarded semantics. The green is the test passing under CI.
+
+Local verification (lightweight, memory-bounded, GOPROXY=off, CGO_ENABLED=0):
+`gofmt` on the touched test file (clean) and `git diff --check` (clean); the
+pure-Go `internal/service/push/...` packages remain green.
+`internal/app/handler` is TDLib cgo and cannot compile locally; the RED is
+carried by GitHub CI.
+
+Landed scope (as-shipped, narrower than the RED sketch above): the new handler
+test `internal/app/handler/textless_protected_push_test.go` covers the two
+core outcomes for a protected captionless source photo through `OnNewMessage`:
+- `success` — `TestTextlessMediaProtected_PushesV2FactOnlyV1Silent`: two real
+  TLS endpoints (v1 default wire, v2 selected); exactly one v2 body carries
+  `has_sensitive_content:true`, `restriction_reason:"restricted"`,
+  `content.type = messagePhoto`, no `formatted_text`, no file id; v1 silent;
+  task queue converges to 0.
+- `buffer_full` — `TestTextlessMediaProtected_InvariantUnderFullBuffer`: single
+  `endpoint` on an `outcomeSink` (`FailureTimeout`) prefilled to a full buffer
+  (album-test convention, `BufferCapacity:1`); the protected v2 fact is still
+  built from the source, the submission is rejected `buffer_full` and isolated
+  to the endpoint, no v1 envelope is fabricated, and the queue converges.
+The `reload` outcome named in the RED sketch is NOT in the shipped file; it
+remains available as a future pure-test increment. No production file changes.
+
+Test-authoring corrections made to close the increment (the file was a
+half-finished lock test; all four are identifier/semantics fixes in the test,
+still no production change):
+1. `protectedTextlessService` param type `eventSubmittable` (nonexistent) ->
+   `event.Submitter`.
+2. `[]eventSubmitResult{eventBufferFull}` (both identifiers nonexistent) ->
+   `[]event.SubmitResult{event.SubmitRejectedBufferFull}`; added the
+   `internal/service/push/event` import.
+3. Defined `protectedSnapshot()` in-file as
+   `v2SnapshotFor(protectedTextlessMessage(), messagev2.EventNew,
+   time.Now().UTC())`; added the `internal/service/push/messagev2` import.
+4. `buffer_full` prefill: prefilled twice (worker holds 1 + buffer holds 1) so
+   the handler's submission finds a full buffer (a single prefill would be
+   drained/blocked by the worker and the event would be ACCEPT, not
+   `buffer_full`); both prefills use `SubmitV2Only`. The helper also returns the
+   bound `*client.Message`, now used directly (no second `protectedTextlessMessage()`
+   call / gomock pointer-mismatch).
+5. (Caught by CI, not in the four pre-located defects.) The buffer-full test's
+   rule `PushTo` must name the generation's `endpoint` (matching
+   `captureSubmitter`'s `results["endpoint"]` lookup), so the helper takes a
+   `pushTo []string` argument; the success test passes `["v1","v2"]`, the
+   buffer-full test passes `["endpoint"]`.
+
+CI evidence (the RED test is CI-only cgo; local runs are limited to pure-Go):
+- Local: `gofmt` clean, `git diff --check` clean, `go test
+  ./internal/service/push/...` (pure Go) green. `internal/app/handler` cannot
+  compile locally (TDLib cgo).
+- Three code commits landed in sequence; the first two were RED on CI and
+  drove the two further corrections above:
+  - `5e44c5b` — CI run `38736929000` RED (go vet): `*captureSubmitter` cannot
+    be passed as `*push.Generation` -> param type corrected to the
+    `event.Submitter` interface.
+  - `fc4e9a7` — CI run `38737479314` RED (test): buffer-full assertion expected
+    `buffer_full`, actual `""` -> the `PushTo`/capture-endpoint-name mismatch
+    corrected (fix 5).
+  - `19736fd` — CI run `38738578362` (head `19736fd`, `feat/external-push-sink`)
+    GREEN across all packages, including the cgo-gated `internal/app/handler`
+    carrying `TestTextlessMediaProtected_PushesV2FactOnlyV1Silent` and
+    `TestTextlessMediaProtected_InvariantUnderFullBuffer`.
+- Code commit `19736fd` is what CI validated; this docs-only commit needs no
+  additional CI run.
+
+Commit plan:
+- Branch: `feat/external-push-sink` (no main touch).
+- Commits 1-3 (code + tests, landed `5e44c5b` -> `fc4e9a7` -> `19736fd`):
+  `internal/app/handler/textless_protected_push_test.go` (new, corrected
+  across the three commits). No production file changes.
+- Commit 4 (docs, this commit): `progress.md` (this entry + CI result) and
+  `implement.md` (M05 status note).
+- Pushed `feat/external-push-sink` to `origin` (branch only); `ci-test.yml`
+  dispatched via `workflow_dispatch --ref feat/external-push-sink`; token via
+  non-echoing askpass/stdin only, never in argv/env/trace/URL/config.
+  Run `38738578362` on head `19736fd` is GREEN.
+- Excluded (untracked, left as-is): the same protected set as the prior
+  increments, including `mytokens.txt` (secret, git-excluded).
+- No main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`,
+  no M04 work. Remaining M05 REDs (albums/replies, the reload outcome for the
+  protected/textless new path, and full-buffer/delivery-failure/reload/shutdown
+  invariance for the edit path) continue as separate minimal increments.
