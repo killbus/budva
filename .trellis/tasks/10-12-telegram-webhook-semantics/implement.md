@@ -43,9 +43,13 @@ gate rather than an implementation milestone. Read
   endpoint stays silent (no v1 empty event), and no Telegram copy/caption
   work runs; the delete path was audited and already needed no change (it
   emits content-agnostic identity+delete facts, so "missing predecessor" is
-  handled honestly with no v1 empty event). Remaining REDs (albums/replies,
-  protected eligibility, full-buffer/delivery-failure/reload/shutdown
-  invariance for the new path) continue as separate minimal increments.
+  handled honestly with no v1 empty event). The guard is scoped to
+  content-bearing textless media (`msg.Content != nil && MediaAlbumId == 0`),
+  so a content-less edit stays silent per the earlier no-event rule; final CI
+  `38666202864` (head `30f4d81`) is green across all packages. Remaining
+  REDs (albums/replies, protected eligibility, full-buffer/delivery-failure/
+  reload/shutdown invariance for the new path) continue as separate minimal
+  increments.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly

@@ -751,6 +751,34 @@ Local verification (lightweight, memory-bounded, GOPROXY=off, CGO_ENABLED=0):
 (pure Go) regression only. `internal/app/handler` is TDLib cgo and cannot
 compile locally; the RED/GREEN is carried by GitHub CI.
 
+Outcome and CI evidence:
+- First GREEN landed (commit `ac6d172`), plan recorded (commit `515218f`);
+  pushed to `feat/external-push-sink`. CI run `38662222906` (head `515218f`)
+  was RED on one pre-existing test: `TestPush_SourceEditNilFormattedTextSkipsEvent`
+  (`push_source_routing_test.go`). Its fixture is a *content-less* edit
+  (`&client.Message{ChatId: 100, Id: 1}`, `Content == nil`), pinned to submit
+  no event. The first guard (`text == nil && MediaAlbumId == 0`) was too broad:
+  it also fired for that content-less message, producing a v2 `edited` fact with
+  `content.type = unknown` -- fabricating a fact where there is no content.
+  The task scope is "textless media" (content present, text absent), not "any
+  nil-text message", so the over-broad guard was a scoping error, not a
+  deliberate semantic change.
+- Fix (commit `30f4d81`): narrow the guard in `editMessages` to
+  `emission != nil && emission.push != nil && msg.Content != nil &&
+  msg.MediaAlbumId == 0`. A content-bearing captionless photo/video/document
+  edit still pushes the v2-only `edited` fact (satisfies the new RED test); a
+  content-less edit stays silent (satisfies the pre-existing no-event test).
+  No v1 empty event is fabricated in either case; the guard still returns before
+  the copies loop, so no copy/caption/Telegram work runs.
+- Final CI: run `38666202864` (head `30f4d81`, `feat/external-push-sink`) GREEN.
+  All `go test` packages `ok`, zero `FAIL` lines, including the freshly built
+  (not cached) cgo-gated `internal/app/handler` (1.111s) that carries both
+  `TestTextlessMediaEdit_PushesV2EditedFactOnlyV1Silent` and
+  `TestPush_SourceEditNilFormattedTextSkipsEvent`, and the pure-Go
+  `internal/service/push` / `messagev2` packages.
+- A workflow_dispatch without `--ref` targeted the default branch (main) -- run
+  `38666048385`; it is NOT this increment's evidence and is disregarded.
+
 Commit plan:
 - Branch: `feat/external-push-sink` (no main touch).
 - Commit 1 (code + tests): `internal/app/handler/service.go` and
