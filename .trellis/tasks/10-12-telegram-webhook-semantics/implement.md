@@ -146,8 +146,33 @@ gate rather than an implementation milestone. Read
   increment's own delivered subtest (plain `httptest.NewServer` with a
   non-trusting client), fixed test-only (`fc71940`, per-server TLS clients
   as in the other M05 wire tests); final CI `38799241697` (head `fc71940`)
-  is green across all packages. Remaining M05 items: the album EDIT path,
-  replies, and the overall M05 closure assessment.
+  is green across all packages. Tenth increment landed 2026-10-15 (small
+  production change, the symmetric edit case of the album B decision) — the
+  ALBUM EDIT path for textless media: tracing the real edit path
+  (`OnEditedMessage` -> `editMessagesWithRetry` -> `editMessages`) showed
+  today's behavior of an edited captionless album member (`Content != nil`,
+  `MediaAlbumId != 0`, nil formatted text) is exactly the approved gap — it is
+  dropped on the v2 side (the textless guard `msg.Content != nil &&
+  msg.MediaAlbumId == 0` is false for album members, so `editMessages`
+  returns before any emission), v1 silent, nothing emitted — while the
+  identical single-media case submits a v2-only `edited` fact; no existing
+  test pinned that, and no re-collection entanglement exists (the edit path
+  never touches `albumService`; album collection stays NEW-only). Per the
+  pre-agreed decision rule the gap matched the obvious case, so it was
+  implemented directly without a doc gate. GREEN: the guard extends to
+  `msg.Content != nil` (commit `9541175`) so an edited captionless album
+  member submits the canonical v2 `edited` content fact v2-only (captured
+  route, v1 endpoint silent, no v1 event fabricated, no file/network/
+  Telegram copy/forward/caption/state/limiter work, no album re-collection);
+  a content-less edited album member (`Content == nil`) still produces
+  nothing. New handler test file
+  `internal/app/handler/textless_album_edit_test.go` (commit `897bdf4`):
+  positive (exactly one v2 `edited` fact, `media_album_id` carried, v1
+  envelope-free, strict zero-expectation Telegram AND album mocks, queue
+  convergence) plus the content-less negative pin. CI run
+  `38803082371` (head `9541175`) is green across all packages — the cgo
+  handler tests pass in CI and no existing test regressed. Remaining M05
+  items: replies, and the overall M05 closure assessment.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly

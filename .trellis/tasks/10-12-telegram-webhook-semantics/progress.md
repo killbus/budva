@@ -1518,3 +1518,77 @@ captured submission, the task queue never re-enqueues push work, and
 
 Remaining M05 items (open, separate increments): album EDIT path, replies,
 and the overall M05 closure assessment.
+
+## M05 increment: edited captionless album member v2-only edited fact (B semantics, symmetric edit case)
+
+Scope judgment (pre-agreed decision rule, applied without a doc gate): tracing
+the real edit path (`OnEditedMessage` -> `editMessagesWithRetry` ->
+`editMessages` in `internal/app/handler/service.go`) shows the gap is exactly
+the obvious case. Today, when a captionless album member (Content != nil,
+MediaAlbumId != 0, nil formatted text) is edited, `editMessages` reads
+`GetCopiedMessageIDs` (nil on webhook-only routes) and `GetFormattedText`
+(nil), enters the `text == nil` branch, but the textless guard
+`msg.Content != nil && msg.MediaAlbumId == 0` is false for album members, so
+the function falls through to `return false`: the edited album member is
+**dropped on the v2 side, v1 silent, nothing emitted** — while the identical
+single-media case submits a v2-only `edited` fact. No existing test pinned
+that behavior (no `OnEditedMessage` test sets `MediaAlbumId`;
+`TestPush_AlbumNewDoesNotSupersedeEditsOrDeletes` uses a captioned edited
+message with `MediaAlbumId == 0`, `TestPush_EditWithoutCopies` a
+non-album photo). No re-collection entanglement exists (the edit path never
+touches `albumService`; album collection is driven only by `OnNewMessage`),
+captioned album member edits are unaffected (their `text != nil`), and
+`Content == nil` is already excluded by the guard's existing term. Gap == the
+approved B case => implemented directly.
+
+RED (commit `897bdf4`, test file
+`internal/app/handler/textless_album_edit_test.go`):
+- `TestTextlessAlbumMemberEdit_PushesV2EditedFactOnlyV1Silent`: an edited
+  captionless protected album member (album 42, photo sizes carrying a real
+  file identifier) on a webhook-only rule, driven through the real
+  `OnEditedMessage` -> queue task; strict zero-expectation Telegram/Rate
+  Limiter/Transform/Album mocks (zero Telegram copy/forward/caption/state/
+  limiter work AND zero album-service calls — album collection stays
+  NEW-only), `GetCopiedMessageIDs -> nil` and `GetFormattedText -> nil` bound
+  once each; asserts exactly one v2 `edited` fact (chat 100, message 1,
+  `media_album_id` 42, `edited_at` present, content type `messagePhoto`, no
+  text fact), no v1 envelope, accepted result, queue convergence. RED
+  expectation: fails today because the guard's `MediaAlbumId == 0` term
+  excludes the album member (zero submissions).
+- `TestTextlessAlbumMemberEdit_ContentlessProducesNothing` (negative pin): an
+  edited content-less album member (Content == nil, MediaAlbumId 42) produces
+  nothing — no v1 envelope, no v2 fact, no submission outcome, no album
+  re-collection, queue converges. GREEN both before and after the change
+  (locks the no-event rule).
+
+GREEN (commit `9541175`): the smallest production change — the edit-path
+textless guard in `editMessages` extends from
+`msg.Content != nil && msg.MediaAlbumId == 0` to `msg.Content != nil`
+(album members admitted, v2-only `edited` fact via the existing
+`SubmitV2Only` + captured-route name collection), comment updated to state
+the symmetric album rule and that the edit path submits directly without
+re-entering album collection. Zero changes elsewhere; no file/network/
+Telegram work added; the path still returns before the copies loop.
+
+Verification (local = LIGHT ONLY): `gofmt -l` clean on both touched files;
+`git diff --check` clean; every referenced identifier resolves
+(`mocks.NewStateRepo/NewMessageService`, `captureSubmitter`/`outcomeSink`/
+`requireNoSubmission` in `push_test.go`/shutdown-invariance test,
+`messagev2.Notification`/`Content`/`SubmitResult` fields per
+`internal/service/push/messagev2/model.go`);
+`CGO_ENABLED=0 GOPROXY=off GOCACHE=$PWD/.tmp-go-cache go test
+./internal/service/push/...` green (ok push, ok push/messagev2, event no
+test files). Note: go requires an absolute GOCACHE, so the protected
+`.tmp-go-cache` was used via an absolute path (same directory, not a new
+cache). Handler (TDLib cgo) is judged by CI only; no full-repo
+build/typecheck/vet/race, no parallel heavy jobs, no dep installs locally.
+
+CI evidence (this increment; branch `feat/external-push-sink`):
+- Dispatch `gh workflow run ci-test.yml --ref feat/external-push-sink`
+  against the GREEN head: run `38803082371`, head `9541175`, conclusion
+  **success** across all packages — the new album-edit tests pass in CI
+  (the handler package is cgo and is only exercised there), and the
+  extended guard regressed no existing handler or push test.
+
+No further iterations were required. Remaining M05 items: replies, and the
+overall M05 closure assessment.
