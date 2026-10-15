@@ -1449,3 +1449,72 @@ CI evidence (this increment; branch `feat/external-push-sink`):
   `3df297092648dc03100934bda60f005ad36e4cd4`, conclusion **success** across all
   packages. This is the final criterion: the GREEN branch run is fully green
   with the forced-RED test now passing.
+
+## M05 increment 6 — shutdown invariance for the textless/album v2-only paths — 2026-10-15
+
+Locked shutdown/stop invariance for the three new M05 paths (single-media
+textless NEW, textless EDIT, captionless album member) with a pure-test
+increment: new file
+`internal/app/handler/textless_shutdown_invariance_test.go`, zero production
+changes. Service shutdown is modeled as generation retirement (the
+carrier's only stop mechanism), and each path is driven under it:
+
+- No v1 event ever: the NEW "delivered" case proves v1 silence at the wire
+  (a real v1-counting endpoint receives zero HTTP requests while the v2
+  endpoint receives exactly one content fact through the real retirement
+  drain); the buffer-full/retired cases assert `capture.events` stays empty
+  (no fabricated v1 envelope).
+- v2 fact submitted at most once: every subtest re-drains the queue after
+  shutdown (`requireAtMostOnceReDrain`) and asserts the captured fact stays
+  exactly one and no Telegram work was re-enqueued.
+- No Telegram copy/forward/caption/status/network work: strict
+  zero-expectation `TelegramRepo`/`StateRepo`/`RateLimiter`/`TransformService`
+  (and album-path mocks bound only to collection) fail on any such work.
+- Queue convergence / no hang / no worker outliving the test: `q.Len()` is
+  asserted zero after the task and after the re-drain; `Retire()` (idempotent
+  second call) joins the sink workers — including the one parked in the
+  blocking `outcomeSink{class: FailureTimeout}` from the buffer-full prefill
+  pattern ("prefill one → synctest.Wait() parks it in-flight → fill the
+  bound") — before the test ends.
+- Content-less messages produce nothing: per-path contentless subtests
+  (`Content == nil`, including the album member, which never enters
+  collection) assert no v1, no v2, and no submission outcome.
+
+Subtests per path: NEW — delivered (real servers + retirement drain),
+buffer_full, retired, contentless; EDIT — buffer_full (driven with
+`q.ProcessAll()`), retired, contentless; album member — buffer_full,
+retired, contentless. Helpers mirror the existing M05 fixtures:
+`protectedTextlessService`/`protectedSnapshot`, `editTextlessService`,
+`captureSubmitter`/`outcomeSink`, `v2Probe`; one new shared helper
+(`albumShutdownService`) binds the same album end state as
+`textlessAlbumFixture`.
+
+Verification (local = LIGHT only): `gofmt -l` clean, `git diff --check`
+clean, `rg` identifier resolution for every reused helper/constant,
+`CGO_ENABLED=0 GOPROXY=off go test ./internal/service/push/...` green
+(pure Go). The handler package (TDLib cgo) was judged by CI only.
+
+CI evidence (this increment; branch `feat/external-push-sink`):
+
+- Test commit `19fc75b2f1f7901b1602f208e146565af5de8e9e` — run
+  `38798652816`, conclusion **failure**. Not a product RED: the failure was a
+  test-harness defect in this increment's own NEW/delivered subtest, which
+  used plain `httptest.NewServer` with the default (non-trusting) client, so
+  the v2 webhook delivery failed TLS (`class=tls_transport`) and `v2Bodies`
+  stayed empty (`require.Len(t, v2Bodies, 1)` failed at line 166). Every other
+  subtest in the file passed, and no production test was touched.
+- Test-only fix commit
+  `fc71940721e7fade8e51581b76903e7edc5e64ca` — switched the delivered case to
+  `httptest.NewTLSServer` with each sink wired to its own server's client
+  (matching `textlessFixture`/`textlessAlbumFixture`), same convention as the
+  other M05 wire tests. Run `38799241697`, head
+  `fc71940721e7fade8e51581b76903e7edc5e64ca`, conclusion **success** across
+  all packages: the full shutdown-invariance lock is green in CI.
+
+No production change was required: RED never proved a behavioral defect —
+the paths were already shutdown-invariant (retired generations reject the
+captured submission, the task queue never re-enqueues push work, and
+`Retire()` drains and joins).
+
+Remaining M05 items (open, separate increments): album EDIT path, replies,
+and the overall M05 closure assessment.

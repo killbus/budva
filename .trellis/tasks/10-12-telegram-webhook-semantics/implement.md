@@ -124,9 +124,30 @@ gate rather than an implementation milestone. Read
   v1 endpoint stays silent at the delivery boundary, while content-less
   members stay dropped. Captioned members are unchanged. Forced-RED
   `38787762004` (head `d56aa52`) failed behaviorally (no compile error), and
-  the GREEN run `38790312809` (head `3df2970`) is fully green. Shutdown
-  invariance and the album EDIT path (if the same gap exists) remain separate
-  minimal increments; replies are out of scope this round.
+  the GREEN run `38790312809` (head `3df2970`) is fully green. Ninth
+  increment landed 2026-10-15 (pure-test lock, no production change) —
+  SHUTDOWN invariance for the three new M05 paths (single-media textless
+  NEW, textless EDIT, captionless album member). Service shutdown is
+  modeled as generation retirement; per path the new handler test
+  `internal/app/handler/textless_shutdown_invariance_test.go` locks: no v1
+  event ever (the delivered case proves v1 silence at the wire against a
+  real counting endpoint through the real retirement drain, the other cases
+  assert no fabricated v1 envelope), the v2 fact submitted at most once
+  (a post-shutdown queue re-drain adds nothing and re-enqueues no Telegram
+  work), no Telegram copy/forward/caption/status/network work (strict
+  zero-expectation mocks), queue convergence with no hang and no worker
+  outliving the test (the parked `FailureTimeout` prefill worker is joined
+  by the idempotent `Retire()`), and content-less messages (including the
+  album member, which never enters collection) produce nothing. Subtests:
+  NEW delivered/buffer_full/retired/contentless; EDIT
+  buffer_full/retired/contentless (driven with `q.ProcessAll()`); album
+  buffer_full/retired/contentless. No production change was needed — the
+  first CI run RED (`38798652816`) was a test-harness defect in this
+  increment's own delivered subtest (plain `httptest.NewServer` with a
+  non-trusting client), fixed test-only (`fc71940`, per-server TLS clients
+  as in the other M05 wire tests); final CI `38799241697` (head `fc71940`)
+  is green across all packages. Remaining M05 items: the album EDIT path,
+  replies, and the overall M05 closure assessment.
 - [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
