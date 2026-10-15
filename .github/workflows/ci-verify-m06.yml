@@ -1,0 +1,144 @@
+# M06 final-integration verification — the evidence channel for the checks
+# that are unsafe or too heavy to run locally:
+#
+#   * whole-repo `go build ./...` (ci-test deliberately does not build),
+#   * whole-repo `go vet ./...` re-run as a standalone evidence job,
+#   * the race detector, FOCUSED on the two packages M05 touched
+#     (./internal/service/push/... + ./internal/app/handler/...),
+#   * plain `go test ./internal/...` to re-confirm the final state.
+#
+# One dispatch of this workflow is the M06 evidence the task records in
+# .trellis/tasks/10-12-telegram-webhook-semantics/progress.md; it is not a
+# standing CI.
+#
+# Trigger: workflow_dispatch ONLY, by design.
+#   * There is no push/pull_request trigger, so this workflow can NEVER
+#     auto-fire on main — even if it were ever merged. That is deliberate
+#     defense in depth: M06 evidence must be requested, not incidentally
+#     rebuilt on every push of the integration branch.
+#   * The jobs need no secrets and no PR context; a manual run on the
+#     iteration branch is all it will ever receive.
+#
+# TDLib sourcing: byte-for-byte the ci-test.yml pattern — the same installed
+# tree (include/td/ + lib/libtd* only, NOT the ~15GB build dir) packed into
+# /tmp/tdlib.tar.zst under the SAME key tdlib-22d49d5-amd64, so this
+# workflow restores the tree ci-test already cached: no 20-25 min cold
+# build, and the commit pin (22d49d5) stays in lockstep with the Dockerfile
+# tdlib-builder stage. The split restore/save and the sudo deviations exist
+# for the same reasons documented in ci-test.yml (a red run must not re-pay
+# the cold build; /usr/local is root-owned on a hosted runner).
+#
+# Jobs: all four run sequentially in ONE job on ONE runner. The TDLib
+# restore is per-job (runner-level), the 16GB runner limit forbids parallel
+# heavy Go jobs, and sequential keeps the race leg (highest memory demand)
+# from ever running beside a plain test.
+#
+# build flags: the cold-cache path is the Dockerfile's exact recipe,
+# --parallel 2 (full-core builds OOM the 16GB runner ~87% into the compile;
+# that lesson is paid for — do not "optimize" it). M06 changes no build
+# flags; it only adds jobs that consume the cached tree.
+#
+# Deliberately absent (kill list, mirrors ci-test.yml — revisit only on a
+# real signal): arm64 leg, golangci-lint, coverage upload, and any
+# whole-repo race (M06 wants the race detector ONCE and FOCUSED, as
+# evidence — a repo-wide -race is heavier than the 16GB runner tolerates
+# next to cgo link work and buys nothing beyond the focused two packages).
+
+name: ci-verify-m06
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          # go.mod pins the toolchain (go 1.25.9); go-version-file reads it.
+          go-version-file: go.mod
+          # Module + build cache keyed on go.sum — self-healing, zero knobs.
+          cache: true
+
+      - name: Install TDLib build deps
+        # The Dockerfile tdlib-builder apt list (gperf included: TDLib's
+        # CMake needs it), plus zstd for the cache tarball. On a cache hit
+        # only zstd matters; the rest is for the cold build.
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+            cmake g++ gperf libssl-dev zlib1g-dev php-cli git make ca-certificates zstd
+
+      - name: Restore TDLib
+        id: tdlib
+        uses: actions/cache/restore@v6.1.0
+        with:
+          # Same key as ci-test.yml: this restores the tree that workflow
+          # already built and cached — M06 never re-pays a cold build.
+          key: tdlib-22d49d5-amd64
+
+      - name: Unpack TDLib
+        if: steps.tdlib.outputs.cache-hit == 'true'
+        run: |
+          # sudo: /usr/local is root-owned on a hosted runner. Static libs
+          # resolve at link time, so ldconfig is belt-and-braces only.
+          sudo tar -I zstd -xf /tmp/tdlib.tar.zst -C /usr/local
+          sudo ldconfig
+
+      - name: Build TDLib (cold cache)
+        # Should not run (ci-test populates the same cache key), kept for
+        # self-sufficiency. Verbatim Dockerfile recipe (pin + --parallel 2,
+        # OOM lesson) with the one runner-only deviation: sudo on the
+        # install target. The build dir stays in /tmp.
+        if: steps.tdlib.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/tdlib/td.git /tmp/td
+          cd /tmp/td && git checkout 22d49d5
+          mkdir build && cd build && \
+            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+            cmake --build . --parallel 2 --target prepare_cross_compiling && \
+            cd .. && php SplitSource.php && cd build && \
+            sudo cmake --build . --parallel 2 --target install
+          # cd first: the lib/libtd* glob must resolve against /usr/local
+          # (the shell expands it, tar's -C does not).
+          cd /usr/local && tar -I zstd -cf /tmp/tdlib.tar.zst include/td lib/libtd*
+          sudo ldconfig
+
+      - name: Save TDLib
+        # Before the verification steps on purpose: the expensive artifact
+        # must be cached even when a step goes red.
+        if: steps.tdlib.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: /tmp/tdlib.tar.zst
+          key: tdlib-22d49d5-amd64
+
+      - name: go build ./...
+        # Whole-repo build: ci-test runs vet+test over ./internal/... and
+        # never links cmd/; M06 records that the full module compiles.
+        run: go build ./...
+
+      - name: go vet ./...
+        # Standalone evidence re-run of the spec's validation command —
+        # the same command ci-test runs, recorded here as its own step so
+        # the M06 record cites a dedicated job, not a shared one.
+        run: go vet ./...
+
+      - name: go test -race (focused)
+        # The race detector, ONCE and focused on the two packages M05
+        # touched (push service + cgo handler). Deliberately NOT repo-wide:
+        # -race multiplies link/compile memory and the 16GB runner cannot
+        # take a whole-module race build next to the cgo TDLib tree.
+        # A finding here is evidence for the M06 record, not an auto-fix.
+        run: go test -race ./internal/service/push/... ./internal/app/handler/...
+
+      - name: go test ./internal/...
+        # Plain re-confirm of the final state, same scope as ci-test —
+        # the M06 record needs a green plain-test run at the same head.
+        run: go test ./internal/...

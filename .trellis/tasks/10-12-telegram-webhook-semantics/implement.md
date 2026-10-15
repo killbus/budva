@@ -206,6 +206,22 @@ gate rather than an implementation milestone. Read
   URL, executed red controls and restored-source hashes. Final integration requires
   explicit owner agreement and a pull request; no live-account claim, direct main
   update, merge or deployment by implication (AC4, AC6).
+  Progress 2026-10-15: the dispatch-only evidence workflow
+  `.github/workflows/ci-verify-m06.yml` (whole-repo build, standalone vet,
+  FOCUSED race on push+handler, plain `./internal/...`) is committed
+  `caed41e` and pushed; the PR's ci-test re-fired and is green at the same
+  head (`38825373952`). The final structure/spec review is clean (no
+  `resource_ref`/file_id mapping, no download/cache/hosting paths, v1 wire
+  unchanged, boundary text consistent; live-account tests recorded
+  not-executed). BLOCKED on the dispatched M06 run itself: GitHub's
+  workflow registry does not expose a brand-new dispatch-only workflow that
+  exists only on a non-default branch to the dispatch API (persistent 404
+  over ~30+ min of retries; file verified on the branch tip). Open question
+  for the owner is recorded in `progress.md` (M06 progress entry): either
+  land the workflow file on `main` (or a temporary trigger) so the dispatch
+  channel works, or accept the full ci-test suite at `caed41e` and run the
+  build/race evidence on `main` post-merge. M06 is NOT marked complete: the
+  evidence run did not execute and is not claimed.
 
 M03 is complete. M04 is resolved as a no-code decision gate and is not a
 dependency of M05. Do not turn M05 into a file API, resource platform or second
