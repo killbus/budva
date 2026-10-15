@@ -1332,3 +1332,101 @@ increments, including `mytokens.txt` (secret, git-excluded). No
 main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`, no
 M04 work. Remaining M05 REDs (albums — blocked on this decision, and shutdown
 invariance) continue as separate minimal increments.
+
+### 2026-10-15 — M05 increment: captionless album member v2 delivery (USER DECISION — candidate B)
+
+Chosen increment (from "Remaining M05 REDs — albums"): **v2 delivery for a
+captionless album member** on the NEW path. The user decided on
+**candidate B** (the push-a-v2-fact option) on 2026-10-15, in response to the
+prior increment's documentation gate. This is a genuine, user-approved
+production change to the album NEW path; no other path (edits, replies) is
+touched this increment.
+
+Decision source: user, 2026-10-15, candidate B from the two options recorded in
+the prior increment's entry above.
+
+Exact semantics implemented this increment:
+
+1. **A captionless album member is v2-only delivered.** A member with
+   `Content != nil`, `MediaAlbumId != 0`, and `GetFormattedText == nil` must,
+   after the quiet-period/collection completes, produce one canonical v2 `new`
+   content fact (full current snapshot, `content.formatted_text` absent),
+   consistent with the single-media textless rule, so the album's v2
+   projection is complete. The v2 endpoint receives the content fact; the v1
+   endpoint stays silent. Reuses the existing v2-only carrier
+   (`SubmitV2Only`: zero `Envelope`, v1 branch of `RenderPayload` returns
+   `ErrV1Unavailable`), exactly the mechanism the single-media textless path
+   already uses.
+2. **Eligibility is independent of the forward guard.** A protected
+   (`CanBeSaved == false`) captionless member is delivered the same way,
+   mirroring single-media textless and the locked protected-textless behavior.
+   The captionless member enters album collection from the
+   `formattedText == nil` block, which precedes the
+   `!rule.SendCopy && !msg.CanBeSaved` guard, so the guard never suppresses it.
+3. **Captioned members are completely unchanged.** Still gated by the forward
+   guard, unchanged v1 representation (including the existing "empty non-nil
+   caption → v1 empty-`Text` submission" semantics) and unchanged v2 fact.
+4. **No fabricated facts, no Telegram work.** Content-less
+   (`Content == nil`) members stay dropped (no fact). v1 emits no (empty)
+   event for a captionless member. No Telegram copy/forward/download runs;
+   strict zero-expectation mocks pin that.
+5. **`isFirst` / captionless-first-member.** When a captionless member is the
+   first to arrive, `AddMessage` returns `isFirst == true` and
+   `processMediaAlbum` is triggered; both the quiet-period flow and the
+   member-level projection must handle the v2-only case.
+6. **Boundary: NEW path only.** If the album EDIT path has the same gap it is
+   recorded as a remaining item, not fixed here. Replies are out of scope this
+   round.
+
+Production change (two minimal edits in `internal/app/handler/service.go`):
+
+- `OnNewMessage` (service.go:246-261), the `formattedText == nil` block: add an
+  album branch so a content-bearing captionless album member
+  (`msg.Content != nil && msg.MediaAlbumId != 0`) is added to album collection
+  via `albumService.AddMessage`, and on `isFirst` triggers
+  `processMediaAlbum` (passing `nil` formattedText, which the function already
+  ignores). This sits inside the `formattedText == nil` block, before the
+  forward guard, so eligibility stays independent of it. The existing
+  single-media textless branch (`MediaAlbumId == 0`) is left unchanged.
+- `processMediaAlbum` (service.go:592-601), member submit loop: when
+  `text == nil` and the member is content-bearing (`msg.Content != nil`),
+  submit the v2-only content fact via `SubmitV2Only` (when the snapshot is
+  non-nil), then `continue`. Content-less members (`Content == nil`) remain
+  dropped. The captioned `SubmitV2` path is untouched.
+
+RED design (forced failure; the handler package is TDLib cgo and cannot be
+compiled locally, so CI RED is the evidence): new handler test
+`internal/app/handler/textless_album_push_test.go`,
+`TestTextlessAlbumMember_PushesV2FactOnlyV1Silent`. It drives one captionless,
+protected (`CanBeSaved == false`) album member through the real NEW-path flow:
+two real TLS webhook endpoints (v1 default wire, v2 `DeliverySchemaV2`), a
+webhook-only rule (`PushTo: [v1, v2]`, no `To`, no `SendCopy`) so zero Telegram
+work is possible, strict zero-expectation Telegram/State/RateLimiter/Transform
+mocks, and album mocks bound to the desired end state (`AddMessage("r:42") →
+true` isFirst, `LastReceivedAge` ≥ 3s so the quiet loop breaks without a real
+sleep, `PopMessages` → the member, `GetFormattedText` nil ×2 — ingress read +
+member-loop read). It asserts, after `q.ProcessAll()` + `g.Retire()`: the v2
+endpoint received exactly one `new` content fact (`content.type ==
+"messagePhoto"`, `media_album_id` present, no `formatted_text`, no file
+identifier leak), the v1 endpoint received zero bodies, and the task queue
+converged to zero. Pre-GREEN the test is forced to fail on several assertions:
+the captionless member is dropped at ingress (guard `MediaAlbumId == 0` false),
+so `AddMessage` is never called (strict-mock failure), no album task is
+enqueued (`q.Len()` is 0, not 1), `GetFormattedText` is called once (expected
+2), and the v2 endpoint is empty (expected 1).
+
+Commit plan: (1) RED — this test file only; (2) GREEN — the two `service.go`
+edits; (3) docs — `progress.md` CI evidence + `implement.md` status note. Push
+`feat/external-push-sink` (branch only) after each; dispatch
+`ci-test.yml` via `workflow_dispatch --ref feat/external-push-sink` after the
+RED and GREEN commits. The RED run failing is expected and recorded; the GREEN
+run must be fully green.
+
+Excluded (untracked, left as-is): the same protected set as the prior
+increments, including `mytokens.txt` (secret, git-excluded). No
+main/PR/release/deploy/tag, no schedule/heartbeat, no `task.py start`, no M04
+work. Local verification is `gofmt`, `git diff --check`, `rg` identifier
+resolution and the pure-Go `go test ./internal/service/push/...` only; the
+handler package is compiled and tested by CI. Remaining M05 REDs (album EDIT
+path if the same gap exists, replies, and shutdown invariance) continue as
+separate minimal increments.
