@@ -41,19 +41,20 @@ func protectedTextlessMessage() *client.Message {
 		}}
 }
 
-// protectedTextlessService builds the handler around a webhook-only rule (no
-// SendCopy/To destinations) with the supplied submitter. Strict mocks bind the
+// protectedTextlessService builds the handler around a webhook-only rule
+// (no SendCopy/To destinations) pushing to the supplied endpoint names,
+// wired to the supplied submitter. Strict mocks bind the
 // only two message-service reads the handler performs before the textless
 // branch (IsSystemMessage -> false, GetFormattedText -> nil), and a strict
 // TelegramRepo, StateRepo, RateLimiter, TransformService and AlbumService with
 // zero expectations fail on any copy/forward, state or limiter work, so
 // Telegram invariance on the webhook-only path is enforced.
-func protectedTextlessService(t *testing.T, submitter event.Submitter) (*Service, *queue.Repo, *client.Message) {
+func protectedTextlessService(t *testing.T, pushTo []string, submitter event.Submitter) (*Service, *queue.Repo, *client.Message) {
 	t.Helper()
 	state, message, filter, q := mocks.NewStateRepo(t), mocks.NewMessageService(t), mocks.NewFilterService(t), queue.New()
 	h := New(mocks.NewTelegramRepo(t), state, message, filter, mocks.NewTransformService(t), mocks.NewAlbumService(t), q,
 		mocks.NewRateLimiter(t), func([]int64) DedupTracker { return mocks.NewDedupTracker(t) })
-	rule := &domain.ForwardRule{From: 100, PushTo: []string{"v1", "v2"}}
+	rule := &domain.ForwardRule{From: 100, PushTo: pushTo}
 	h.SetRuleSetWithPush(&domain.RuleSet{
 		ForwardRules:        map[string]*domain.ForwardRule{"r": rule},
 		OrderedForwardRules: []string{"r"},
@@ -100,7 +101,7 @@ func TestTextlessMediaProtected_PushesV2FactOnlyV1Silent(t *testing.T) {
 		"v1": {Sink: push.NewWebhookSink(push.WebhookConfig{URL: v1Server.URL, Client: v1Server.Client()}), BufferCapacity: 8, Timeout: time.Second},
 		"v2": {Sink: push.NewWebhookSink(push.WebhookConfig{URL: v2Server.URL, Client: v2Server.Client(), Schema: push.DeliverySchemaV2}), BufferCapacity: 8, Timeout: time.Second},
 	})
-	h, q, msg := protectedTextlessService(t, g)
+	h, q, msg := protectedTextlessService(t, []string{"v1", "v2"}, g)
 
 	h.OnNewMessage(context.Background(), msg)
 	require.Zero(t, q.Len(), "a protected textless webhook-only delivery must not enqueue Telegram work")
@@ -162,7 +163,7 @@ func TestTextlessMediaProtected_InvariantUnderFullBuffer(t *testing.T) {
 		g.SubmitV2Only([]string{"endpoint"}, protectedSnapshot())
 
 		capture := &captureSubmitter{next: g}
-		h, q, msg := protectedTextlessService(t, capture)
+		h, q, msg := protectedTextlessService(t, []string{"endpoint"}, capture)
 
 		h.OnNewMessage(context.Background(), msg)
 		require.Zero(t, q.Len(), "a full push buffer must not enqueue Telegram work")
