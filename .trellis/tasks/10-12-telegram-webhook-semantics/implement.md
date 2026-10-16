@@ -199,7 +199,7 @@ gate rather than an implementation milestone. Read
   has a named test; the one coverage gap (album NEW delivery-failure outcome
   loop) was filled by a lock-only test (`d5e96b4`, CI `38812463685` green);
   see the "M05 closure assessment" entry in `progress.md`.
-- [ ] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
+- [x] M06: Execute real TDLib Linux internal tests, focused races, whole-repo
   vet/build, final full-scope/structure review and spec sync through GitHub CI when
   these jobs are unsafe or too heavy locally. Local verification stays narrowly
   scoped and memory-bounded. Record the iteration branch, commit SHA, workflow/run
@@ -222,6 +222,7 @@ gate rather than an implementation milestone. Read
   channel works, or accept the full ci-test suite at `caed41e` and run the
   build/race evidence on `main` post-merge. M06 is NOT marked complete: the
   evidence run did not execute and is not claimed.
+Closed 2026-10-15: after the user-approved main consolidation, the dispatch channel worked on main; run 38845373348 (ci-verify-m06.yml, head c9368c9) succeeded with whole-repo build, standalone vet, focused race (push+handler) and plain test re-run. Main carries the 8-commit logical history; the docs increment lands via PR #4 (squash-merge). See the M06-closed entry in progress.md.
 
 M03 is complete. M04 is resolved as a no-code decision gate and is not a
 dependency of M05. Do not turn M05 into a file API, resource platform or second
