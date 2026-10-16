@@ -15,8 +15,8 @@
   "branch": "feat/webhook-only-ruleset",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": "3142b0de365cdf4080f9416338cd8094ade74912",
-  "pr_url": null,
+  "commit": "714bd3332bf96d9057e38ceea3578d8216cadc1f",
+  "pr_url": "https://github.com/killbus/budva/pull/6",
   "subtasks": [],
   "children": [],
   "parent": null,
@@ -24,6 +24,6 @@
     "internal/infra/ruleset/repo.go",
     "internal/infra/ruleset/webhook_only_test.go"
   ],
-  "notes": "User requested the fix on 2026-10-16 (option 1 of the ruleset discussion) to enable webhook-only rulesets for inspecting the v2 facts. Verified by reading: every consumer of rule.To iterates a slice (empty-safe), push submissions happen before/independent of the To loop, filter default is FiltersOK, dedup tracker is an injected factory marked only per destination. Branch tip 3142b0d green in CI run 38866247732 (2026-10-16): RED 38865775461 (behavioral ErrEmptyConfig), first GREEN attempt 38866006408 failed on test-side chat-ID negation, fixed in 3142b0d. Ready for squash-merge PR (owner approval pending).",
+  "notes": "User requested the fix on 2026-10-16 (option 1 of the ruleset discussion) to enable webhook-only rulesets for inspecting the v2 facts. Verified by reading: every consumer of rule.To iterates a slice (empty-safe), push submissions happen before/independent of the To loop, filter default is FiltersOK, dedup tracker is an injected factory marked only per destination. Branch tip 3142b0d green in CI run 38866247732 (2026-10-16): RED 38865775461 (behavioral ErrEmptyConfig), first GREEN attempt 38866006408 failed on test-side chat-ID negation, fixed in 3142b0d. Ready for squash-merge PR (owner approval pending). 2026-10-16: branch squashed to single commit 714bd33 (tree-identical to a6f1549), cleaned-tip CI 38870037275 success, PR #6 opened for squash merge.",
   "meta": {}
 }

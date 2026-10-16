@@ -33,3 +33,13 @@ Telegram `to` can deliver events.
 
 Branch green; merge to main via squash-merge PR per
 `.trellis/spec/guides/commit-hygiene.md` (owner approval required).
+
+## Merge hygiene (2026-10-16)
+
+- Squash-merge PR #6 opened (base `main`).
+- Branch cleaned into a single logical commit `714bd33`
+  (`git reset --soft main` + commit) before merge; tree-identity
+  verified against the pre-clean tip `a6f1549` (empty diff) and against
+  `origin` tip `ed3f1ed` (same tree).
+- Cleaned-tip CI run `38870037275` (`714bd33`): success.
+- Merge step: `gh pr merge --squash` - main receives exactly one commit.
