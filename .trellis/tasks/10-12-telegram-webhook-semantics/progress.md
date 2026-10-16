@@ -1995,3 +1995,38 @@ remainder was found or invented by this assessment.
   run itself (whole-repo build, standalone vet evidence, focused race) —
   GitHub's workflow index does not expose the branch-only dispatch-only
   workflow to the dispatch API (persistent 404 over ~30 min of retries).
+
+---
+
+### 2026-10-15 — main history consolidation (Plan A, user-approved) + M06 evidence
+
+- PR #3 had merged with 52 fragmented commits (merge `dd58f56`). User
+  approved Plan A: rewrite main to a logical-commit history.
+- Squash built with a scripted `git rebase -i` todo (7 group picks +
+  `fixup` + `exec git commit --amend -F` canonical messages), then
+  cherry-pick of the unpushed ci-fix `9266954`. Result: 8 logical
+  commits on `squash/main-10-12`, tip `c9368c9`.
+- Tree identity: `git diff cf2e4df c9368c9` = exactly +1 line (the
+  missing `path` input in ci-verify-m06.yml cache restore);
+  `git diff dd58f56 cf2e4df` = 0 (the merge changed no content).
+- 8 commits: 488934c sink (M01/M02) · 46ac0da v2 serializer +
+  schemaVersion + delivery boundary (M03) · ce242c1 textless media
+  new/edit v2-only (M05) · e3ba7e6 textless invariance locks ·
+  210b054 captionless album candidate B + shutdown locks · ca47ebc
+  replies locks + M05 closure · eba82ea ci-verify-m06 workflow ·
+  c9368c9 ci cache-path fix.
+- Push: `squash/main-10-12` pushed; `git push --force-with-lease`
+  moved origin/main dd58f56 -> c9368c9.
+- ci-test (push event, main @ c9368c9): run 38845202710 = success
+  (go vet + go test ./internal/... incl. cgo handler, Linux TDLib).
+- M06 evidence: `gh workflow run ci-verify-m06.yml --ref main` ->
+  run 38845373348 (whole-repo build, standalone vet, focused race on
+  push+handler, plain test re-run). Previous dispatch (dd58f56)
+  failed at TDLib cache restore; the +1 line is the fix.
+- Discipline (going forward): every merge to main is a
+  squash-merge PR; direct pushes and force-pushes to main only with
+  explicit user approval. Branch protection API is not reachable with
+  the current token (403), so the rule lives in this doc + AGENTS
+  practice, not in repo settings.
+- Note: azure remote main is stale at 66337ef; this consolidation was
+  not mirrored to azure (no azure credentials in this environment).
