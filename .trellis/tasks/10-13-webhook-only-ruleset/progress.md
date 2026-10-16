@@ -43,3 +43,17 @@ Branch green; merge to main via squash-merge PR per
   `origin` tip `ed3f1ed` (same tree).
 - Cleaned-tip CI run `38870037275` (`714bd33`): success.
 - Merge step: `gh pr merge --squash` - main receives exactly one commit.
+
+## Flaky hot-reload test fix (2026-10-16)
+
+- Run `38870609109` (`db64cb8`, tree identical to green `38870037275`)
+  failed in `TestRepo_Load_WebhookOnlyRuleHotReload`: `os.WriteFile`
+  truncates before rewriting, and the fsnotify callback's `Load()`
+  observed the empty window (`ErrEmptyConfig`).
+- Fix: trigger the reload with a single `O_APPEND` write of a comment
+  line - no truncation window, file stays a valid document through the
+  event. Production `WatchContext` unchanged; the window exists for any
+  non-atomic external writer, which is out of scope for this task
+  (loader-only).
+- Docs commit lands on the branch only; the squash merge keeps main at
+  a single logical commit.
