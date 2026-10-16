@@ -1907,6 +1907,10 @@ remainder was found or invented by this assessment.
      `caed41e` (vet + all `./internal/...` tests, incl. cgo handler
      packages, green) and execute the build/focused-race evidence on
      `main` post-merge.
+- Post-hoc: the docs commit `21709b1` (this record) re-fired `ci-test`
+  once more — run `38831071102`, head `21709b1`, conclusion **success**
+  (job `test` ~38s, warm caches; code is byte-identical to `caed41e`,
+  docs-only change). Final head `21709b1` is green via `38831071102`.
 - What IS covered without the dispatch: `go vet ./...` and
   `go test ./internal/...` (cgo TDLib packages included) are green in the
   PR ci-test run below at the final head. NOT covered anywhere: whole-repo
