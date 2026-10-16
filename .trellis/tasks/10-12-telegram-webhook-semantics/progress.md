@@ -2030,3 +2030,16 @@ remainder was found or invented by this assessment.
   practice, not in repo settings.
 - Note: azure remote main is stale at 66337ef; this consolidation was
   not mirrored to azure (no azure credentials in this environment).
+
+### M06 closed — 2026-10-15
+
+- Evidence run 38845373348 (`ci-verify-m06.yml` @ main `c9368c9`,
+  workflow_dispatch): **success** — whole-repo `go build ./...`,
+  standalone `go vet ./...`, focused race on
+  `./internal/service/push/...` + `./internal/app/handler/...`, and
+  plain `go test ./internal/...` all green. The earlier dd58f56
+  dispatch failure (cache restore missing `path` input) is fixed by
+  the +1 line in c9368c9.
+- M06 is DONE. Task 10-12 is complete: M01-M03 and M05 implemented,
+  M04 no-code gate closed, M06 verified; main carries the 8-commit
+  logical history plus this docs increment via PR #4 (squash-merge).
