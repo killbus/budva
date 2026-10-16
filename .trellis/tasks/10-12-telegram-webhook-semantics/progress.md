@@ -1995,3 +1995,71 @@ remainder was found or invented by this assessment.
   run itself (whole-repo build, standalone vet evidence, focused race) —
   GitHub's workflow index does not expose the branch-only dispatch-only
   workflow to the dispatch API (persistent 404 over ~30 min of retries).
+
+---
+
+### 2026-10-15 — main history consolidation (Plan A, user-approved) + M06 evidence
+
+- PR #3 had merged with 52 fragmented commits (merge `dd58f56`). User
+  approved Plan A: rewrite main to a logical-commit history.
+- Squash built with a scripted `git rebase -i` todo (7 group picks +
+  `fixup` + `exec git commit --amend -F` canonical messages), then
+  cherry-pick of the unpushed ci-fix `9266954`. Result: 8 logical
+  commits on `squash/main-10-12`, tip `c9368c9`.
+- Tree identity: `git diff cf2e4df c9368c9` = exactly +1 line (the
+  missing `path` input in ci-verify-m06.yml cache restore);
+  `git diff dd58f56 cf2e4df` = 0 (the merge changed no content).
+- 8 commits: 488934c sink (M01/M02) · 46ac0da v2 serializer +
+  schemaVersion + delivery boundary (M03) · ce242c1 textless media
+  new/edit v2-only (M05) · e3ba7e6 textless invariance locks ·
+  210b054 captionless album candidate B + shutdown locks · ca47ebc
+  replies locks + M05 closure · eba82ea ci-verify-m06 workflow ·
+  c9368c9 ci cache-path fix.
+- Push: `squash/main-10-12` pushed; `git push --force-with-lease`
+  moved origin/main dd58f56 -> c9368c9.
+- ci-test (push event, main @ c9368c9): run 38845202710 = success
+  (go vet + go test ./internal/... incl. cgo handler, Linux TDLib).
+- M06 evidence: `gh workflow run ci-verify-m06.yml --ref main` ->
+  run 38845373348 (whole-repo build, standalone vet, focused race on
+  push+handler, plain test re-run). Previous dispatch (dd58f56)
+  failed at TDLib cache restore; the +1 line is the fix.
+- Standing discipline (positive form): feature branches keep
+  granular per-increment commits as the iteration trace; before a PR
+  to main the branch runs the commit clean-up step (scripted rebase
+  into logical units + tree-identity verification + CI at the cleaned
+  tip); main accepts only squash-merged PRs. Direct pushes to main and
+  any main history rewrite require explicit owner approval. Full rule:
+  .trellis/spec/guides/commit-hygiene.md (registered in the spec
+  system; the task record here keeps only the pointer and the
+  one-off force-with-lease evidence above).
+- Note: azure remote main is stale at 66337ef; this consolidation was
+  not mirrored to azure (no azure credentials in this environment).
+
+### M06 closed — 2026-10-15
+
+- Evidence run 38845373348 (`ci-verify-m06.yml` @ main `c9368c9`,
+  workflow_dispatch): **success** — whole-repo `go build ./...`,
+  standalone `go vet ./...`, focused race on
+  `./internal/service/push/...` + `./internal/app/handler/...`, and
+  plain `go test ./internal/...` all green. The earlier dd58f56
+  dispatch failure (cache restore missing `path` input) is fixed by
+  the +1 line in c9368c9.
+- M06 is DONE. Task 10-12 is complete: M01-M03 and M05 implemented,
+  M04 no-code gate closed, M06 verified; main carries the 8-commit
+  logical history plus this docs increment via PR #4 (squash-merge).
+
+### 2026-10-16 - docs framing fix folded into the PR #4 commit (owner-approved main rewrite)
+
+- The M06-closed line in `implement.md` is reworded from a
+  historical framing ("after the user-approved main consolidation")
+  to a positive evidence statement that points at the root rule
+  (`.trellis/spec/guides/commit-hygiene.md`).
+- Executed as a direct main rewrite under owner approval (no PR):
+  amended into the PR #4 commit (`0a092e5` -> `18e4be2`) and the two
+  docs commits re-ordered so the spec guide commit (`4f3ce1b` ->
+  `1e0acd5`) precedes it; every commit that cites the spec guide now
+  has the file present in its own tree.
+- Tree identity vs the pre-rewrite tip `f3c7a4f` (backup tag
+  `backup/main-pre-rewrite-20261016`): exactly the one `implement.md`
+  line plus this record. Pushed with `--force-with-lease`;
+  origin/main becomes `18e4be2`.
