@@ -34,6 +34,22 @@ func writeWebhookOnlyRuleset(t *testing.T) string {
 	return path
 }
 
+// appendRulesetContent appends one write to an existing ruleset file
+// (O_APPEND, no truncation). In-place os.WriteFile truncates first, and
+// a fsnotify callback can observe the empty window and Load
+// ErrEmptyConfig spuriously. The appended bytes keep the file a valid
+// ruleset document, and the whole payload goes out as a single write
+// syscall, so by the time the resulting IN_MODIFY reaches the callback
+// the file is complete and its single Load reads valid content.
+func appendRulesetContent(t *testing.T, path, content string) {
+	t.Helper()
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0o600)
+	require.NoError(t, err)
+	defer f.Close()
+	_, err = f.WriteString(content)
+	require.NoError(t, err)
+}
+
 // TestRepo_Load_WebhookOnlyRule pins that a webhook-only ruleset loads:
 // the rule has pushTo and no to, the file must load, and the unique
 // source / rule / targets are preserved. An empty to produces no unique
@@ -79,8 +95,7 @@ func TestRepo_Load_WebhookOnlyRuleHotReload(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { r.Close() })
 
-	err = os.WriteFile(path, []byte(webhookOnlyRuleset+"\n"), 0o600)
-	require.NoError(t, err)
+	appendRulesetContent(t, path, "\n# reloaded\n")
 
 	select {
 	case <-called:
