@@ -1910,7 +1910,10 @@ remainder was found or invented by this assessment.
 - Post-hoc: the docs commit `21709b1` (this record) re-fired `ci-test`
   once more — run `38831071102`, head `21709b1`, conclusion **success**
   (job `test` ~38s, warm caches; code is byte-identical to `caed41e`,
-  docs-only change). Final head `21709b1` is green via `38831071102`.
+  docs-only change). The subsequent docs commit `d124e5d` (final record
+  line) re-fired `ci-test` once more — run `38831466738`, head `d124e5d`,
+  conclusion **success**; code remains byte-identical to `caed41e`, so the
+  final head is green via that run.
 - What IS covered without the dispatch: `go vet ./...` and
   `go test ./internal/...` (cgo TDLib packages included) are green in the
   PR ci-test run below at the final head. NOT covered anywhere: whole-repo
