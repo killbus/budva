@@ -81,6 +81,7 @@ jobs:
         with:
           # Same key as ci-test.yml: this restores the tree that workflow
           # already built and cached — M06 never re-pays a cold build.
+          path: /tmp/tdlib.tar.zst
           key: tdlib-22d49d5-amd64
 
       - name: Unpack TDLib
