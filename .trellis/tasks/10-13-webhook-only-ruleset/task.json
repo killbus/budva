@@ -1,0 +1,29 @@
+{
+  "id": "webhook-only-ruleset",
+  "name": "webhook-only-ruleset",
+  "title": "Load webhook-only rulesets (forward rule with pushTo and no Telegram destination)",
+  "description": "The ruleset loader rejects any file whose forward rules have no Telegram destination (to), because check() requires non-empty UniqueDestinations. A rule that only pushes to external webhooks (pushTo) therefore fails Load() with ErrEmptyConfig and the engine skips push initialization entirely. Relax check() so a ruleset with at least one rule that has pushTo (or to) loads, keeping the empty-file rejection.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "loader-only; no handler, delivery, or schema changes",
+  "package": "internal/infra/ruleset",
+  "priority": "P2",
+  "creator": "killbus",
+  "assignee": "killbus",
+  "createdAt": "2026-10-16",
+  "completedAt": null,
+  "branch": "feat/webhook-only-ruleset",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "3142b0de365cdf4080f9416338cd8094ade74912",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "internal/infra/ruleset/repo.go",
+    "internal/infra/ruleset/webhook_only_test.go"
+  ],
+  "notes": "User requested the fix on 2026-10-16 (option 1 of the ruleset discussion) to enable webhook-only rulesets for inspecting the v2 facts. Verified by reading: every consumer of rule.To iterates a slice (empty-safe), push submissions happen before/independent of the To loop, filter default is FiltersOK, dedup tracker is an injected factory marked only per destination. Branch tip 3142b0d green in CI run 38866247732 (2026-10-16): RED 38865775461 (behavioral ErrEmptyConfig), first GREEN attempt 38866006408 failed on test-side chat-ID negation, fixed in 3142b0d. Ready for squash-merge PR (owner approval pending).",
+  "meta": {}
+}

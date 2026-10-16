@@ -268,8 +268,21 @@ func enrich(rs *domain.RuleSet) {
 }
 
 func check(rs *domain.RuleSet) error {
-	if len(rs.UniqueSources) == 0 || len(rs.UniqueDestinations) == 0 || len(rs.OrderedForwardRules) == 0 {
+	// A ruleset is empty when it has no rules at all. A webhook-only rule
+	// (pushTo present, no to) has no Telegram destinations, so an empty
+	// UniqueDestinations must not reject it: push eligibility is
+	// independent of the Telegram copy/forward path.
+	if len(rs.OrderedForwardRules) == 0 {
 		return ErrEmptyConfig
+	}
+	for _, ruleID := range rs.OrderedForwardRules {
+		rule := rs.ForwardRules[ruleID]
+		if rule == nil {
+			continue
+		}
+		if len(rule.To) == 0 && len(rule.PushTo) == 0 {
+			return ErrEmptyConfig
+		}
 	}
 	return nil
 }
