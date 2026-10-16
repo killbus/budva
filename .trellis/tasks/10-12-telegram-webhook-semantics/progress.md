@@ -1842,3 +1842,149 @@ green at `d5e96b4` with all evidence recorded. The only open remainder in
 the plan is M06 (real-TDLib focused CI verification and final integration),
 which is a separate milestone and is NOT part of M05 scope; no new M05
 remainder was found or invented by this assessment.
+
+## M06 progress (2026-10-15)
+
+### Baseline verification (before any change)
+
+- HEAD `fbb45e2` (task-stated baseline), branch
+  `feat/external-push-sink` in sync with origin (`0 0` ahead/behind),
+  tracked worktree clean; only the protected untracked entries present
+  (`.tmp-go-cache/`, `.trellis/.developer`, `.trellis/.runtime/`,
+  `.trellis/scripts/`, `.trellis/tasks/10-11-external-push-sink/*`,
+  `.zvec-grep/`, `probe.js`). No unexplained modifications; baseline matched.
+- PR #3 state at start: OPEN, draft, base `main`, head `fbb45e2`, ci-test
+  run `38824497529` **success** at head `fbb45e2` (verified via the run API).
+
+### Step 1 — dispatch-only M06 verification workflow
+
+- Commit `caed41e` — `ci: add dispatch-only M06 verification workflow`
+  (only file changed: `.github/workflows/ci-verify-m06.yml`), pushed to
+  `origin/feat/external-push-sink`.
+- The workflow is `workflow_dispatch` ONLY (no push/PR trigger) — it can
+  never auto-fire on `main`, even after a future merge (defense in depth).
+  It reuses ci-test.yml's exact TDLib sourcing + split
+  restore/save pattern under the SAME cache key `tdlib-22d49d5-amd64`, so a
+  hit restores the tree ci-test already built (no 20-25 min cold build);
+  the cold-cache path keeps the Dockerfile's `--parallel 2` OOM lesson.
+  Jobs (one job, sequential, one 16GB runner): `go build ./...`,
+  `go vet ./...` (standalone evidence), focused race
+  `go test -race ./internal/service/push/... ./internal/app/handler/...`,
+  plain `go test ./internal/...`.
+- Push side effect (expected): the PR's own `ci-test` re-fired on the
+  `pull_request` trigger.
+
+### Step 2 — dispatch + watch (BLOCKED at this record; see open question)
+
+- `gh workflow run ci-verify-m06.yml --ref feat/external-push-sink` ->
+  HTTP 404 (`/actions/workflows/ci-verify-m06.yml` "Not Found").
+- Root-cause check: `GET /actions/workflows` (repo workflow index) lists
+  only `ci-test.yml` (354474075) and `docker-publish.yml` (353176217)
+  `state=active`; the new file is NOT indexed. The file IS on the remote
+  branch (verified: branch tip `caed41e`, file present on
+  `feat/external-push-sink` at 6657 bytes). GitHub's dispatch API resolves
+  workflow_id-by-name against that index, and a dispatch-only workflow that
+  exists only on a non-default branch is not in it (it has never fired, so
+  it is not known to the index either; the default branch `main` carries
+  only `ci-test.yml` + `docker-publish.yml`). In total ~20 dispatch
+  attempts over ~45 min (immediate, +20s, +80s, then steady +2.5min
+  intervals up to +~45min, CLI and raw endpoint) all returned 404; the
+  index never picked the file up during this session. This is a
+  deterministic platform constraint on the dispatch-only design, not a
+  slow index: the only index population paths are (a) default branch,
+  (b) a prior run on the ref — neither exists for a dispatch-only file
+  on a feature branch.
+- Consequence: the dedicated M06 evidence run (whole-repo build + vet +
+  focused race) has NOT been executed. **Not skipped-as-passed: the M06
+  evidence is recorded as not-executed**, and a focused-race finding, had
+  one existed, is unknown.
+- Open question for the owner (pick one):
+  1. Merge the workflow file onto `main` separately (or approve a
+     temporary one-line push-trigger on the branch) so the index knows the
+     workflow, then re-run M06 step 2 with
+     `gh workflow run ci-verify-m06.yml --ref feat/external-push-sink`; or
+  2. accept PR #3 on the strength of the full ci-test suite at
+     `caed41e` (vet + all `./internal/...` tests, incl. cgo handler
+     packages, green) and execute the build/focused-race evidence on
+     `main` post-merge.
+- What IS covered without the dispatch: `go vet ./...` and
+  `go test ./internal/...` (cgo TDLib packages included) are green in the
+  PR ci-test run below at the final head. NOT covered anywhere: whole-repo
+  `go build ./...` and the race detector (repo kill list — this is the
+  gap M06 step 2 closes).
+
+### Step 2' — PR ci-test re-fire on the push (executed, green)
+
+- Pushing `caed41e` automatically re-fired `ci-test` (pull_request
+  trigger): run `38825373952`
+  (https://github.com/killbus/budva/actions/runs/38825373952), head
+  `caed41e58046b89d31e27a0378595e507505b6e1`, conclusion **success** (job
+  `test`: `go vet ./...` + `go test ./internal/...`, green across all
+  packages). This is the final PR-triggered run and the "final state"
+  evidence available before the dispatch channel.
+- Restored-source state: no cold TDLib build was paid on this run (the
+  `tdlib-22d49d5-amd64` cache hit; the run completed in normal ci-test
+  duration, not the 20-25 min cold-build duration).
+- The prior baseline run `38824497529` (head `fbb45e2`) also **success**.
+
+### Step 3 — final structure / spec review (local, read-only)
+
+- `resource_ref` / `file_id` mapping: rg over the tracked tree shows
+  `resource_ref` ONLY in the decision/progress documentation
+  (`.trellis/tasks/10-12-...`), where it appears exclusively in
+  "do not / must not / retracted" negations. No Go code, wire schema,
+  API, or cmd surface references it. `file_id` in Go appears only as
+  NEGATIVE assertions (`require.NotContains(body, "file_id")` in the
+  textless wire tests; the serializer_test banned-field list), pinning
+  that no TDLib file_id leaks onto the wire. No mapping store, no
+  Attachment/Relation authority: unchanged.
+- No auto-download / cache / hosting code paths: rg over `*.go`
+  (non-test) for download/host/cache surfaces returns nothing; the only
+  `cache` token on the v2 wire is TDLib's own delete fact
+  `delete.from_cache`, which is a preserved source fact, not a Budva
+  cache. `api/` and `cmd/` expose no file/download endpoints.
+- v1 wire unchanged: the v1 `Envelope`
+  (`internal/service/push/event/envelope.go`) is untouched since the
+  pre-M03 baseline; all M05 work is additive v2-only paths
+  (`messagev2`, captured-route submission, v1 silence locked by tests).
+  Wire tests still pin the v1 envelope shape and v1 silence on every
+  textless/album path.
+- M04 boundary text consistency across
+  `.trellis/tasks/10-12-.../{prd.md, design.md}`,
+  `research/message-attachment-boundaries.md`,
+  `research/m02-protocol-decision.md`,
+  `research/m03-message-v2-wire-schema.md`: all state the same amended
+  boundary (no `resource_ref`/mapping; no Budva Attachment/Relation
+  authority; webhook publication must not trigger downloading; a future
+  approved schema may project reviewed native file facts in
+  account/session scope as a direct source fact; media byte access /
+  hosting / caching / expiry out of scope). Status lines agree
+  (M03 done 2026-10-14, M04 a no-code gate, M05 the delivery
+  milestone). No stale doc found; no text fix needed.
+
+### Step 4 — live-account tests
+
+- `test/bdd` requires a live Telegram account (LiveStack). NOT executed
+  in M06 (no live-account claim); recorded as not-executed, not
+  skipped-as-passed, per AC4/AC6.
+
+### Local verification (light only, on `caed41e`)
+
+- `gofmt -l` clean; `git diff --check` clean;
+  `CGO_ENABLED=0 GOPROXY=off GOCACHE=$PWD/.tmp-go-cache go test
+  ./internal/service/push/...` green (push + messagev2 `ok`). The
+  cgo handler package is compiled/tested by CI only; no local full-repo
+  build/vet/race, no parallel heavy jobs, no dep installs.
+
+### M06 status at this record
+
+- DONE: workflow authored + pushed (`caed41e`), dispatch-only, exact
+  TDLib sourcing/cache reuse; final PR ci-test green at the same head
+  (`38825373952` @ `caed41e`); structure/spec review clean; live-account
+  tests recorded not-executed; gates honored (no main touch, no merge,
+  PR #3 still draft, no release/deploy/tag, no task.py start, worktree
+  never cleaned, protected entries untouched).
+- NOT DONE (blocked, see open question above): the dispatched M06 evidence
+  run itself (whole-repo build, standalone vet evidence, focused race) —
+  GitHub's workflow index does not expose the branch-only dispatch-only
+  workflow to the dispatch API (persistent 404 over ~30 min of retries).
