@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-29-budva-push-stall/research/root-cause.md", "reason": "Confirmed root cause (reentrant RWMutex self-deadlock), the fix target, and the validation plan the regression tests are mapped to"}
+{"file": ".trellis/spec/guides/commit-hygiene.md", "reason": "Branch discipline: granular per-increment commits (fix / test / docs as separate units) as the iteration trace"}
+{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "Handler package requires the CGO TDLib tree (CI-provisioned); the handler regression test is a CI validation obligation, not a local pass"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Regression coverage discipline: timeout-guarded deadlock tests, race-clean queue package, no goroutine/ticker leak in the worker-driven test"}
