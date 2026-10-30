@@ -35,6 +35,36 @@
   happen **only** under explicit owner approval, and use
   `--force-with-lease`.
 
+## Planning-phase task records (no feature branch yet)
+
+Task records created or updated while a task is still in `planning` —
+`task.json`, `prd.md`, `research/`, `implement.jsonl`, `check.jsonl`,
+`progress.md` — and the **archive move** of a just-completed task
+(`task.py archive`) are record changes, not an exception to the main
+discipline. They land on main **only via a branch → PR → squash-merge**,
+exactly like code. There is **no direct-to-main bookkeeping exception**:
+"it is only task bookkeeping" is not a reason to skip the PR, and it is not
+approval.
+
+Practical path while no feature code exists yet:
+
+- Open a lightweight branch from current `main` (e.g. `docs/<task-id>-records`
+  or `chore/<task-id>-records`).
+- Put the record edits there as small logical commits (one per coherent
+  unit: research/design, audit corrections, a model correction, archive move).
+- Open a PR targeting `main`, let CI run green, then squash-merge.
+
+A consolidated main tip must keep the **tree identity** of the branch tip
+(`git diff <branch-tip> <main-tip>` empty) — the PR changes the *shape* of the
+history, never its content.
+
+Direct pushes to main and any history rewrite of main (force-push) happen
+**only** under explicit owner approval, and use `--force-with-lease` (see the
+Main discipline above). A discovered deviation (commits already on main
+outside a PR) is corrected by an owner-approved consolidation to a
+logical commit set, recorded in the affected task's `progress.md` — never
+left in place as precedent.
+
 ## Out of scope
 
 - Release tags, image publication and deployment follow their own
