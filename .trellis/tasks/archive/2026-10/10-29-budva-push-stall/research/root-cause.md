@@ -169,10 +169,10 @@ race-clean). CI run (provisions the TDLib tree, which this sandbox lacks)
 `ok internal/app/handler 3.166s` (the incident-shape test executed and
 passed) and `ok internal/infra/queue 3.007s`; `go vet ./...` clean.
 
-**Runtime acceptance (PRD, still open):** on the fixed build, an **album
-followed by a plain text** into a source chat both reach the configured
-endpoint **without** an engine restart, plus the user's confirmation on the
-endpoint side.
+**Runtime acceptance (PRD, PASSED 2026-10-30):** on the box running the fixed
+`v0.3.1` / `:latest` build, an **album followed by a plain text** into a source
+chat both reached the configured endpoint **without** an engine restart, with
+the user's confirmation on the endpoint side. The stall does not recur.
 
 ## Residual hardening (not this incident's cause; separate follow-ups)
 
