@@ -263,14 +263,147 @@ dump confirms (B1), session-health observability/reconnect), with
 endpoint-concurrency + timeout tuning demoted to a secondary ≤60 s HOL
 improvement.
 
+## Model correction 2 (2026-10-30, owner open-chat observation + Team B ground-fact check): the open-chat trigger is the leading fact
+
+**New observed signature (owner, 2026-10-30):** while watching the gateway
+inbound log, the owner stays on the official client's **chat list** (does not
+open the chat); new activity is visible in the list but the webhook produces
+**no** request. The moment the owner **opens the chat**, a **burst** of
+inbound requests is produced. This was **repeated** — not a one-off.
+
+This invalidates the assumption that had been silently carrying the model:
+
+> *Once the official client shows a message, Budva's independent TDLib
+> session must already have received the same `updateNewMessage`.*
+
+That is **not** supported. The official client and Budva are **separate
+sessions** (distinct local DBs, update state, transport). The client's
+chat-list rendering establishes the state of *that* client, not the
+update-publication stage reached by Budva. So the silence is not only "absence
+of `SubmitV2`" downstream of a delivered update — it may be that the update
+**never reached Budva's session** while the chat stayed unopened, and is only
+released when the chat is opened.
+
+Source verification (this repo, done 2026-10-30): Budva makes **no** call to
+`OpenChat` / `CloseChat` / `ViewMessages` and **no** `getChannelDifference`;
+it is a **passive** update subscriber. Pinned dep `github.com/zelenin/go-tdlib
+v0.7.6` (confirmed in `go.mod`). The `ViewedMessages` symbols in budva are its
+own forwarding-statistics counter, not the TDlib API.
+
+Ground facts (Team B report
+`research/team-b-tdlib-open-chat-ground-fact-check.md`, disposition
+**CHANGES REQUESTED**; the four that do **not** depend on chat type):
+
+1. **Official-client visibility ≠ Budva update receipt** (P1-01). Separate
+   sessions. (Required correction: do not use client-display time as Budva's
+   update-receipt time — record them separately.)
+2. **Channels / large supergroups are not guaranteed real-time** (E1) — a
+   *documented Telegram expectation* (TDLib issues #2695, #2853, #366;
+   `core.telegram.org/api/updates`): delivery is faster while the chat is
+   opened; after enough missed updates Telegram sends current *state* rather
+   than individual messages. *Boundary:* this policy is documented for
+   channels / large supergroups only — not private chats or basic groups.
+3. **`openChat` is behaviorally significant in TDLib, and difference recovery
+   republishes in a burst** (P1-02 / P1-04): opening a channel in a TDLib
+   instance invokes `get_channel_difference`; recovered messages are emitted
+   as `updateNewMessage` close together. Explains why the catch-up is a
+   **burst**, not a return to real-time.
+4. **Documented cross-session passive-update effect (scoped)** (E3 / E4): for
+   an accessible **non-member** public channel/supergroup (or a private one
+   temporarily available via `chatInvitePeek`), **any** session's
+   `getChannelDifference` short-polling starts passive channel updates for
+   **all** logged-in sessions; Telegram Desktop does exactly this when a
+   channel is opened. *Boundary:* the doc does **not** establish this for
+   **joined** channels/supergroups, **private chats**, or **basic groups** —
+   those exact cross-session mechanisms remain unresolved (but the repeated
+   intervention tests rule out pure coincidence).
+
+Read together, the observation is directly explained for channels:
+**chat unopened** → official client is not active-polling that channel →
+Budva's passive session receives nothing → **silence**; **chat opened** → the
+official client starts `getChannelDifference` polling → (for non-member
+accessible channels) the server enables passive updates for the account's
+sessions → Budva receives the deferred updates → **burst**.
+
+**Conclusion (for channel / large-supergroup sources):** the 10-minute
+silence is very likely **expected Telegram delivery behavior** (update
+acquisition gated by chat-open/active state), **not** a Budva webhook-worker
+bug. The earlier "self-recovering" read is revised to **coupled to the chat
+becoming active** (someone opens it), not Budva recovering on its own.
+
+### Consequences
+
+- **Candidate reframe.** The old coarse (B1) "update-stream gap" is decomposed:
+  **B1a** Budva transport/session interruption; **B1b** global PTS difference
+  recovery; **B1c** channel-difference recovery; **B1d** open-chat-triggered
+  cross-session / account-state coupling (**leading for non-member accessible
+  channels**). Plus **B2** local Go-side backpressure (bounded channels
+  `responses`/`Updates`/`r.updates`, P1-05), **B3** endpoint delivery backlog
+  (the old "Problem 2"), **D** ruleset hot-reload gap.
+- **Fix direction shifts** from "raise delivery rate / concurrency / timeout"
+  (which cannot explain an open-chat-gated acquisition) to **"make Budva an
+  active subscriber"**: have Budva call `OpenChat` for the ruleset source
+  chats (and keep them open / poll `getChannelDifference` per the server
+  timeout) so *its own session* gets real-time updates, independent of whether
+  the official client is open. This is a first-class TDlib API — **native, no
+  new component** (matches the owner's native/no-reinventing preference).
+  *Prerequisite:* confirm the release boundary with the boundary experiment
+  below; applicability to channels/supergroups is the documented scope.
+- **Decisive fork = the source chat type in the ruleset** (owner must supply):
+  - **channel / large supergroup** the Budva account has **not joined but can
+    access** → the cross-session passive-update explanation + the
+    "Budva opens the chat" fix apply directly (pending boundary confirmation);
+  - **joined** channel / supergroup → expected to be more real-time, but the
+    open-state rule still applies; the boundary experiment localizes it;
+  - **private chat / basic group** → the channel mechanism does **not**
+    apply; fall back to B1a transport/session, B2 local backpressure, D
+    reload.
+
+### The decisive experiment now localizes the release boundary
+
+The repeated open-chat tests already reject coincidence, so the next experiment
+does **not** re-prove the effect — it finds **at which boundary the trigger
+releases the updates**. Use plain text with a unique token; contrast
+**A** (stay on the list, never open) / **B** (open after list activity) /
+**C** (fully close the client); **separate private/basic-group chats from
+supergroups/channels** (channel open-state has specific difference behavior —
+mixing confounds). Record the boundary timestamps (stable chat id + message id
++ token): S0 send · C1 list-shown · C2 opened · B0 go-tdlib receives any update
+· B1 Budva `UpdateNewMessage` · B2 → `r.updates` · B3 handler start · B4
+`SubmitV2` · B5 endpoint worker pickup · B6 `http.Client.Do` start · W1
+receiver ingress · W2 response. Interpretation:
+- `B0/B1` appear **only after** `C2` → the coupling is **upstream** of Budva's
+  handler (update acquisition/recovery) → focus on acquisition (→ the
+  "Budva opens the chat" fix).
+- `B0/B1` precede `C2` but `B3–B6` are late → local to Budva/go-tdlib or
+  endpoint delivery.
+- A, B, C all recover similarly → transport/difference recovery or local
+  backpressure, not cross-session coupling.
+- `B4` prompt but `B5/B6` late → the serial endpoint worker is the interval.
+- `B6` prompt but `W1` late → the HTTP/proxy/socket boundary.
+Plus **one goroutine dump (SIGQUIT) while the symptom is active** (the 10-29
+method) to name the parked frame.
+
+> **Evidence boundary.** The *existence* of the open-chat→release coupling is
+> established by the owner's repeated field tests (behavioral). *Which
+> mechanism* and *at which boundary* it releases — and the *applicability to
+> the actual production chat type* — are **not yet proven**; the boundary
+> experiment + one live dump close them. This does **not** authorize changing
+> delivery parameters; it redirects the investigation upstream (update
+> acquisition) before any concurrency/timeout change.
+
 ## What is NOT established (and how each is closed — no production timing campaign)
 
-1. **Which of (B1)/(B2)/(D) produces the 10-minute silence** — the
-   **active probe protocol above**: declare the window at the ≥2-minute
-   probe-absence boundary, then capture the SIGQUIT dump *while the stall is
-   live* (protocol step 3) plus the in-window log greps (step 4). One run
-   costs one message + one log capture + one QUIT — a forensic one-shot,
-   *not* continuous production timing collection (which is not realistic).
+1. **Which of the candidates produces the 10-minute silence, and at which
+   boundary the open-chat trigger releases the updates** — closed by
+   **Model correction 2's boundary experiment** (contrast A list-only / B
+   open-after-activity / C client-closed, chat types separated, boundary
+   timestamps S0/W2 + **one SIGQUIT dump while the symptom is active**), plus
+   the owner-supplied **source chat type** (channel / large supergroup /
+   private / basic group; joined vs non-member accessible) which selects
+   whether the documented cross-session mechanism applies. The earlier one-shot
+   active probe is **subsumed** by this experiment (same one-shot forensic
+   cost, but it also localizes the boundary and tests the open-chat coupling).
    For the secondary items ((A) album starve, endpoint HOL), a **controlled
    test** (slow receiver / backlogged shared queue) is the deterministic
    reproduction.
@@ -313,3 +446,12 @@ leading hypothesis, **controlled slow-receiver test as the evidence gate**
 rejected P95/P99 timeout rule, no preset concurrency, G/G/1 stability
 notation, backlog as example, conditional receiver-throughput claim, A1 as
 measurable acceptance, citation scope).
+
+Team B's **ground-fact check of the open-chat observation**:
+`research/team-b-tdlib-open-chat-ground-fact-check.md` (**CHANGES REQUESTED**
+2026-10-30) — the source of Model correction 2 (open-chat trigger as the
+leading fact; B1 decomposition into B1a–B1d; the documented cross-session
+passive-update scope for accessible non-member channels/supergroups; the
+boundary-localization experiment). Cited as **ground-fact evidence**, not
+design approval; its applicability to the production chat type is the open
+owner-supplied fork.
