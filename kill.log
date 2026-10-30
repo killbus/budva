@@ -1,0 +1,736 @@
+budva-engine-1  | SIGQUIT: quit
+budva-engine-1  | PC=0x48ce5c m=0 sigcode=0
+budva-engine-1  |
+budva-engine-1  | goroutine 0 gp=0x351af00 m=0 mp=0x351ba20 [idle]:
+budva-engine-1  | runtime.futex(0x351bb70, 0x80, 0x0, 0x0, 0x0, 0x0)
+budva-engine-1  |       runtime/sys_linux_arm64.s:651 +0x1c fp=0xffffdcc03b90 sp=0xffffdcc03b90 pc=0x48ce5c
+budva-engine-1  | runtime.futexsleep(0x351af00?, 0x351af00?, 0xffffdcc03c18?)
+budva-engine-1  |       runtime/os_linux.go:76 +0x28 fp=0xffffdcc03be0 sp=0xffffdcc03b90 pc=0x449b08
+budva-engine-1  | runtime.notesleep(0x351bb70)
+budva-engine-1  |       runtime/lock_futex.go:47 +0x8c fp=0xffffdcc03c20 sp=0xffffdcc03be0 pc=0x42168c
+budva-engine-1  | runtime.mPark(...)
+budva-engine-1  |       runtime/proc.go:1974
+budva-engine-1  | runtime.stoplockedm()
+budva-engine-1  |       runtime/proc.go:3268 +0x64 fp=0xffffdcc03c80 sp=0xffffdcc03c20 pc=0x455a74
+budva-engine-1  | runtime.schedule()
+budva-engine-1  |       runtime/proc.go:4131 +0x34 fp=0xffffdcc03cc0 sp=0xffffdcc03c80 pc=0x458514
+budva-engine-1  | runtime.park_m(0x4000102540)
+budva-engine-1  |       runtime/proc.go:4280 +0x2ac fp=0xffffdcc03d20 sp=0xffffdcc03cc0 pc=0x458a4c
+budva-engine-1  | runtime.mcall()
+budva-engine-1  |       runtime/asm_arm64.s:241 +0x54 fp=0xffffdcc03d30 sp=0xffffdcc03d20 pc=0x4894d4
+budva-engine-1  |
+budva-engine-1  | goroutine 1 gp=0x40000021c0 m=nil [chan receive, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x400005f778?, 0x7044dc?, 0x0?, 0x0?, 0x0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4005bf56f0 sp=0x4005bf56d0 pc=0x483a70
+budva-engine-1  | runtime.chanrecv(0x40000ae4d0, 0x0, 0x1)
+budva-engine-1  |       runtime/chan.go:667 +0x428 fp=0x4005bf5770 sp=0x4005bf56f0 pc=0x41c888
+budva-engine-1  | runtime.chanrecv1(0x40001158e0?, 0x26fee18?)
+budva-engine-1  |       runtime/chan.go:509 +0x14 fp=0x4005bf57a0 sp=0x4005bf5770 pc=0x41c424
+budva-engine-1  | main.run()
+budva-engine-1  |       github.com/pure-golang/budva-claude/cmd/engine/main.go:219 +0xaf4 fp=0x4005bf5ee0 sp=0x4005bf57a0 pc=0xc7a274
+budva-engine-1  | main.main()
+budva-engine-1  |       github.com/pure-golang/budva-claude/cmd/engine/main.go:49 +0xd0 fp=0x4005bf5f40 sp=0x4005bf5ee0 pc=0xc79730
+budva-engine-1  | runtime.main()
+budva-engine-1  |       runtime/proc.go:285 +0x278 fp=0x4005bf5fd0 sp=0x4005bf5f40 pc=0x44ff18
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005bf5fd0 sp=0x4005bf5fd0 pc=0x48ba04
+budva-engine-1  |
+budva-engine-1  | goroutine 2 gp=0x4000002c40 m=nil [force gc (idle)]:
+budva-engine-1  | runtime.gopark(0x175b25df70eb34?, 0x0?, 0x0?, 0x0?, 0x0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000074f90 sp=0x4000074f70 pc=0x483a70
+budva-engine-1  | runtime.goparkunlock(...)
+budva-engine-1  |       runtime/proc.go:466
+budva-engine-1  | runtime.forcegchelper()
+budva-engine-1  |       runtime/proc.go:373 +0xb4 fp=0x4000074fd0 sp=0x4000074f90 pc=0x450264
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000074fd0 sp=0x4000074fd0 pc=0x48ba04
+budva-engine-1  | created by runtime.init.7 in goroutine 1
+budva-engine-1  |       runtime/proc.go:361 +0x24
+budva-engine-1  |
+budva-engine-1  | goroutine 3 gp=0x4000003180 m=nil [GC sweep wait]:
+budva-engine-1  | runtime.gopark(0x1?, 0x0?, 0x0?, 0x0?, 0x0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000075760 sp=0x4000075740 pc=0x483a70
+budva-engine-1  | runtime.goparkunlock(...)
+budva-engine-1  |       runtime/proc.go:466
+budva-engine-1  | runtime.bgsweep(0x40000a0000)
+budva-engine-1  |       runtime/mgcsweep.go:323 +0x104 fp=0x40000757b0 sp=0x4000075760 pc=0x439584
+budva-engine-1  | runtime.gcenable.gowrap1()
+budva-engine-1  |       runtime/mgc.go:212 +0x28 fp=0x40000757d0 sp=0x40000757b0 pc=0x42d218
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40000757d0 sp=0x40000757d0 pc=0x48ba04
+budva-engine-1  | created by runtime.gcenable in goroutine 1
+budva-engine-1  |       runtime/mgc.go:212 +0x6c
+budva-engine-1  |
+budva-engine-1  | goroutine 4 gp=0x4000003340 m=nil [GC scavenge wait]:
+budva-engine-1  | runtime.gopark(0x351a6a0?, 0xf2b72?, 0x0?, 0x0?, 0x0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000075f60 sp=0x4000075f40 pc=0x483a70
+budva-engine-1  | runtime.goparkunlock(...)
+budva-engine-1  |       runtime/proc.go:466
+budva-engine-1  | runtime.(*scavengerState).park(0x351a6a0)
+budva-engine-1  |       runtime/mgcscavenge.go:425 +0x5c fp=0x4000075f90 sp=0x4000075f60 pc=0x4370dc
+budva-engine-1  | runtime.bgscavenge(0x40000a0000)
+budva-engine-1  |       runtime/mgcscavenge.go:658 +0xac fp=0x4000075fb0 sp=0x4000075f90 pc=0x43765c
+budva-engine-1  | runtime.gcenable.gowrap2()
+budva-engine-1  |       runtime/mgc.go:213 +0x28 fp=0x4000075fd0 sp=0x4000075fb0 pc=0x42d1b8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000075fd0 sp=0x4000075fd0 pc=0x48ba04
+budva-engine-1  | created by runtime.gcenable in goroutine 1
+budva-engine-1  |       runtime/mgc.go:213 +0xac
+budva-engine-1  |
+budva-engine-1  | goroutine 5 gp=0x4000003880 m=nil [GOMAXPROCS updater (idle), 184 minutes]:
+budva-engine-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000076770 sp=0x4000076750 pc=0x483a70
+budva-engine-1  | runtime.goparkunlock(...)
+budva-engine-1  |       runtime/proc.go:466
+budva-engine-1  | runtime.updateMaxProcsGoroutine()
+budva-engine-1  |       runtime/proc.go:6720 +0xf4 fp=0x40000767d0 sp=0x4000076770 pc=0x45ed54
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40000767d0 sp=0x40000767d0 pc=0x48ba04
+budva-engine-1  | created by runtime.defaultGOMAXPROCSUpdateEnable in goroutine 1
+budva-engine-1  |       runtime/proc.go:6708 +0x48
+budva-engine-1  |
+budva-engine-1  | goroutine 6 gp=0x4000003dc0 m=nil [finalizer wait, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x40000745c8?, 0x48fe7c?, 0xb8?, 0x1?, 0xffff96698ef0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000074580 sp=0x4000074560 pc=0x483a70
+budva-engine-1  | runtime.runFinalizers()
+budva-engine-1  |       runtime/mfinal.go:210 +0x104 fp=0x40000747d0 sp=0x4000074580 pc=0x42c204
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40000747d0 sp=0x40000747d0 pc=0x48ba04
+budva-engine-1  | created by runtime.createfing in goroutine 1
+budva-engine-1  |       runtime/mfinal.go:172 +0x78
+budva-engine-1  |
+budva-engine-1  | goroutine 7 gp=0x40001fa700 m=nil [cleanup wait, 142 minutes]:
+budva-engine-1  | runtime.gopark(0x4005c79500?, 0xffff252ae000?, 0x78?, 0x6f?, 0x429544?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000076f40 sp=0x4000076f20 pc=0x483a70
+budva-engine-1  | runtime.goparkunlock(...)
+budva-engine-1  |       runtime/proc.go:466
+budva-engine-1  | runtime.(*cleanupQueue).dequeue(0x351ad40)
+budva-engine-1  |       runtime/mcleanup.go:439 +0x110 fp=0x4000076f80 sp=0x4000076f40 pc=0x428d40
+budva-engine-1  | runtime.runCleanups()
+budva-engine-1  |       runtime/mcleanup.go:635 +0x40 fp=0x4000076fd0 sp=0x4000076f80 pc=0x429550
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000076fd0 sp=0x4000076fd0 pc=0x48ba04
+budva-engine-1  | created by runtime.(*cleanupQueue).createGs in goroutine 1
+budva-engine-1  |       runtime/mcleanup.go:589 +0x108
+budva-engine-1  |
+budva-engine-1  | goroutine 20 gp=0x4000102540 m=nil [select, 184 minutes, locked to thread]:
+budva-engine-1  | runtime.gopark(0x40000707a0?, 0x2?, 0x98?, 0x6?, 0x400007078c?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000070600 sp=0x40000705e0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x40000707a0, 0x4000070788, 0x0?, 0x0, 0x4000140600?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x4000070740 sp=0x4000070600 pc=0x46384c
+budva-engine-1  | runtime.ensureSigM.func1()
+budva-engine-1  |       runtime/signal_unix.go:1085 +0x188 fp=0x40000707d0 sp=0x4000070740 pc=0x47e2f8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40000707d0 sp=0x40000707d0 pc=0x48ba04
+budva-engine-1  | created by runtime.ensureSigM in goroutine 1
+budva-engine-1  |       runtime/signal_unix.go:1068 +0xcc
+budva-engine-1  |
+budva-engine-1  | goroutine 21 gp=0x4000102700 m=3 mp=0x400007b008 [syscall, 184 minutes]:
+budva-engine-1  | runtime.notetsleepg(0x3546b80, 0xffffffffffffffff)
+budva-engine-1  |       runtime/lock_futex.go:123 +0x34 fp=0x4000070f90 sp=0x4000070f60 pc=0x421914
+budva-engine-1  | os/signal.signal_recv()
+budva-engine-1  |       runtime/sigqueue.go:152 +0x30 fp=0x4000070fb0 sp=0x4000070f90 pc=0x485b40
+budva-engine-1  | os/signal.loop()
+budva-engine-1  |       os/signal/signal_unix.go:23 +0x1c fp=0x4000070fd0 sp=0x4000070fb0 pc=0x70424c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000070fd0 sp=0x4000070fd0 pc=0x48ba04
+budva-engine-1  | created by os/signal.Notify.func1.1 in goroutine 1
+budva-engine-1  |       os/signal/signal.go:152 +0x28
+budva-engine-1  |
+budva-engine-1  | goroutine 22 gp=0x40001028c0 m=nil [select, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x40000717a8?, 0x2?, 0x0?, 0x0?, 0x4000071794?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x400008de10 sp=0x400008ddf0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x400008dfa8, 0x4000071790, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x400008df50 sp=0x400008de10 pc=0x46384c
+budva-engine-1  | os/signal.NotifyContext.func1()
+budva-engine-1  |       os/signal/signal.go:289 +0x64 fp=0x400008dfd0 sp=0x400008df50 pc=0x703dd4
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x400008dfd0 sp=0x400008dfd0 pc=0x48ba04
+budva-engine-1  | created by os/signal.NotifyContext in goroutine 1
+budva-engine-1  |       os/signal/signal.go:288 +0x134
+budva-engine-1  |
+budva-engine-1  | goroutine 23 gp=0x4000102e00 m=nil [select, 158 minutes]:
+budva-engine-1  | runtime.gopark(0x400008fda8?, 0x2?, 0x0?, 0x0?, 0x400008fcbc?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x400008fb20 sp=0x400008fb00 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x400008fda8, 0x400008fcb8, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x400008fc60 sp=0x400008fb20 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4/y.(*WaterMark).process(0x40002b4990, 0x40002b4960)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/y/watermark.go:203 +0x1b4 fp=0x400008ffb0 sp=0x400008fc60 pc=0xbfcf64
+budva-engine-1  | github.com/dgraph-io/badger/v4/y.(*WaterMark).Init.gowrap1()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/y/watermark.go:61 +0x28 fp=0x400008ffd0 sp=0x400008ffb0 pc=0xbfca68
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x400008ffd0 sp=0x400008ffd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4/y.(*WaterMark).Init in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/y/watermark.go:61 +0x9c
+budva-engine-1  |
+budva-engine-1  | goroutine 24 gp=0x4000102fc0 m=nil [select, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x400008eda8?, 0x2?, 0x0?, 0x0?, 0x400008ecbc?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x400008eb20 sp=0x400008eb00 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x400008eda8, 0x400008ecb8, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x400008ec60 sp=0x400008eb20 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4/y.(*WaterMark).process(0x40002b49c0, 0x40002b4960)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/y/watermark.go:203 +0x1b4 fp=0x400008efb0 sp=0x400008ec60 pc=0xbfcf64
+budva-engine-1  | github.com/dgraph-io/badger/v4/y.(*WaterMark).Init.gowrap1()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/y/watermark.go:61 +0x28 fp=0x400008efd0 sp=0x400008efb0 pc=0xbfca68
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x400008efd0 sp=0x400008efd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4/y.(*WaterMark).Init in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/y/watermark.go:61 +0x9c
+budva-engine-1  |
+budva-engine-1  | goroutine 25 gp=0x4000103180 m=nil [select]:
+budva-engine-1  | runtime.gopark(0x400008bf50?, 0x2?, 0x2?, 0x0?, 0x400008bf2c?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x400008bda0 sp=0x400008bd80 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x400008bf50, 0x400008bf28, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x400008bee0 sp=0x400008bda0 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/ristretto/v2/z.(*AllocatorPool).freeupAllocators(0x400016aff0)
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/z/allocator.go:372 +0xe8 fp=0x400008bfb0 sp=0x400008bee0 pc=0xbc5e68
+budva-engine-1  | github.com/dgraph-io/ristretto/v2/z.NewAllocatorPool.gowrap1()
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/z/allocator.go:311 +0x28 fp=0x400008bfd0 sp=0x400008bfb0 pc=0xbc5ac8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x400008bfd0 sp=0x400008bfd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/ristretto/v2/z.NewAllocatorPool in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/z/allocator.go:311 +0xb4
+budva-engine-1  |
+budva-engine-1  | goroutine 26 gp=0x4000103340 m=nil [GC worker (idle), 2 minutes]:
+budva-engine-1  | runtime.gopark(0x175b25dfca3f49?, 0x0?, 0x0?, 0x0?, 0x0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4005b51f10 sp=0x4005b51ef0 pc=0x483a70
+budva-engine-1  | runtime.gcBgMarkWorker(0x40002a47e0)
+budva-engine-1  |       runtime/mgc.go:1463 +0xe0 fp=0x4005b51fb0 sp=0x4005b51f10 pc=0x42f890
+budva-engine-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+budva-engine-1  |       runtime/mgc.go:1373 +0x28 fp=0x4005b51fd0 sp=0x4005b51fb0 pc=0x42f778
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005b51fd0 sp=0x4005b51fd0 pc=0x48ba04
+budva-engine-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+budva-engine-1  |       runtime/mgc.go:1373 +0x140
+budva-engine-1  |
+budva-engine-1  | goroutine 27 gp=0x4000103500 m=nil [GC worker (idle)]:
+budva-engine-1  | runtime.gopark(0x175b25dfd8d25f?, 0x400013ec00?, 0x1c?, 0xa?, 0x0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x400008af10 sp=0x400008aef0 pc=0x483a70
+budva-engine-1  | runtime.gcBgMarkWorker(0x40002a47e0)
+budva-engine-1  |       runtime/mgc.go:1463 +0xe0 fp=0x400008afb0 sp=0x400008af10 pc=0x42f890
+budva-engine-1  | runtime.gcBgMarkStartWorkers.gowrap1()
+budva-engine-1  |       runtime/mgc.go:1373 +0x28 fp=0x400008afd0 sp=0x400008afb0 pc=0x42f778
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x400008afd0 sp=0x400008afd0 pc=0x48ba04
+budva-engine-1  | created by runtime.gcBgMarkStartWorkers in goroutine 1
+budva-engine-1  |       runtime/mgc.go:1373 +0x140
+budva-engine-1  |
+budva-engine-1  | goroutine 28 gp=0x40001036c0 m=nil [select, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x40002e8770?, 0x2?, 0x0?, 0x0?, 0x40002e874c?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x40002e85d0 sp=0x40002e85b0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x40002e8770, 0x40002e8748, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x40002e8710 sp=0x40002e85d0 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/ristretto/v2.(*defaultPolicy[...]).processItems(0x0)
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/policy.go:61 +0x60 fp=0x40002e87b0 sp=0x40002e8710 pc=0xc12e90
+budva-engine-1  | github.com/dgraph-io/ristretto/v2.newDefaultPolicy[...].gowrap1()
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/policy.go:45 +0x28 fp=0x40002e87d0 sp=0x40002e87b0 pc=0xc5e5d8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40002e87d0 sp=0x40002e87d0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/ristretto/v2.newDefaultPolicy[...] in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/policy.go:45 +0x164
+budva-engine-1  |
+budva-engine-1  | goroutine 8 gp=0x4000102a80 m=nil [select]:
+budva-engine-1  | runtime.gopark(0x40002eb710?, 0x3?, 0x0?, 0x0?, 0x40002eb6b2?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x40002eb530 sp=0x40002eb510 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x40002eb710, 0x40002eb6ac, 0x400007e000?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x40002eb670 sp=0x40002eb530 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/ristretto/v2.(*Cache[...]).processItems(0x27122e0)
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/cache.go:522 +0xdc fp=0x40002eb7b0 sp=0x40002eb670 pc=0xc0fd4c
+budva-engine-1  | github.com/dgraph-io/ristretto/v2.NewCache[...].gowrap1()
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/cache.go:263 +0x28 fp=0x40002eb7d0 sp=0x40002eb7b0 pc=0xc5f3c8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40002eb7d0 sp=0x40002eb7d0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/ristretto/v2.NewCache[...] in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/ristretto/v2@v2.2.0/cache.go:263 +0x4ec
+budva-engine-1  |
+budva-engine-1  | goroutine 9 gp=0x4000102c40 m=nil [select, 2 minutes]:
+budva-engine-1  | runtime.gopark(0x4000260f40?, 0x2?, 0x1?, 0x0?, 0x4000260f2c?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000260da0 sp=0x4000260d80 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x4000260f40, 0x4000260f28, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x4000260ee0 sp=0x4000260da0 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*DB).monitorCache(0x4000169208, 0x40002f2de0)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:461 +0x11c fp=0x4000260fb0 sp=0x4000260ee0 pc=0xc2024c
+budva-engine-1  | github.com/dgraph-io/badger/v4.Open.gowrap1()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:303 +0x28 fp=0x4000260fd0 sp=0x4000260fb0 pc=0xc1fb28
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000260fd0 sp=0x4000260fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.Open in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:303 +0x88c
+budva-engine-1  |
+budva-engine-1  | goroutine 10 gp=0x4000103c00 m=nil [select, 2 minutes]:
+budva-engine-1  | runtime.gopark(0x4000261f58?, 0x2?, 0xe5?, 0xc0?, 0x4000261f44?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000261dc0 sp=0x4000261da0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x4000261f58, 0x4000261f40, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x4000261f00 sp=0x4000261dc0 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*DB).updateSize(0x4000169208, 0x40002f2ea0)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:1193 +0x10c fp=0x4000261fb0 sp=0x4000261f00 pc=0xc2411c
+budva-engine-1  | github.com/dgraph-io/badger/v4.Open.gowrap2()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:323 +0x28 fp=0x4000261fd0 sp=0x4000261fb0 pc=0xc1fac8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000261fd0 sp=0x4000261fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.Open in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:323 +0x9e4
+budva-engine-1  |
+budva-engine-1  | goroutine 11 gp=0x40001faa80 m=nil [select]:
+budva-engine-1  | runtime.gopark(0x4000088ee0?, 0x2?, 0x2?, 0x0?, 0x4000088dac?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000088be0 sp=0x4000088bc0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x4000088ee0, 0x4000088da8, 0x0?, 0x0, 0x2?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x4000088d20 sp=0x4000088be0 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*levelsController).runCompactor(0x40000f2770, 0x0, 0x40002f2fc0)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:507 +0x1fc fp=0x4000088fa0 sp=0x4000088d20 pc=0xc35fac
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*levelsController).startCompact.gowrap1()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:348 +0x2c fp=0x4000088fd0 sp=0x4000088fa0 pc=0xc35a5c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000088fd0 sp=0x4000088fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.(*levelsController).startCompact in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:348 +0x58
+budva-engine-1  |
+budva-engine-1  | goroutine 12 gp=0x40001fac40 m=nil [select]:
+budva-engine-1  | runtime.gopark(0x4000089ee0?, 0x2?, 0x2?, 0x0?, 0x4000089dac?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000089be0 sp=0x4000089bc0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x4000089ee0, 0x4000089da8, 0x0?, 0x0, 0x2?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x4000089d20 sp=0x4000089be0 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*levelsController).runCompactor(0x40000f2770, 0x1, 0x40002f2fc0)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:507 +0x1fc fp=0x4000089fa0 sp=0x4000089d20 pc=0xc35fac
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*levelsController).startCompact.gowrap1()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:348 +0x2c fp=0x4000089fd0 sp=0x4000089fa0 pc=0xc35a5c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000089fd0 sp=0x4000089fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.(*levelsController).startCompact in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:348 +0x58
+budva-engine-1  |
+budva-engine-1  | goroutine 13 gp=0x40001fae00 m=nil [select]:
+budva-engine-1  | runtime.gopark(0x400025cee0?, 0x2?, 0x2?, 0x0?, 0x400025cdac?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x400025cbe0 sp=0x400025cbc0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x400025cee0, 0x400025cda8, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x400025cd20 sp=0x400025cbe0 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*levelsController).runCompactor(0x40000f2770, 0x2, 0x40002f2fc0)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:507 +0x1fc fp=0x400025cfa0 sp=0x400025cd20 pc=0xc35fac
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*levelsController).startCompact.gowrap1()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:348 +0x2c fp=0x400025cfd0 sp=0x400025cfa0 pc=0xc35a5c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x400025cfd0 sp=0x400025cfd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.(*levelsController).startCompact in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:348 +0x58
+budva-engine-1  |
+budva-engine-1  | goroutine 14 gp=0x40001fafc0 m=nil [select]:
+budva-engine-1  | runtime.gopark(0x400025dee0?, 0x2?, 0x2?, 0x0?, 0x400025ddac?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x400025dbe0 sp=0x400025dbc0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x400025dee0, 0x400025dda8, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x400025dd20 sp=0x400025dbe0 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*levelsController).runCompactor(0x40000f2770, 0x3, 0x40002f2fc0)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:507 +0x1fc fp=0x400025dfa0 sp=0x400025dd20 pc=0xc35fac
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*levelsController).startCompact.gowrap1()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:348 +0x2c fp=0x400025dfd0 sp=0x400025dfa0 pc=0xc35a5c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x400025dfd0 sp=0x400025dfd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.(*levelsController).startCompact in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/levels.go:348 +0x58
+budva-engine-1  |
+budva-engine-1  | goroutine 15 gp=0x40001fb180 m=nil [chan receive, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x4000073f08?, 0x42fb24?, 0x1?, 0x79?, 0x17511b0779482c?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000073e60 sp=0x4000073e40 pc=0x483a70
+budva-engine-1  | runtime.chanrecv(0x40002aa1c0, 0x4000073f78, 0x1)
+budva-engine-1  |       runtime/chan.go:667 +0x428 fp=0x4000073ee0 sp=0x4000073e60 pc=0x41c888
+budva-engine-1  | runtime.chanrecv2(0x17511b0756a8e9?, 0x0?)
+budva-engine-1  |       runtime/chan.go:514 +0x14 fp=0x4000073f10 sp=0x4000073ee0 pc=0x41c444
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*DB).flushMemtable(0x4000169208, 0x0?)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:1100 +0x64 fp=0x4000073fb0 sp=0x4000073f10 pc=0xc23914
+budva-engine-1  | github.com/dgraph-io/badger/v4.Open.func5()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:349 +0x28 fp=0x4000073fd0 sp=0x4000073fb0 pc=0xc1fa88
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000073fd0 sp=0x4000073fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.Open in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:348 +0xba4
+budva-engine-1  |
+budva-engine-1  | goroutine 16 gp=0x40001fb340 m=nil [select, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x4000071f48?, 0x3?, 0x0?, 0x0?, 0x4000071f1a?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000071d90 sp=0x4000071d70 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x4000071f48, 0x4000071f14, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x4000071ed0 sp=0x4000071d90 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*vlogThreshold).listenForValueThresholdUpdate(0x400011d4c0)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/value.go:1166 +0xc0 fp=0x4000071fb0 sp=0x4000071ed0 pc=0xc5ae80
+budva-engine-1  | github.com/dgraph-io/badger/v4.Open.gowrap3()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:372 +0x28 fp=0x4000071fd0 sp=0x4000071fb0 pc=0xc1fa28
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4000071fd0 sp=0x4000071fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.Open in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:372 +0xf80
+budva-engine-1  |
+budva-engine-1  | goroutine 34 gp=0x40001fb500 m=nil [select, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x4000072768?, 0x2?, 0xe0?, 0x71?, 0x40000726e4?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000072540 sp=0x4000072520 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x4000072768, 0x40000726e0, 0xc?, 0x0, 0x40002f6678?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x4000072680 sp=0x4000072540 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*DB).doWrites(0x4000169208, 0x40002f31a0)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:928 +0x1ac fp=0x40000727b0 sp=0x4000072680 pc=0xc2273c
+budva-engine-1  | github.com/dgraph-io/badger/v4.Open.gowrap4()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:379 +0x28 fp=0x40000727d0 sp=0x40000727b0 pc=0xc1f9c8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40000727d0 sp=0x40000727d0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.Open in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:379 +0x107c
+budva-engine-1  |
+budva-engine-1  | goroutine 35 gp=0x40001fb6c0 m=nil [chan receive, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x40000716e8?, 0x4bb210?, 0x80?, 0xb6?, 0x40001028c0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x40000716c0 sp=0x40000716a0 pc=0x483a70
+budva-engine-1  | runtime.chanrecv(0x40002a4930, 0x0, 0x1)
+budva-engine-1  |       runtime/chan.go:667 +0x428 fp=0x4000071740 sp=0x40000716c0 pc=0x41c888
+budva-engine-1  | runtime.chanrecv1(0x40001203c0?, 0x1?)
+budva-engine-1  |       runtime/chan.go:509 +0x14 fp=0x4000071770 sp=0x4000071740 pc=0x41c424
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*valueLog).waitOnGC(0x4000169418, 0x0?)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/value.go:1069 +0x6c fp=0x40000717b0 sp=0x4000071770 pc=0xc5a7ec
+budva-engine-1  | github.com/dgraph-io/badger/v4.Open.gowrap5()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:383 +0x28 fp=0x40000717d0 sp=0x40000717b0 pc=0xc1f968
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40000717d0 sp=0x40000717d0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.Open in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:383 +0x1118
+budva-engine-1  |
+budva-engine-1  | goroutine 36 gp=0x40001fb880 m=nil [select, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x4000077738?, 0x2?, 0x0?, 0x0?, 0x400007770c?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4000077580 sp=0x4000077560 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x4000077738, 0x4000077708, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x40000776c0 sp=0x4000077580 pc=0x46384c
+budva-engine-1  | github.com/dgraph-io/badger/v4.(*publisher).listenForUpdates(0x40002b4a80, 0x40002f3200)
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/publisher.go:62 +0xcc fp=0x40000777b0 sp=0x40000776c0 pc=0xc48e0c
+budva-engine-1  | github.com/dgraph-io/badger/v4.Open.gowrap6()
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:387 +0x28 fp=0x40000777d0 sp=0x40000777b0 pc=0xc1f908
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40000777d0 sp=0x40000777d0 pc=0x48ba04
+budva-engine-1  | created by github.com/dgraph-io/badger/v4.Open in goroutine 1
+budva-engine-1  |       github.com/dgraph-io/badger/v4@v4.9.1/db.go:387 +0x11a4
+budva-engine-1  |
+budva-engine-1  | goroutine 37 gp=0x40001fba40 m=nil [select, 6 minutes]:
+budva-engine-1  | runtime.gopark(0x4005b52f70?, 0x2?, 0x8?, 0x2e?, 0x4005b52f14?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4005b52d70 sp=0x4005b52d50 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x4005b52f70, 0x4005b52f10, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x4005b52eb0 sp=0x4005b52d70 pc=0x46384c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/state.(*Repo).runGC(0x40002b4390)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/state/repo.go:153 +0x9c fp=0x4005b52fb0 sp=0x4005b52eb0 pc=0xc6889c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/state.(*Repo).Start.gowrap1()
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/state/repo.go:45 +0x28 fp=0x4005b52fd0 sp=0x4005b52fb0 pc=0xc67d28
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005b52fd0 sp=0x4005b52fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/pure-golang/budva-claude/internal/infra/state.(*Repo).Start in goroutine 1
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/state/repo.go:45 +0x174
+budva-engine-1  |
+budva-engine-1  | goroutine 39 gp=0x40001fbdc0 m=nil [sync.Mutex.Lock, 158 minutes]:
+budva-engine-1  | runtime.gopark(0x3529440?, 0xffff4c073760?, 0x0?, 0xd2?, 0x30?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4005ad7a20 sp=0x4005ad7a00 pc=0x483a70
+budva-engine-1  | runtime.goparkunlock(...)
+budva-engine-1  |       runtime/proc.go:466
+budva-engine-1  | runtime.semacquire1(0x40002f3e74, 0x0, 0x3, 0x2, 0x16)
+budva-engine-1  |       runtime/sema.go:192 +0x204 fp=0x4005ad7a70 sp=0x4005ad7a20 pc=0x4645f4
+budva-engine-1  | internal/sync.runtime_SemacquireMutex(0x200ad7b18?, 0x0?, 0x4005ad7b28?)
+budva-engine-1  |       runtime/sema.go:95 +0x28 fp=0x4005ad7ab0 sp=0x4005ad7a70 pc=0x484f48
+budva-engine-1  | internal/sync.(*Mutex).lockSlow(0x40002f3e70)
+budva-engine-1  |       internal/sync/mutex.go:149 +0x170 fp=0x4005ad7b00 sp=0x4005ad7ab0 pc=0x494a70
+budva-engine-1  | internal/sync.(*Mutex).Lock(...)
+budva-engine-1  |       internal/sync/mutex.go:70
+budva-engine-1  | sync.(*Mutex).Lock(...)
+budva-engine-1  |       sync/mutex.go:46
+budva-engine-1  | sync.(*RWMutex).Lock(0x40002f3e70)
+budva-engine-1  |       sync/rwmutex.go:150 +0x6c fp=0x4005ad7b30 sp=0x4005ad7b00 pc=0x49690c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/queue.(*Repo).Add(0x40002f3e60, 0x40066a48d0)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/queue/repo.go:39 +0x38 fp=0x4005ad7b90 sp=0x4005ad7b30 pc=0xb90308
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/app/handler.(*Service).processMediaAlbum.func1()
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/app/handler/service.go:644 +0x3b0 fp=0x4005ad7e90 sp=0x4005ad7b90 pc=0xb78020
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/queue.(*Repo).executeTask(0x40001fbf30?, 0x3b9aca00?)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/queue/repo.go:120 +0x4c fp=0x4005ad7ec0 sp=0x4005ad7e90 pc=0xb90ccc
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/queue.(*Repo).processQueue(0x40002f3e60)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/queue/repo.go:111 +0x110 fp=0x4005ad7f10 sp=0x4005ad7ec0 pc=0xb90bb0
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/queue.(*Repo).run(0x40002f3e60, {0x26ff0f0, 0x400011d100})
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/queue/repo.go:59 +0x68 fp=0x4005ad7fa0 sp=0x4005ad7f10 pc=0xb906d8
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/queue.(*Repo).StartContext.gowrap1()
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/queue/repo.go:28 +0x2c fp=0x4005ad7fd0 sp=0x4005ad7fa0 pc=0xb9028c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005ad7fd0 sp=0x4005ad7fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/pure-golang/budva-claude/internal/infra/queue.(*Repo).StartContext in goroutine 1
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/queue/repo.go:28 +0x74
+budva-engine-1  |
+budva-engine-1  | goroutine 40 gp=0x4000268000 m=nil [select, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x40002e6f50?, 0x2?, 0x0?, 0x0?, 0x40002e6edc?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x40002e6d40 sp=0x40002e6d20 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x40002e6f50, 0x40002e6ed8, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x40002e6e80 sp=0x40002e6d40 pc=0x46384c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/app/auth.(*Service).run(0x40002aa8c0, {0x26ff0f0, 0x400011d100})
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/app/auth/service.go:55 +0x94 fp=0x40002e6fa0 sp=0x40002e6e80 pc=0xb6fcc4
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/app/auth.(*Service).Start.gowrap1()
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/app/auth/service.go:50 +0x2c fp=0x40002e6fd0 sp=0x40002e6fa0 pc=0xb6fbfc
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40002e6fd0 sp=0x40002e6fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/pure-golang/budva-claude/internal/app/auth.(*Service).Start in goroutine 1
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/app/auth/service.go:50 +0x74
+budva-engine-1  |
+budva-engine-1  | goroutine 41 gp=0x4000268380 m=nil [chan receive, 144 minutes]:
+budva-engine-1  | runtime.gopark(0x4000144080?, 0x0?, 0x48?, 0x3c?, 0x4bc518?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4005b50be0 sp=0x4005b50bc0 pc=0x483a70
+budva-engine-1  | runtime.chanrecv(0x40002aaa10, 0x4005ad3e88, 0x1)
+budva-engine-1  |       runtime/chan.go:667 +0x428 fp=0x4005b50c60 sp=0x4005b50be0 pc=0x41c888
+budva-engine-1  | runtime.chanrecv2(0x2356280?, 0x4000213260?)
+budva-engine-1  |       runtime/chan.go:514 +0x14 fp=0x4005b50c90 sp=0x4005b50c60 pc=0x41c444
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/service/push.(*Generation).runWorker(0x400022c780, 0x40002132f0)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/service/push/dispatcher.go:216 +0x9c fp=0x4005b50fb0 sp=0x4005b50c90 pc=0xc7393c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/service/push.newGeneration.gowrap1()
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/service/push/dispatcher.go:100 +0x28 fp=0x4005b50fd0 sp=0x4005b50fb0 pc=0xc72828
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005b50fd0 sp=0x4005b50fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/pure-golang/budva-claude/internal/service/push.newGeneration in goroutine 1
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/service/push/dispatcher.go:100 +0x128
+budva-engine-1  |
+budva-engine-1  | goroutine 42 gp=0x4000268540 m=nil [IO wait, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4005883c90 sp=0x4005883c70 pc=0x483a70
+budva-engine-1  | runtime.netpollblock(0x0?, 0xffffffff?, 0xff?)
+budva-engine-1  |       runtime/netpoll.go:575 +0x150 fp=0x4005883cd0 sp=0x4005883c90 pc=0x448d90
+budva-engine-1  | internal/poll.runtime_pollWait(0xffff4fab6400, 0x72)
+budva-engine-1  |       runtime/netpoll.go:351 +0xa0 fp=0x4005883d00 sp=0x4005883cd0 pc=0x482c60
+budva-engine-1  | internal/poll.(*pollDesc).wait(0x400022c7e0?, 0x4005883e4b?, 0x1)
+budva-engine-1  |       internal/poll/fd_poll_runtime.go:84 +0x28 fp=0x4005883d30 sp=0x4005883d00 pc=0x4fa1f8
+budva-engine-1  | internal/poll.(*pollDesc).waitRead(...)
+budva-engine-1  |       internal/poll/fd_poll_runtime.go:89
+budva-engine-1  | internal/poll.(*FD).Read(0x400022c7e0, {0x4005883e4b, 0x10000, 0x10000})
+budva-engine-1  |       internal/poll/fd_unix.go:165 +0x1e0 fp=0x4005883dd0 sp=0x4005883d30 pc=0x4fb410
+budva-engine-1  | os.(*File).read(...)
+budva-engine-1  |       os/file_posix.go:29
+budva-engine-1  | os.(*File).Read(0x40001104b8, {0x4005883e4b?, 0x0?, 0x0?})
+budva-engine-1  |       os/file.go:144 +0x68 fp=0x4005883e10 sp=0x4005883dd0 pc=0x5049e8
+budva-engine-1  | github.com/fsnotify/fsnotify.(*inotify).readEvents(0x4000000dc0)
+budva-engine-1  |       github.com/fsnotify/fsnotify@v1.9.0/backend_inotify.go:357 +0xd8 fp=0x4005893fb0 sp=0x4005883e10 pc=0xb92d78
+budva-engine-1  | github.com/fsnotify/fsnotify.newBackend.gowrap1()
+budva-engine-1  |       github.com/fsnotify/fsnotify@v1.9.0/backend_inotify.go:155 +0x28 fp=0x4005893fd0 sp=0x4005893fb0 pc=0xb919f8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005893fd0 sp=0x4005893fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/fsnotify/fsnotify.newBackend in goroutine 1
+budva-engine-1  |       github.com/fsnotify/fsnotify@v1.9.0/backend_inotify.go:155 +0x1c4
+budva-engine-1  |
+budva-engine-1  | goroutine 43 gp=0x4000268700 m=nil [select, 184 minutes]:
+budva-engine-1  | runtime.gopark(0x40002e8f60?, 0x3?, 0x0?, 0x0?, 0x40002e8e62?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x40002e8cc0 sp=0x40002e8ca0 pc=0x483a70
+budva-engine-1  | runtime.selectgo(0x40002e8f60, 0x40002e8e5c, 0x0?, 0x0, 0x0?, 0x1)
+budva-engine-1  |       runtime/select.go:351 +0x6bc fp=0x40002e8e00 sp=0x40002e8cc0 pc=0x46384c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/ruleset.(*Repo).WatchContext.func1()
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/ruleset/repo.go:83 +0xac fp=0x40002e8fd0 sp=0x40002e8e00 pc=0xbbf05c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40002e8fd0 sp=0x40002e8fd0 pc=0x48ba04
+budva-engine-1  | created by github.com/pure-golang/budva-claude/internal/infra/ruleset.(*Repo).WatchContext in goroutine 1
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/ruleset/repo.go:81 +0x204
+budva-engine-1  |
+budva-engine-1  | goroutine 44 gp=0x40002688c0 m=nil [sync.Mutex.Lock, 144 minutes]:
+budva-engine-1  | runtime.gopark(0x1?, 0x2579b52?, 0x3?, 0x0?, 0xffffff16e5d8d6da?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4005ad9a70 sp=0x4005ad9a50 pc=0x483a70
+budva-engine-1  | runtime.goparkunlock(...)
+budva-engine-1  |       runtime/proc.go:466
+budva-engine-1  | runtime.semacquire1(0x40002f3e74, 0x0, 0x3, 0x2, 0x16)
+budva-engine-1  |       runtime/sema.go:192 +0x204 fp=0x4005ad9ac0 sp=0x4005ad9a70 pc=0x4645f4
+budva-engine-1  | internal/sync.runtime_SemacquireMutex(0x400022c780?, 0xb0?, 0x4005ad9b78?)
+budva-engine-1  |       runtime/sema.go:95 +0x28 fp=0x4005ad9b00 sp=0x4005ad9ac0 pc=0x484f48
+budva-engine-1  | internal/sync.(*Mutex).lockSlow(0x40002f3e70)
+budva-engine-1  |       internal/sync/mutex.go:149 +0x170 fp=0x4005ad9b50 sp=0x4005ad9b00 pc=0x494a70
+budva-engine-1  | internal/sync.(*Mutex).Lock(...)
+budva-engine-1  |       internal/sync/mutex.go:70
+budva-engine-1  | sync.(*Mutex).Lock(...)
+budva-engine-1  |       sync/mutex.go:46
+budva-engine-1  | sync.(*RWMutex).Lock(0x40002f3e70)
+budva-engine-1  |       sync/rwmutex.go:150 +0x6c fp=0x4005ad9b80 sp=0x4005ad9b50 pc=0x49690c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/queue.(*Repo).Add(0x40002f3e60, 0x4000033740)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/queue/repo.go:39 +0x38 fp=0x4005ad9be0 sp=0x4005ad9b80 pc=0xb90308
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/app/handler.(*Service).processMessage(0x400028fae0, {0x26ff0f0, 0x400011d100}, 0x4000120e10, {0x4000235b49, 0x5}, 0x4000271a40, 0x40060c6580, 0x40000f8f00, {0x40065e3e38, ...})
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/app/handler/service.go:398 +0x3f0 fp=0x4005ad9d40 sp=0x4005ad9be0 pc=0xb76610
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/app/handler.(*Service).OnNewMessage(0x400028fae0, {0x26ff0f0, 0x400011d100}, 0x40060c6580)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/app/handler/service.go:291 +0x34c fp=0x4005ad9e70 sp=0x4005ad9d40 pc=0xb75a1c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/app/handler.(*Service).handleUpdate(0x400028fae0, {0x26ff0f0?, 0x400011d100?}, {0x26ea6d0?, 0x40002e2420?})
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/app/handler/service.go:181 +0x6c fp=0x4005ad9ef0 sp=0x4005ad9e70 pc=0xb7511c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/app/handler.(*Service).Run(0x400028fae0, {0x26ff0f0, 0x400011d100})
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/app/handler/service.go:173 +0xb0 fp=0x4005ad9fa0 sp=0x4005ad9ef0 pc=0xb75020
+budva-engine-1  | main.run.gowrap2()
+budva-engine-1  |       github.com/pure-golang/budva-claude/cmd/engine/main.go:207 +0x2c fp=0x4005ad9fd0 sp=0x4005ad9fa0 pc=0xc7a67c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005ad9fd0 sp=0x4005ad9fd0 pc=0x48ba04
+budva-engine-1  | created by main.run in goroutine 1
+budva-engine-1  |       github.com/pure-golang/budva-claude/cmd/engine/main.go:207 +0x948
+budva-engine-1  |
+budva-engine-1  | goroutine 45 gp=0x4000268a80 m=4 mp=0x400007b808 [syscall, 184 minutes]:
+budva-engine-1  | syscall.Syscall(0x3f, 0x0, 0x4005969000, 0x1000)
+budva-engine-1  |       syscall/syscall_linux.go:74 +0x20 fp=0x4005905c20 sp=0x4005905bc0 pc=0x4a5020
+budva-engine-1  | syscall.read(0x40000a40c0?, {0x4005969000?, 0x4005905cd8?, 0x4813fc?})
+budva-engine-1  |       syscall/zsyscall_linux_arm64.go:736 +0x40 fp=0x4005905c60 sp=0x4005905c20 pc=0x4a3420
+budva-engine-1  | syscall.Read(...)
+budva-engine-1  |       syscall/syscall_unix.go:183
+budva-engine-1  | internal/poll.ignoringEINTRIO(...)
+budva-engine-1  |       internal/poll/fd_unix.go:738
+budva-engine-1  | internal/poll.(*FD).Read(0x40000a40c0, {0x4005969000, 0x1000, 0x1000})
+budva-engine-1  |       internal/poll/fd_unix.go:161 +0x204 fp=0x4005905d00 sp=0x4005905c60 pc=0x4fb434
+budva-engine-1  | os.(*File).read(...)
+budva-engine-1  |       os/file_posix.go:29
+budva-engine-1  | os.(*File).Read(0x4000078018, {0x4005969000?, 0x4005905d88?, 0x5105a4?})
+budva-engine-1  |       os/file.go:144 +0x68 fp=0x4005905d40 sp=0x4005905d00 pc=0x5049e8
+budva-engine-1  | bufio.(*Scanner).Scan(0x400011e500)
+budva-engine-1  |       bufio/scan.go:219 +0x738 fp=0x4005905e20 sp=0x4005905d40 pc=0x666218
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/term.(*Repo).ReadLine(0x4000117120)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/term/repo.go:30 +0x24 fp=0x4005905e50 sp=0x4005905e20 pc=0xc6f004
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/transport/term.(*Transport).runInputLoop(0x400011e580, {0x26ff0f0, 0x400011d100})
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/transport/term/transport.go:108 +0x16c fp=0x4005905f00 sp=0x4005905e50 pc=0xc7876c
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/transport/term.(*Transport).Run(0x400011e580, {0x26ff0f0, 0x400011d100}, 0x0?)
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/transport/term/transport.go:86 +0xa4 fp=0x4005905f30 sp=0x4005905f00 pc=0xc78534
+budva-engine-1  | main.run.func9()
+budva-engine-1  |       github.com/pure-golang/budva-claude/cmd/engine/main.go:213 +0x30 fp=0x4005905fd0 sp=0x4005905f30 pc=0xc7a5c0
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005905fd0 sp=0x4005905fd0 pc=0x48ba04
+budva-engine-1  | created by main.run in goroutine 1
+budva-engine-1  |       github.com/pure-golang/budva-claude/cmd/engine/main.go:212 +0xaa4
+budva-engine-1  |
+budva-engine-1  | goroutine 47 gp=0x4000268e00 m=nil [chan send, 62 minutes]:
+budva-engine-1  | runtime.gopark(0x4005b77320?, 0x2262a00?, 0x38?, 0xff?, 0xb10df8?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x400025fea0 sp=0x400025fe80 pc=0x483a70
+budva-engine-1  | runtime.chansend(0x40002ab110, 0x400025ff68, 0x1, 0x400025ff10?)
+budva-engine-1  |       runtime/chan.go:283 +0x394 fp=0x400025ff10 sp=0x400025fea0 pc=0x41b974
+budva-engine-1  | runtime.chansend1(0x40000c6630?, 0x1?)
+budva-engine-1  |       runtime/chan.go:161 +0x18 fp=0x400025ff40 sp=0x400025ff10 pc=0x41b5c8
+budva-engine-1  | github.com/zelenin/go-tdlib/client.(*tdlib).receiver(0x40000c6630)
+budva-engine-1  |       github.com/zelenin/go-tdlib@v0.7.6/client/tdlib.go:72 +0xac fp=0x400025ffb0 sp=0x400025ff40 pc=0xb10e5c
+budva-engine-1  | github.com/zelenin/go-tdlib/client.(*tdlib).addClient.func1.gowrap1()
+budva-engine-1  |       github.com/zelenin/go-tdlib@v0.7.6/client/tdlib.go:43 +0x28 fp=0x400025ffd0 sp=0x400025ffb0 pc=0xb10aa8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x400025ffd0 sp=0x400025ffd0 pc=0x48ba04
+budva-engine-1  | created by github.com/zelenin/go-tdlib/client.(*tdlib).addClient.func1 in goroutine 38
+budva-engine-1  |       github.com/zelenin/go-tdlib@v0.7.6/client/tdlib.go:43 +0x60
+budva-engine-1  |
+budva-engine-1  | goroutine 48 gp=0x4000268fc0 m=nil [chan send, 126 minutes]:
+budva-engine-1  | runtime.gopark(0x400005fea8?, 0xaf88e8?, 0x0?, 0x68?, 0x72c?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x4005b4fe60 sp=0x4005b4fe40 pc=0x483a70
+budva-engine-1  | runtime.chansend(0x40001f9960, 0x4005b4ff90, 0x1, 0x400005fee0?)
+budva-engine-1  |       runtime/chan.go:283 +0x394 fp=0x4005b4fed0 sp=0x4005b4fe60 pc=0x41b974
+budva-engine-1  | runtime.chansend1(0x40002a6800?, 0x72c?)
+budva-engine-1  |       runtime/chan.go:161 +0x18 fp=0x4005b4ff00 sp=0x4005b4fed0 pc=0x41b5c8
+budva-engine-1  | github.com/zelenin/go-tdlib/client.(*Client).receiver(0x400011da00)
+budva-engine-1  |       github.com/zelenin/go-tdlib@v0.7.6/client/client.go:89 +0x1ec fp=0x4005b4ffb0 sp=0x4005b4ff00 pc=0x9ca6fc
+budva-engine-1  | github.com/zelenin/go-tdlib/client.NewClient.gowrap1()
+budva-engine-1  |       github.com/zelenin/go-tdlib@v0.7.6/client/client.go:58 +0x28 fp=0x4005b4ffd0 sp=0x4005b4ffb0 pc=0x9ca4d8
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x4005b4ffd0 sp=0x4005b4ffd0 pc=0x48ba04
+budva-engine-1  | created by github.com/zelenin/go-tdlib/client.NewClient in goroutine 38
+budva-engine-1  |       github.com/zelenin/go-tdlib@v0.7.6/client/client.go:58 +0x170
+budva-engine-1  |
+budva-engine-1  | goroutine 29 gp=0x4005a60000 m=nil [chan send, 144 minutes]:
+budva-engine-1  | runtime.gopark(0x0?, 0x4005a62648?, 0x80?, 0xd1?, 0x40002ea724?)
+budva-engine-1  |       runtime/proc.go:460 +0xc0 fp=0x40002ea630 sp=0x40002ea610 pc=0x483a70
+budva-engine-1  | runtime.chansend(0x40002aa7e0, 0x40002ea770, 0x1, 0x40002ea6b0?)
+budva-engine-1  |       runtime/chan.go:283 +0x394 fp=0x40002ea6a0 sp=0x40002ea630 pc=0x41b974
+budva-engine-1  | runtime.chansend1(0x40002ea740?, 0x26ff0f0?)
+budva-engine-1  |       runtime/chan.go:161 +0x18 fp=0x40002ea6d0 sp=0x40002ea6a0 pc=0x41b5c8
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/telegram.(*Repo).listenUpdates(0x400015a820, {0x26ff0f0, 0x400011d100})
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/telegram/repo.go:431 +0x228 fp=0x40002ea7a0 sp=0x40002ea6d0 pc=0xc6c038
+budva-engine-1  | github.com/pure-golang/budva-claude/internal/infra/telegram.(*Repo).runAuthLoop.gowrap2()
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/telegram/repo.go:370 +0x2c fp=0x40002ea7d0 sp=0x40002ea7a0 pc=0xc6bb8c
+budva-engine-1  | runtime.goexit({})
+budva-engine-1  |       runtime/asm_arm64.s:1268 +0x4 fp=0x40002ea7d0 sp=0x40002ea7d0 pc=0x48ba04
+budva-engine-1  | created by github.com/pure-golang/budva-claude/internal/infra/telegram.(*Repo).runAuthLoop in goroutine 38
+budva-engine-1  |       github.com/pure-golang/budva-claude/internal/infra/telegram/repo.go:370 +0x43c
+budva-engine-1  |
+budva-engine-1  | r0      0x351bb70
+budva-engine-1  | r1      0x80
+budva-engine-1  | r2      0x0
+budva-engine-1  | r3      0x0
+budva-engine-1  | r4      0x0
+budva-engine-1  | r5      0x0
+budva-engine-1  | r6      0x4
+budva-engine-1  | r7      0x0
+budva-engine-1  | r8      0x62
+budva-engine-1  | r9      0x400007078c
+budva-engine-1  | r10     0x40000a4040
+budva-engine-1  | r11     0x2
+budva-engine-1  | r12     0x0
+budva-engine-1  | r13     0x1
+budva-engine-1  | r14     0x0
+budva-engine-1  | r15     0x0
+budva-engine-1  | r16     0xffffdc4053a0
+budva-engine-1  | r17     0x40002a40e0
+budva-engine-1  | r18     0x5
+budva-engine-1  | r19     0x3546688
+budva-engine-1  | r20     0x4000070600
+budva-engine-1  | r21     0x351ba20
+budva-engine-1  | r22     0x1
+budva-engine-1  | r23     0x10
+budva-engine-1  | r24     0x400011a790
+budva-engine-1  | r25     0x0
+budva-engine-1  | r26     0x25d6408
+budva-engine-1  | r27     0x3490000
+budva-engine-1  | r28     0x351af00
+budva-engine-1  | r29     0xffffdcc03b88
+budva-engine-1  | lr      0x449b08
+budva-engine-1  | sp      0xffffdcc03b90
+budva-engine-1  | pc      0x48ce5c
+budva-engine-1  | fault   0x0
+budva-engine-1 exited with code 0
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/platform@v0.0.0-20260413185009-9442a44a1635/monitoring/monitoring.go:28
+budva-engine-1  |  WARN  tracing init error
+budva-engine-1  | E error:
+budva-engine-1  |     0: [*errors.withStack]
+budva-engine-1  |        0: github.com/pure-golang/adapters@v0.0.0-20260413184553-ff2f6df2b0f0/tracing/tracing.go:31
+budva-engine-1  |        1: github.com/pure-golang/platform@v0.0.0-20260413185009-9442a44a1635/monitoring/monitoring.go:26
+budva-engine-1  |        2: github.com/pure-golang/budva-claude/cmd/engine/main.go:72
+budva-engine-1  |        3: github.com/pure-golang/budva-claude/cmd/engine/main.go:49
+budva-engine-1  |        4: runtime/proc.go:285
+budva-engine-1  |        5: runtime/asm_arm64.s:1268
+budva-engine-1  |     1: failed to load tracing provider
+budva-engine-1  |     2: empty connection string
+budva-engine-1  |        0: github.com/pure-golang/adapters@v0.0.0-20260413184553-ff2f6df2b0f0/tracing/jaeger/jaeger.go:48
+budva-engine-1  |        1: github.com/pure-golang/adapters@v0.0.0-20260413184553-ff2f6df2b0f0/tracing/tracing.go:23
+budva-engine-1  |        2: github.com/pure-golang/platform@v0.0.0-20260413185009-9442a44a1635/monitoring/monitoring.go:26
+budva-engine-1  |        3: github.com/pure-golang/budva-claude/cmd/engine/main.go:72
+budva-engine-1  |        4: github.com/pure-golang/budva-claude/cmd/engine/main.go:49
+budva-engine-1  |        5: runtime/proc.go:285
+budva-engine-1  |        6: runtime/asm_arm64.s:1268
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/platform@v0.0.0-20260413185009-9442a44a1635/monitoring/monitoring.go:33
+budva-engine-1  |  WARN  metrics init error
+budva-engine-1  | E error:
+budva-engine-1  |     0: metrics config not provided
+budva-engine-1  |        0: github.com/pure-golang/adapters@v0.0.0-20260413184553-ff2f6df2b0f0/metrics/metrics.go:28
+budva-engine-1  |        1: github.com/pure-golang/platform@v0.0.0-20260413185009-9442a44a1635/monitoring/monitoring.go:31
+budva-engine-1  |        2: github.com/pure-golang/budva-claude/cmd/engine/main.go:72
+budva-engine-1  |        3: github.com/pure-golang/budva-claude/cmd/engine/main.go:49
+budva-engine-1  |        4: runtime/proc.go:285
+budva-engine-1  |        5: runtime/asm_arm64.s:1268
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/budva-claude/cmd/engine/main.go:80
+budva-engine-1  |  INFO  Starting engine
+budva-engine-1  |   module: main
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/budva-claude/internal/infra/state/logger.go:26
+budva-engine-1  |  INFO  All 0 tables opened in 0s
+budva-engine-1  |
+budva-engine-1  |   module: infra.state
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/budva-claude/internal/infra/state/logger.go:26
+budva-engine-1  |  INFO  Discard stats nextEmptySlot: 0
+budva-engine-1  |
+budva-engine-1  |   module: infra.state
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/budva-claude/internal/infra/state/logger.go:26
+budva-engine-1  |  INFO  Set nextTxnTs to 0
+budva-engine-1  |   module: infra.state
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/budva-claude/internal/infra/state/logger.go:26
+budva-engine-1  |  INFO  Deleting empty file: .data/badger/000013.vlog
+budva-engine-1  |   module: infra.state
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/budva-claude/internal/infra/telegram/repo.go:106
+budva-engine-1  |  INFO  Business update mode configured
+budva-engine-1  |   module     : infra.telegram
+budva-engine-1  |   update_mode: BusinessUpdates
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/budva-claude/internal/service/push/manager.go:40
+budva-engine-1  |  INFO  Push generation reloaded
+budva-engine-1  | S added  : 1 []string
+budva-engine-1  |     0: rulego-es
+budva-engine-1  | S removed: 0 []string
+budva-engine-1  |
+budva-engine-1  | [13:46:55] @@@ github.com/pure-golang/budva-claude/cmd/engine/main.go:218
+budva-engine-1  |  INFO  Engine started, waiting for shutdown signal
+budva-engine-1  |   module: main
+budva-engine-1  |
+budva-engine-1  | TDLib version: 1.8.40, User ID: 498139926
+budva-engine-1  | >

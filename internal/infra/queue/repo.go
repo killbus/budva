@@ -99,15 +99,20 @@ func (r *Repo) ProcessBatch() {
 
 func (r *Repo) processQueue() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	front := r.queue.Front()
 	if front == nil {
+		r.mu.Unlock()
 		return
 	}
 
 	fn := front.Value.(func())
 	r.queue.Remove(front)
+	// Задача выполняется без удержания блокировки: задача может добавить
+	// новые задачи через Add (например, задача альбома добавляет задачи
+	// статистики/пересылки), а RWMutex нереентерабелен — удержание блокировки
+	// на время выполнения вызывало бы само-дедлок в воркере.
+	r.mu.Unlock()
 	r.executeTask(fn)
 }
 
