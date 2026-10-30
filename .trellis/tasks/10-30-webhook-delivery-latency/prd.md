@@ -13,11 +13,21 @@ after the owner's total-silence clarification):
 1. **The 10-minute zero-request silence window** (headline symptom): it covers
    **text as well as media**, so it is an **absence of `SubmitV2` calls**,
    not slow delivery. With `timeoutSeconds: 60` the serial per-endpoint worker
-   can contribute **at most ~60 s** and is **not** the explainer. Candidates:
-   **(B1)** update-stream gap (Budva↔Telegram delivered nothing,
-   self-recovering), **(B2)** transient Run-loop stall, **(D)** ruleset
-   hot-reload gap. Attributed by a one-shot **active probe** (R0p), not yet
-   proven.
+   can contribute **at most ~60 s** and is **not** the explainer. **Model
+   correction 2 (2026-10-30, owner open-chat observation):** the silence is
+   *coupled to the official client not having the chat open* — the client and
+   Budva are separate sessions, and for channels/large supergroups Telegram
+   does not guarantee real-time delivery (it is gated by chat-open/active
+   state); opening the chat triggers a catch-up **burst**. The leading causal
+   class is **open-chat-triggered update acquisition (B1a–B1d, cross-session
+   passive-update for accessible non-member channels/supergroups)**, with
+   **(B2)** transient Run-loop stall, **(B3)** endpoint backlog, and **(D)**
+   ruleset hot-reload gap as secondary candidates. Decisive next step = the
+   **boundary-localization experiment + one live SIGQUIT dump**, plus the
+   owner-supplied **source chat type** (the fork that selects which documented
+   mechanism applies). **Not yet proven which mechanism / at which boundary**
+   (`research/facts-and-model.md` — Model correction 2;
+   `research/team-b-tdlib-open-chat-ground-fact-check.md`).
 2. **Steady-state per-message delay**: the serial per-endpoint worker +
    backlog (bounded ≤60 s at current config) — a source-confirmed mechanism
    reproduced and bounded by the Phase 0 **controlled slow-receiver test**
@@ -178,9 +188,14 @@ facts-and-model.md`).
    set (B1)/(B2)/(D); the endpoint serial worker is a confirmed mechanism and
    bounded ≤60 s contributor, **not** a proven root cause of the headline
    symptom.
-2. **Silence attributed (R0p):** one live window captured by the active probe
-   (SIGQUIT dump + in-window log grep) selects (B1)/(B2)/(D); the Problem 1
-   fix direction follows that attribution.
+2. **Silence attributed (R0p / Model correction 2):** the **boundary-
+   localization experiment** (contrast A list-only / B open-after-activity /
+   C client-closed, chat types separated, boundary timestamps + **one SIGQUIT
+   dump while the symptom is active**) localizes *at which boundary* the
+   open-chat trigger releases the updates, and the owner supplies the **source
+   chat type** — together selecting among open-chat acquisition (B1a–B1d) vs
+   Run-loop stall (B2) vs endpoint backlog (B3) vs reload gap (D); the
+   Problem 1 fix direction follows that attribution.
 3. Mechanism **reproduced and bounded by the controlled slow-receiver test**
    (R0) — **no production timing collection required**.
 4. Delivery contracts settled (R3) + loss policy recorded (R4); the receiver's
@@ -208,3 +223,18 @@ facts-and-model.md`).
   (B1) update-stream gap / (B2) Run-loop transient stall / (D) ruleset
   hot-reload gap — attributed by the R0p active probe; (A) album deferral and
   endpoint HOL are secondary ≤60 s contributors.
+- **Model correction 2 (2026-10-30, owner open-chat observation + Team B
+  ground-fact check):** the silence is *coupled to the official client not
+  having the chat open* — the client and Budva are **separate sessions**, and
+  for **channels/large supergroups** Telegram does not guarantee real-time
+  delivery (gated by chat-open/active state); opening the chat triggers a
+  catch-up **burst** (difference recovery). The leading causal class is
+  **open-chat-triggered update acquisition (B1a–B1d)** — including the
+  *documented* cross-session passive-update effect for accessible non-member
+  channels/supergroups — not the downstream worker. The fix direction shifts
+  to **making Budva an active subscriber** (`OpenChat` on the ruleset source
+  chats; native, no new component) — *pending* the boundary-localization
+  experiment and the owner-supplied source chat type. (B2) Run-loop stall,
+  (B3) endpoint backlog, (D) reload remain secondary. See
+  `research/facts-and-model.md` (Model correction 2) and
+  `research/team-b-tdlib-open-chat-ground-fact-check.md`.

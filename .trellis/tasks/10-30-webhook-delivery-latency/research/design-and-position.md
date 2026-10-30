@@ -11,13 +11,19 @@ phase lands the design; implementation is a later gate.
 >    the serial per-endpoint worker is **not** the leading explanation — with
 >    `timeoutSeconds: 60` it can contribute at most a ≤60 s gap, and it emits
 >    a request at least every 60 s under load. The signature (zero requests
->    for ≥10 min, covering **text as well as media**, self-recovering) is an
->    **absence of `SubmitV2` calls**, pointing at **(B1) an update-stream gap,
->    (B2) a transient Run-loop stall, or (D) a ruleset hot-reload gap** — none
->    yet proven. Evidence = the owner's **active probe protocol** (Phase 0p):
->    plain-text probe, window declared at ≥2 min absence, SIGQUIT dump +
->    in-window log grep — a one-shot forensic (the 10-29 method), not a
->    timing campaign.
+>    for ≥10 min, covering **text as well as media**) is an **absence of
+>    `SubmitV2` calls**. **Model correction 2 (owner open-chat observation):**
+>    the silence is *coupled to the official client not having the chat open*
+>    — client and Budva are **separate sessions**, and for channels/large
+>    supergroups Telegram does not guarantee real-time delivery (gated by
+>    chat-open/active state). The leading causal class is
+>    **open-chat-triggered update acquisition (B1a–B1d)** — including the
+>    *documented* cross-session passive-update effect for accessible
+>    non-member channels/supergroups — with (B2) Run-loop stall, (B3) endpoint
+>    backlog, (D) reload gap as secondary candidates. Evidence = the
+>    **boundary-localization experiment + one live SIGQUIT dump** (Phase 0p,
+>    revised) + the owner-supplied **source chat type** — a one-shot forensic,
+>    not a timing campaign.
 > 2. **Steady-state per-message delay** (endpoint HOL + album deferral): the
 >    serial per-endpoint worker + cap-256 buffer + single-attempt sink
 >    (occupied until the HTTP response returns) is a source-confirmed
@@ -53,19 +59,28 @@ phase lands the design; implementation is a later gate.
 This is not a queue-draining story: a serial endpoint worker emits a request
 at least every `timeoutSeconds` (=60 s) while it has work, so the worst
 endpoint-side gap is **bounded by ~60 s**. A zero-request window of ≥10 min
-that also covers *text* (which is submitted immediately in the Run loop,
-`service.go:352`, and never passes the shared task queue) is an **absence of
-submissions upstream of the endpoint worker**. The candidate set is therefore
-**(B1)** the Budva↔Telegram update stream delivered nothing for ~10 min
-(self-recovering MTProto/session/connection stall), **(B2)** the Run loop
-(the sole `Updates()` consumer) transiently stalled on a synchronous call, or
-**(D)** a ruleset hot-reload gap (fsnotify reload of the bind-mounted
-`ruleset.yml` retiring the push generation mid-window; log signatures
-`Ruleset reloaded` / `Failed to reload` / `Push submission rejected ...
-retired`). The fix direction is **"find and fix the gap"** — plus, if the
-dump confirms (B1), session-health observability/reconnect — **not** a
-delivery-rate change. Evidence = one live capture of the window (active probe
-protocol, Phase 0p), the cheapest and most decisive test available.
+that also covers *text* is an **absence of submissions upstream of the
+endpoint worker**. **Model correction 2 (owner open-chat observation):** the
+silence is *coupled to the official client not having the chat open* — the
+client and Budva are **separate sessions**, and for **channels/large
+supergroups** Telegram does not guarantee real-time delivery (it is gated by
+chat-open/active state); opening the chat releases a **catch-up burst**
+(difference recovery). The leading causal class is therefore
+**open-chat-triggered update acquisition (B1a–B1d)** — including the
+*documented* cross-session passive-update effect for accessible **non-member**
+channels/supergroups — with **(B2)** a transient Run-loop stall, **(B3)**
+endpoint backlog, and **(D)** a ruleset hot-reload gap as secondary candidates
+(log signatures `Ruleset reloaded` / `Failed to reload` / `Push submission
+rejected ... retired`). The fix direction is **"make Budva an active
+subscriber"** — call `OpenChat` on the ruleset source chats (and keep them
+open / poll `getChannelDifference` per the server timeout) so Budva's *own*
+session receives real-time updates, independent of the official client — a
+first-class TDlib API, **native, no new component** (matches the native /
+minimal-maintenance constraint). This is **not** a delivery-rate change and is
+*pending* the boundary-localization experiment + the owner-supplied source
+chat type (the fork that selects which documented mechanism applies). Evidence
+= the boundary experiment + one live SIGQUIT dump (Phase 0p, revised), the
+cheapest and most decisive test available.
 
 **Problem 2 — steady-state per-message delay (the ≤60 s contributor).**
 The serial per-endpoint worker + backlog is *conditionally stable* G/G/1: a
@@ -126,36 +141,43 @@ bounds the mechanism before the concurrency boundary changes**, and (2) does
 > "capturing one representative delayed occurrence": the stub *is* the
 > controlled occurrence.
 
-### Phase 0p — capture the silence window once (active probe; the PRIMARY
-evidence for the headline symptom)
+### Phase 0p — localize the silence-release boundary (the PRIMARY evidence
+for the headline symptom; revised per Model correction 2)
 
-The **owner runs this on the box** (the agent has no box access); it is
-documented step-by-step in `research/facts-and-model.md` and costs one
-message + one log capture + one SIGQUIT per run:
+The repeated open-chat intervention tests already reject coincidence, so this
+phase does **not** re-prove the effect — it finds **at which boundary the
+open-chat trigger releases the updates**, which selects the fix direction
+(update acquisition vs Run-loop vs endpoint vs reload). The **owner runs this
+on the box** (the agent has no box access); full detail is in
+`research/facts-and-model.md` (Model correction 2) and the Team B report.
 
-1. **Probe**: a **plain text** message with a unique token into a ruleset
-   source chat (text required — it is the shortest path, immediate Run-loop
-   `SubmitV2`; albums would confound via the quiet window / shared queue).
-2. **Declare** the window at the **≥2-minute probe-absence** boundary
-   (real windows are ≥10 min; the normal worst case is 60 s — so the boundary
-   has ~no false positives and beats waiting for a natural window).
-3. **While the stall is live**: capture engine logs since window start, then
-   `kill -QUIT 1` (the Go goroutine dump lands on stderr via `docker logs`;
-   `restart: always` revives the process — expected, same as 10-29, and the
-   delivery resuming on restart re-confirms self-recovery).
-4. **Read the dump + logs**: Run-loop frame parked in `<-updates` with an
-   empty channel → (B1) (then inspect the go-tdlib receiver / session
-   goroutines); parked in a concrete call frame → (B2) (the frame names the
-   blocker); in-window log grep `Ruleset reloaded` / `Failed to reload` →
-   (D); `buffer_full` WARN expected **absent** (a full buffer is the
-   slow-continuous signature, not a silence). The probe token's catch-up
-   arrival time measures the silence duration.
+1. **Record the source chat type** (owner-supplied, the decisive fork):
+   channel / large supergroup vs private chat vs basic group; and whether the
+   Budva account has **joined** it or only **can access** it (public, or
+   `chatInvitePeek`). This selects which documented mechanism applies.
+2. **Contrast three states** with plain-text probes carrying a unique token,
+   **separating private/basic-group chats from supergroups/channels**
+   (channel open-state has specific difference behavior — mixing confounds):
+   **A** official client stays on the list (never opens); **B** opens the chat
+   after list activity; **C** fully closes the client.
+3. **Record boundary timestamps** per probe (stable chat id + message id +
+   token): S0 send · C1 list-shown · C2 opened · B0 go-tdlib receives any
+   update · B1 Budva `UpdateNewMessage` · B3 handler start · B4 `SubmitV2` ·
+   B5 endpoint worker pickup · B6 `http.Client.Do` start · W1 receiver ingress
+   · W2 response; and take **one `kill -QUIT 1` goroutine dump while the
+   symptom is active** (the 10-29 method — names the parked frame).
+4. **Interpret**: `B0/B1` only after `C2` → coupling is **upstream** (update
+   acquisition/recovery) → the "Budva opens the chat" fix; `B0/B1` before
+   `C2` but `B3–B6` late → local to Budva/go-tdlib or endpoint; A/B/C all
+   recover similarly → transport/difference recovery or local backpressure,
+   not cross-session; `B4` prompt but `B5/B6` late → serial endpoint worker;
+   `B6` prompt but `W1` late → HTTP/proxy/socket boundary. In-window log grep
+   `Ruleset reloaded` / `Failed to reload` → (D).
 
-This is a **one-shot forensic, not a timing campaign**: a single run yields a
-decisive frame attribution. It is *production-side* only in the sense that it
-happens on the box; it captures no continuous metrics and ships no
-instrumentation. **Outcome determines the fix direction** (session health /
-Run-loop blocker / reload handling — vs endpoint tuning).
+This is a **one-shot forensic, not a timing campaign**: a small set of
+probes + one dump, no continuous metrics, no shipped instrumentation.
+**Outcome determines the fix direction** (active-subscriber / Run-loop /
+endpoint / reload — vs endpoint tuning).
 
 ### Phase 0 — reproduce + bound the mechanism (a GATE, by controlled test)
 
@@ -293,24 +315,29 @@ the loss semantics).
   non-reproducible, invasive, and the occurrence being fixed is itself
   intermittent. The evidence is the **controlled slow-receiver test** (Phase
   0); production observability is a post-deploy aid (Phase 0b). A full T1–T4
-  tracing *platform* is likewise not required. (The Phase 0p **active probe
-  is the single exception** and deliberately so: it is a one-shot forensic of
-  the *headline symptom* — the 10-minute silence — that no in-repo test can
+  tracing *platform* is likewise not required. (The Phase 0p
+  **boundary-localization experiment + one live SIGQUIT dump is the single
+  exception** and deliberately so: it is a one-shot forensic of the
+  *headline symptom* — the 10-minute silence — that no in-repo test can
   reproduce, and it ships no instrumentation and collects no continuous
   metrics.)
 
 ## Implementation entry gate (implementation remains blocked until closed)
 
-1. **Evidence boundary corrected:** the 10-minute total-silence window is
-   attributed to the candidate set **(B1)/(B2)/(D)** (absence of submissions
-   upstream of the endpoint worker; endpoint HOL is a bounded ≤60 s
-   contributor, not the explainer), and the endpoint serial worker is held as
-   a confirmed mechanism, **not** a proven root cause of the headline
+1. **Evidence boundary corrected (Model correction 2):** the 10-minute
+   total-silence window is coupled to the **open-chat / chat-active state**
+   (client and Budva are separate sessions; channels/large supergroups are not
+   guaranteed real-time). The leading causal class is **open-chat-triggered
+   update acquisition (B1a–B1d)**; the endpoint serial worker is a bounded
+   ≤60 s contributor (B3), **not** the proven root cause of the headline
    symptom.
-2. **The silence is attributed once (Phase 0p):** the active probe captures
-   one live window (probe → declare at ≥2 min → SIGQUIT dump + in-window log
-   grep), and the Run-loop frame + log grep select among (B1)/(B2)/(D) — the
-   fix direction follows that attribution.
+2. **The silence is localized once (Phase 0p, revised):** the
+   **boundary-localization experiment** (A list-only / B open-after-activity /
+   C client-closed, chat types separated, boundary timestamps + one SIGQUIT
+   dump) finds *at which boundary* the trigger releases updates, and the
+   owner-supplied **source chat type** selects the applicable documented
+   mechanism — the fix direction (active subscriber vs Run-loop vs endpoint vs
+   reload) follows that.
 3. **Mechanism reproduced + bounded by a controlled test (Problem 2):** the
    Phase 0 slow-receiver test suite reproduces the queue-wait and shows the
    concurrency/timeout change holds it in budget — **no production timing
@@ -330,10 +357,15 @@ platform.
 
 ## Open owner decisions (the implementation blockers)
 
-1. **Loss policy:** best-effort (droppable) vs must-not-lose?
-2. **Duplicate policy:** are duplicate deliveries acceptable?
-3. **Ordering scope:** global / per-endpoint / per-chat / none?
-4. **Receiver `T` + contracts:** the receiver's per-request response time
+1. **Source chat type + membership (Model correction 2, decisive fork):** for
+   the ruleset source chats — channel / large supergroup vs private chat vs
+   basic group, and whether the Budva account has **joined** or only
+   **accesses** (public / `chatInvitePeek`) them. This selects which documented
+   Telegram mechanism applies and therefore the Problem 1 fix.
+2. **Loss policy:** best-effort (droppable) vs must-not-lose?
+3. **Duplicate policy:** are duplicate deliveries acceptable?
+4. **Ordering scope:** global / per-endpoint / per-chat / none?
+5. **Receiver `T` + contracts:** the receiver's per-request response time
    (one `curl -w '%{time_total}' -X POST` or its access log — a single number,
    **not** a production measurement) and whether the receiver can fast-ack +
    idempotently ingest + support what concurrency ceiling?
@@ -364,6 +396,18 @@ timing collection is not a realistic or required prerequisite. The evidence
 root-caused; measure the suspected interval before changing the concurrency
 boundary) is fully honored: the controlled test both reproduces the mechanism
 and bounds the change before it lands.
+
+`research/team-b-tdlib-open-chat-ground-fact-check.md` is Team B's **ground-
+fact check of the owner's open-chat observation** (**CHANGES REQUESTED**,
+2026-10-30). It is the source of Model correction 2: the open-chat→release
+coupling as the leading fact, the B1 decomposition into B1a–B1d, the
+documented cross-session passive-update scope (accessible **non-member**
+public channels/supergroups and `chatInvitePeek`-accessible private ones;
+**not** established for joined channels, private chats, or basic groups), the
+channel-difference burst mechanism, and the boundary-localization experiment.
+It is cited as **ground-fact evidence, not design approval**; its applicability
+to the actual production chat type is the open owner-supplied fork (Open owner
+decisions #1).
 
 ## Boundary restated
 
