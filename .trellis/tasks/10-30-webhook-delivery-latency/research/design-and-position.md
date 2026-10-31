@@ -76,7 +76,22 @@ subscriber"** — call `OpenChat` on the ruleset source chats (and keep them
 open / poll `getChannelDifference` per the server timeout) so Budva's *own*
 session receives real-time updates, independent of the official client — a
 first-class TDlib API, **native, no new component** (matches the native /
-minimal-maintenance constraint). This is **not** a delivery-rate change and is
+minimal-maintenance constraint). **Owner requirement (2026-10-30): support
+EVERY source chat type** — one uniform action, **client-conformant scope**
+(`OpenChat` on every **channel/supergroup** source chat in Budva's own
+session — the classes that are open-state-gated; private/basic-group sources
+are NOT OpenChat'd, matching a client, and ride the global stream): the
+mechanism covers every type, the scope is typed. The source
+chat type is now **diagnostic only** (which documented mechanism explains the
+observed coupling; a silence on a private/basic-group = a separate B1a/B2/D
+bug) — it no longer selects the design. Source-confirm before implementation:
+(a) whether the pinned TDlib auto-polls channel differences while a channel
+is open (else Budva polls `getChannelDifference` per the server timeout),
+(b) lifecycle (re-open after re-auth, `updateChatInaccessible`, ruleset
+hot-reload add/remove → OpenChat/CloseChat; seams at generation build /
+`Replace` `main.go:168` and hot-reload `main.go:183-196`), (c) opened-chat
+ceiling under the production source set. This is **not** a delivery-rate
+change and is
 *pending* the boundary-localization experiment + the owner-supplied source
 chat type (the fork that selects which documented mechanism applies). Evidence
 = the boundary experiment + one live SIGQUIT dump (Phase 0p, revised), the
@@ -151,10 +166,13 @@ open-chat trigger releases the updates**, which selects the fix direction
 on the box** (the agent has no box access); full detail is in
 `research/facts-and-model.md` (Model correction 2) and the Team B report.
 
-1. **Record the source chat type** (owner-supplied, the decisive fork):
-   channel / large supergroup vs private chat vs basic group; and whether the
+1. **Record the source chat type** (owner-supplied; **diagnostic** input per
+   the owner's type-agnostic requirement, not a design selector):
+   channel / supergroup (any size — no protocol threshold; "large" is a
+   maintainer paraphrase) vs private chat vs basic group; and whether the
    Budva account has **joined** it or only **can access** it (public, or
-   `chatInvitePeek`). This selects which documented mechanism applies.
+   `chatInvitePeek`). This selects which documented mechanism explains the
+   observed coupling.
 2. **Contrast three states** with plain-text probes carrying a unique token,
    **separating private/basic-group chats from supergroups/channels**
    (channel open-state has specific difference behavior — mixing confounds):
@@ -326,18 +344,21 @@ the loss semantics).
 
 1. **Evidence boundary corrected (Model correction 2):** the 10-minute
    total-silence window is coupled to the **open-chat / chat-active state**
-   (client and Budva are separate sessions; channels/large supergroups are not
-   guaranteed real-time). The leading causal class is **open-chat-triggered
+   (client and Budva are separate sessions; channels/supergroups — any size,
+   no protocol threshold — are not guaranteed real-time). The leading causal
+   class is **open-chat-triggered
    update acquisition (B1a–B1d)**; the endpoint serial worker is a bounded
    ≤60 s contributor (B3), **not** the proven root cause of the headline
    symptom.
 2. **The silence is localized once (Phase 0p, revised):** the
    **boundary-localization experiment** (A list-only / B open-after-activity /
    C client-closed, chat types separated, boundary timestamps + one SIGQUIT
-   dump) finds *at which boundary* the trigger releases updates, and the
-   owner-supplied **source chat type** selects the applicable documented
-   mechanism — the fix direction (active subscriber vs Run-loop vs endpoint vs
-   reload) follows that.
+   dump) finds *at which boundary* the trigger releases updates. The source
+   chat type is **diagnostic** (which documented mechanism applies; a silence
+   on a private/basic-group = a separate B1a/B2/D bug) — the Problem 1 fix is
+   the **type-agnostic active-subscriber** design (owner requirement: support
+   every chat type), and the experiment confirms which release boundary
+   governs production.
 3. **Mechanism reproduced + bounded by a controlled test (Problem 2):** the
    Phase 0 slow-receiver test suite reproduces the queue-wait and shows the
    concurrency/timeout change holds it in budget — **no production timing
@@ -357,11 +378,17 @@ platform.
 
 ## Open owner decisions (the implementation blockers)
 
-1. **Source chat type + membership (Model correction 2, decisive fork):** for
-   the ruleset source chats — channel / large supergroup vs private chat vs
-   basic group, and whether the Budva account has **joined** or only
-   **accesses** (public / `chatInvitePeek`) them. This selects which documented
-   Telegram mechanism applies and therefore the Problem 1 fix.
+1. **Support every source chat type (owner-stated requirement, 2026-10-30):**
+   the fix must work for private chats, basic groups, supergroups, and
+   channels. This is a **type-agnostic uniform action** (see facts-and-model
+   "Owner requirement"): `OpenChat` on every ruleset **channel/supergroup**
+   source chat in Budva's
+   own session — the open-state-gated classes
+   (private/basic-group sources are NOT OpenChat'd: a client does not open
+   every chat, and those ride the global stream anyway). The **source chat type + membership** are no longer
+   a *design* fork — they are a **diagnostic** input (which documented
+   mechanism explains the observed coupling; a silence on a private/basic-
+   group is a separate bug: B1a/B2/D).
 2. **Loss policy:** best-effort (droppable) vs must-not-lose?
 3. **Duplicate policy:** are duplicate deliveries acceptable?
 4. **Ordering scope:** global / per-endpoint / per-chat / none?

@@ -318,6 +318,23 @@ Ground facts (Team B report
    those exact cross-session mechanisms remain unresolved (but the repeated
    intervention tests rule out pure coincidence).
 
+**Terminology precision (verified against the pinned go-tdlib v0.7.6 module,
+2026-10-30):** "**large supergroup**" is a Team B / maintainer **paraphrase,
+not a protocol class** — the TDlib API has no size threshold and no size
+qualifier in the normative contract. The normative distinction is by
+**protocol class**, not size: basic group (`GroupChat` class) vs supergroup
+(`SuperGroup` class) vs channel. The open-state-gating clause — the pinned
+module's `OpenChat` contract verbatim
+(`client/function.go:7789`) — reads: *"Many useful activities depend on the
+chat being opened or closed (e.g., in **supergroups and channels** all updates
+are received only for opened chats)"* — **no size qualifier**, i.e. ALL
+supergroups (any member count) and ALL channels; basic groups are outside the
+gating. The "large" modifier belongs only to the *not-guaranteed-real-time*
+behavioral expectation (item 2, the maintainer's phrasing), never to the
+gating scope. **Practical effect: none for the design** (the uniform `OpenChat`
+covers every class); the correct diagnostic label is "supergroup (any size) /
+channel" as the gated scope, "basic group" as the non-gated class.
+
 Read together, the observation is directly explained for channels:
 **chat unopened** → official client is not active-polling that channel →
 Budva's passive session receives nothing → **silence**; **chat opened** → the
@@ -325,7 +342,8 @@ official client starts `getChannelDifference` polling → (for non-member
 accessible channels) the server enables passive updates for the account's
 sessions → Budva receives the deferred updates → **burst**.
 
-**Conclusion (for channel / large-supergroup sources):** the 10-minute
+**Conclusion (for channel / supergroup sources — any size, no protocol
+threshold):** the 10-minute
 silence is very likely **expected Telegram delivery behavior** (update
 acquisition gated by chat-open/active state), **not** a Budva webhook-worker
 bug. The earlier "self-recovering" read is revised to **coupled to the chat
@@ -342,22 +360,160 @@ becoming active** (someone opens it), not Budva recovering on its own.
   (the old "Problem 2"), **D** ruleset hot-reload gap.
 - **Fix direction shifts** from "raise delivery rate / concurrency / timeout"
   (which cannot explain an open-chat-gated acquisition) to **"make Budva an
-  active subscriber"**: have Budva call `OpenChat` for the ruleset source
-  chats (and keep them open / poll `getChannelDifference` per the server
-  timeout) so *its own session* gets real-time updates, independent of whether
+  active subscriber"**: have Budva call `OpenChat` for the **channel /
+  supergroup** ruleset source chats (the open-state-gated classes;
+  private/basic-group sources are not OpenChat'd — see the Owner requirement
+  below) and keep them open / poll `getChannelDifference` per the server
+  timeout, so *its own session* gets real-time updates, independent of whether
   the official client is open. This is a first-class TDlib API — **native, no
   new component** (matches the owner's native/no-reinventing preference).
   *Prerequisite:* confirm the release boundary with the boundary experiment
   below; applicability to channels/supergroups is the documented scope.
-- **Decisive fork = the source chat type in the ruleset** (owner must supply):
-  - **channel / large supergroup** the Budva account has **not joined but can
-    access** → the cross-session passive-update explanation + the
+
+## Owner requirement (2026-10-30, scope refined 2026-10-31): support EVERY source chat type — one uniform action, client-conformant scope
+
+The owner states the fix must support **any** source chat type (private chat,
+basic group, supergroup, channel). The action is uniform and type-agnostic,
+but the **scope is typed** — matching what an official client actually does:
+
+> **For every channel/supergroup source chat in the ruleset, Budva calls
+> `OpenChat` on its own session** (and keeps it open, with
+> `getChannelDifference` polling where needed). Private-chat and basic-group
+> sources are **not** OpenChat'd.
+
+- **Private chats / basic groups**: updates flow through the **global update
+  stream**; the "all updates are received only for opened chats" rule is
+  scoped to supergroups/channels, so these are NOT open-state-gated — no
+  `OpenChat` is **required**. And a client-conformant footprint does not open
+  every chat anyway (a client opens a chat when the user views it).
+  "Support" = the session's global diff is healthy.
+- **Channels / supergroups**: updates ARE open-state-gated; `OpenChat` in
+  Budva's own session makes them real-time there, independent of the official
+  client.
+
+So "support any type" = one mechanism (OpenChat) applied to the chat classes
+that need it (channels/supergroups), with a type-conditioned
+**verification target** (channels: real-time-while-open; private/basic-group:
+real-time via the global stream, no OpenChat).
+
+This **downgrades the earlier "source chat type = decisive design fork"**: the
+type no longer selects the fix design — it now has **diagnostic** value only:
+(1) it tells whether the documented cross-session mechanism explains the
+owner's observed open-chat→burst coupling (accessible non-member
+channels/supergroups = yes; joined channels / private chats / basic groups =
+undocumented); and (2) **if the 10-minute silence was ever observed on a
+private chat or basic group, the channel mechanism does NOT cover it** — that
+is a separate bug (B1a transport/session, B2 local backpressure, or D reload
+gap) and must be chased independently. The boundary experiment surfaces both
+for free (private/basic-group arms are run in the same experiment).
+
+### Source-confirm items before implementation (not design forks)
+
+- **(a) TDlib channel polling semantics.** The pinned source confirms opening
+  a channel *initiates* `getChannelDifference`; whether the pinned TDlib
+  **keeps polling automatically** while the dialog is open is NOT confirmed.
+  The official protocol guidance (core.telegram.org/method/
+  updates.getChannelDifference) expects the *client* to keep polling per the
+  server timeout. If the pinned TDlib does not auto-poll, Budva must issue its
+  own periodic `getChannelDifference`. **Correction (verified 2026-10-31
+  against the module cache): go-tdlib `v0.7.6` does NOT generate a
+  `GetChannelDifference` wrapper** (only the test RPC `TestGetDifference` is
+  generated), so the self-poll is a hand-built request via the exported raw
+  `client.Send(Request)` (`client/client.go:104`) — feasible, but not a
+  ready-made method.
+- **(b) Lifecycle.** Re-open after re-auth; handle `updateChatInaccessible` /
+  `updateChatClosed`; ruleset hot-reload add/remove of source chats (add →
+  `OpenChat`; remove → optional `CloseChat`). Natural seams: the generation
+  build / `Replace` (`cmd/engine/main.go:168`) and the hot-reload path
+  (`main.go:183-196`).
+- **(c) Opened-chat ceiling.** No documented hard limit in the pinned TDlib;
+  if the ruleset references many channels, verify open-dialog memory /
+  behavior under the production source set.
+- **(d) Dialog footprint vs a typical client (owner question, 2026-10-31).**
+  A normal client keeps ~1 dialog open at a time, so N persistent opens is
+  **not** the typical human footprint. But it is **functionally required**
+  for channels/supergroups: a dialog closed in Budva's own session means that
+  channel is deferred there (the documented gating) — a single-dialog pattern
+  is exactly the pattern that produces the 10-minute silence on the other
+  N−1 channels. The human analog that cares about all N channels in real time
+  is the one who **keeps them open** (a real, N-scaled behavior class —
+  desktop split view / pinned mobile chats), and the **most** client-like
+  N-open behavior is *open once and keep open*; the worst footprint would be
+  open/close **toggling** (rotation reintroduces the deferred state = the bug).
+  **Potential reduction (evidence-driven, not preset):** whether a *joined*
+  channel still delivers full `updateNewMessage` to an **idle** (unopened)
+  session is open (phone push-notification behavior suggests yes, possibly
+  with gaps). If the boundary experiment's arm A (nothing opened anywhere)
+  shows joined channels still arrive, the persistent-open set can **shrink to
+  non-member / accessible channels** (where open is definitely required) and
+  joined channels ride the idle stream + watchdog — moving the footprint
+  closer to a normal client. Decide from the experiment, not beforehand.
+  Footprint scales with the number of source channels (N dialogs resident +
+  per-channel diff polls if (a) resolves to no auto-poll) — a constant per
+  channel, not per message; at ruleset scale of a handful to a dozen channels
+  the footprint ≈ a heavy user; flag it if the source set is much larger.
+
+### Client-conformance criterion (owner refinement, 2026-10-31): the design
+benchmark is "what would an official client do"
+
+Owner refinement: the correctness/risk benchmark is **not** "serverless
+daemon vs client" deltas, but **behavioral conformance with an official
+client**. The first-principles question for every proposed behavior is:
+*does an official client ever do this?* Re-evaluating the earlier
+side-effect / risk / compliance list against that criterion:
+
+- **Compliance (dedicated-account / datacenter-IP / flood) — NOT a problem
+  for this design.** A user-account daemon is the product's pre-existing
+  architecture (a bot cannot do the forwarding sources); `openChat` /
+  `getChannelDifference` / `closeChat` are standard user RPCs every official
+  client sends continuously; the marginal RPC profile is that of "a user who
+  keeps their N channels open" — a real behavior class, N-scaled, not an
+  automation signature. The earlier framing ("dedicated account? datacenter
+  IP? account visible in view counts?") measured daemon-vs-client deltas that
+  the design **intends to eliminate** — the only real conformance checks are
+  the RPC profile and volume, which conformance addresses directly.
+- **Read receipts — conformed (not an action item).** An official client does
+  NOT mark channels read merely on `OpenChat`; marking read is a separate
+  `readHistory`-class call the app issues. Conformance = **Budva never calls
+  any read API** — which is the default (it does not forward reads). This was
+  reclassified from "a risk to test" to "conformance, trivially met".
+- **View-count / online-count impact — NOT avoidable and NOT a problem.**
+  Any session that is "open" to a channel contributes to its view/active
+  counts by definition; that is exactly the mechanism being used, and it is
+  what a user who keeps the channel open does. The footprint IS the fix;
+  "minimize visibility" would defeat the mechanism. (It is an inherent
+  consequence of the chosen mechanism, documented here — not a risk item.)
+- **FloodWait on startup burst — a VOLUME issue, keep (marginal).** An
+  official client does not open 50 channels in the same second; spread the
+  initial `OpenChat` batch (reuse `internal/service/limiter`) and bound the
+  open-dialog count by the source-set size. This survives the re-evaluation.
+- **Session-state fragility / lifecycle / re-open watchdog / leak — KEEP,
+  reframe.** The right frame is **conformance durability**, not "the daemon
+  introduces a fragile state": an official client also loses open state on
+  re-auth and re-opens on return. Budva must do the same (re-open after
+  re-auth, handle `updateChatInaccessible`, retire on generation close) —
+  i.e. replicate the client's resilience, not invent new fragility.
+- **Memory O(N) — keep as a scale fact, not a "risk".** It scales with the
+  source-set size (a client does the same for its pinned/open dialogs),
+  bounded and verifiable on the production source set.
+
+Net: of the earlier five-item side-effect list, **two items dissolve**
+(compliance; read receipts), **one is reclassified as inherent**
+(view/active counts), and **two survive as real** (volume/stagger; conformance
+durability). The design's single standing discipline is: *every new behavior
+must be one an official client performs, at a client-plausible volume.*
+
+- **Source chat type — diagnostic fork (owner may supply; not required to
+  select the design anymore):**
+  - **channel / supergroup** (any size — no protocol threshold) the Budva
+    account has **not joined but can access** → the cross-session
+    passive-update explanation + the
     "Budva opens the chat" fix apply directly (pending boundary confirmation);
   - **joined** channel / supergroup → expected to be more real-time, but the
     open-state rule still applies; the boundary experiment localizes it;
   - **private chat / basic group** → the channel mechanism does **not**
-    apply; fall back to B1a transport/session, B2 local backpressure, D
-    reload.
+    apply; a 10-minute silence there is a **separate bug**: B1a
+    transport/session, B2 local backpressure, D reload.
 
 ### The decisive experiment now localizes the release boundary
 
@@ -399,7 +555,7 @@ method) to name the parked frame.
    **Model correction 2's boundary experiment** (contrast A list-only / B
    open-after-activity / C client-closed, chat types separated, boundary
    timestamps S0/W2 + **one SIGQUIT dump while the symptom is active**), plus
-   the owner-supplied **source chat type** (channel / large supergroup /
+   the owner-supplied **source chat type** (channel / supergroup [any size] /
    private / basic group; joined vs non-member accessible) which selects
    whether the documented cross-session mechanism applies. The earlier one-shot
    active probe is **subsumed** by this experiment (same one-shot forensic
