@@ -198,9 +198,10 @@ facts-and-model.md`).
    documented mechanism explains the coupling; a silence on a private/basic-
    group = a separate B1a/B2/D bug). The Problem 1 fix is the **type-agnostic
    active-subscriber** design (owner requirement: support **every** source
-   chat type — `OpenChat` on all ruleset source chats in Budva's own session;
-   a no-op for private/basic-group, the real fix for channels/supergroups),
-   confirmed by that attribution.
+   chat type — `OpenChat` on all **channel/supergroup** ruleset source chats
+   in Budva's own session (the open-state-gated classes; private/basic-group
+   sources are not OpenChat'd — conformance with a client — and ride the
+   global stream), confirmed by that attribution.
 3. Mechanism **reproduced and bounded by the controlled slow-receiver test**
    (R0) — **no production timing collection required**.
 4. Delivery contracts settled (R3) + loss policy recorded (R4); the receiver's

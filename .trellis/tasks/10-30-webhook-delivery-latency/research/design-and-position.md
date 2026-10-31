@@ -77,10 +77,11 @@ open / poll `getChannelDifference` per the server timeout) so Budva's *own*
 session receives real-time updates, independent of the official client — a
 first-class TDlib API, **native, no new component** (matches the native /
 minimal-maintenance constraint). **Owner requirement (2026-10-30): support
-EVERY source chat type** — this is one **type-agnostic uniform action**
-(`OpenChat` on every ruleset source chat in Budva's own session): a harmless
-no-op for private chats / basic groups (their updates ride the global stream,
-not open-state-gated), and the real fix for channels/supergroups. The source
+EVERY source chat type** — one uniform action, **client-conformant scope**
+(`OpenChat` on every **channel/supergroup** source chat in Budva's own
+session — the classes that are open-state-gated; private/basic-group sources
+are NOT OpenChat'd, matching a client, and ride the global stream): the
+mechanism covers every type, the scope is typed. The source
 chat type is now **diagnostic only** (which documented mechanism explains the
 observed coupling; a silence on a private/basic-group = a separate B1a/B2/D
 bug) — it no longer selects the design. Source-confirm before implementation:
@@ -381,8 +382,9 @@ platform.
    the fix must work for private chats, basic groups, supergroups, and
    channels. This is a **type-agnostic uniform action** (see facts-and-model
    "Owner requirement"): `OpenChat` on every ruleset source chat in Budva's
-   own session — a no-op for private/basic-group, the real fix for
-   channels/supergroups. The **source chat type + membership** are no longer
+   own session — the **channel/supergroup** classes that are open-state-gated
+   (private/basic-group sources are NOT OpenChat'd: a client does not open
+   every chat, and those ride the global stream anyway). The **source chat type + membership** are no longer
    a *design* fork — they are a **diagnostic** input (which documented
    mechanism explains the observed coupling; a silence on a private/basic-
    group is a separate bug: B1a/B2/D).
