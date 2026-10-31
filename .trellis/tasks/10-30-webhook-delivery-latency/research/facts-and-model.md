@@ -409,9 +409,13 @@ for free (private/basic-group arms are run in the same experiment).
   **keeps polling automatically** while the dialog is open is NOT confirmed.
   The official protocol guidance (core.telegram.org/method/
   updates.getChannelDifference) expects the *client* to keep polling per the
-  server timeout — if the pinned TDlib does not auto-poll, Budva must issue
-  its own periodic `getChannelDifference` for open channels (the API is
-  exposed by go-tdlib `v0.7.6`; Budva currently never calls it).
+  server timeout. If the pinned TDlib does not auto-poll, Budva must issue its
+  own periodic `getChannelDifference`. **Correction (verified 2026-10-31
+  against the module cache): go-tdlib `v0.7.6` does NOT generate a
+  `GetChannelDifference` wrapper** (only the test RPC `TestGetDifference` is
+  generated), so the self-poll is a hand-built request via the exported raw
+  `client.Send(Request)` (`client/client.go:104`) — feasible, but not a
+  ready-made method.
 - **(b) Lifecycle.** Re-open after re-auth; handle `updateChatInaccessible` /
   `updateChatClosed`; ruleset hot-reload add/remove of source chats (add →
   `OpenChat`; remove → optional `CloseChat`). Natural seams: the generation
@@ -420,6 +424,29 @@ for free (private/basic-group arms are run in the same experiment).
 - **(c) Opened-chat ceiling.** No documented hard limit in the pinned TDlib;
   if the ruleset references many channels, verify open-dialog memory /
   behavior under the production source set.
+- **(d) Dialog footprint vs a typical client (owner question, 2026-10-31).**
+  A normal client keeps ~1 dialog open at a time, so N persistent opens is
+  **not** the typical human footprint. But it is **functionally required**
+  for channels/supergroups: a dialog closed in Budva's own session means that
+  channel is deferred there (the documented gating) — a single-dialog pattern
+  is exactly the pattern that produces the 10-minute silence on the other
+  N−1 channels. The human analog that cares about all N channels in real time
+  is the one who **keeps them open** (a real, N-scaled behavior class —
+  desktop split view / pinned mobile chats), and the **most** client-like
+  N-open behavior is *open once and keep open*; the worst footprint would be
+  open/close **toggling** (rotation reintroduces the deferred state = the bug).
+  **Potential reduction (evidence-driven, not preset):** whether a *joined*
+  channel still delivers full `updateNewMessage` to an **idle** (unopened)
+  session is open (phone push-notification behavior suggests yes, possibly
+  with gaps). If the boundary experiment's arm A (nothing opened anywhere)
+  shows joined channels still arrive, the persistent-open set can **shrink to
+  non-member / accessible channels** (where open is definitely required) and
+  joined channels ride the idle stream + watchdog — moving the footprint
+  closer to a normal client. Decide from the experiment, not beforehand.
+  Footprint scales with the number of source channels (N dialogs resident +
+  per-channel diff polls if (a) resolves to no auto-poll) — a constant per
+  channel, not per message; at ruleset scale of a handful to a dozen channels
+  the footprint ≈ a heavy user; flag it if the source set is much larger.
 
 - **Source chat type — diagnostic fork (owner may supply; not required to
   select the design anymore):**
