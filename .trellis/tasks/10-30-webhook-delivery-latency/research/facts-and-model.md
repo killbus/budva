@@ -318,6 +318,23 @@ Ground facts (Team B report
    those exact cross-session mechanisms remain unresolved (but the repeated
    intervention tests rule out pure coincidence).
 
+**Terminology precision (verified against the pinned go-tdlib v0.7.6 module,
+2026-10-30):** "**large supergroup**" is a Team B / maintainer **paraphrase,
+not a protocol class** — the TDlib API has no size threshold and no size
+qualifier in the normative contract. The normative distinction is by
+**protocol class**, not size: basic group (`GroupChat` class) vs supergroup
+(`SuperGroup` class) vs channel. The open-state-gating clause — the pinned
+module's `OpenChat` contract verbatim
+(`client/function.go:7789`) — reads: *"Many useful activities depend on the
+chat being opened or closed (e.g., in **supergroups and channels** all updates
+are received only for opened chats)"* — **no size qualifier**, i.e. ALL
+supergroups (any member count) and ALL channels; basic groups are outside the
+gating. The "large" modifier belongs only to the *not-guaranteed-real-time*
+behavioral expectation (item 2, the maintainer's phrasing), never to the
+gating scope. **Practical effect: none for the design** (the uniform `OpenChat`
+covers every class); the correct diagnostic label is "supergroup (any size) /
+channel" as the gated scope, "basic group" as the non-gated class.
+
 Read together, the observation is directly explained for channels:
 **chat unopened** → official client is not active-polling that channel →
 Budva's passive session receives nothing → **silence**; **chat opened** → the
@@ -325,7 +342,8 @@ official client starts `getChannelDifference` polling → (for non-member
 accessible channels) the server enables passive updates for the account's
 sessions → Budva receives the deferred updates → **burst**.
 
-**Conclusion (for channel / large-supergroup sources):** the 10-minute
+**Conclusion (for channel / supergroup sources — any size, no protocol
+threshold):** the 10-minute
 silence is very likely **expected Telegram delivery behavior** (update
 acquisition gated by chat-open/active state), **not** a Budva webhook-worker
 bug. The earlier "self-recovering" read is revised to **coupled to the chat
@@ -405,8 +423,9 @@ for free (private/basic-group arms are run in the same experiment).
 
 - **Source chat type — diagnostic fork (owner may supply; not required to
   select the design anymore):**
-  - **channel / large supergroup** the Budva account has **not joined but can
-    access** → the cross-session passive-update explanation + the
+  - **channel / supergroup** (any size — no protocol threshold) the Budva
+    account has **not joined but can access** → the cross-session
+    passive-update explanation + the
     "Budva opens the chat" fix apply directly (pending boundary confirmation);
   - **joined** channel / supergroup → expected to be more real-time, but the
     open-state rule still applies; the boundary experiment localizes it;
@@ -454,7 +473,7 @@ method) to name the parked frame.
    **Model correction 2's boundary experiment** (contrast A list-only / B
    open-after-activity / C client-closed, chat types separated, boundary
    timestamps S0/W2 + **one SIGQUIT dump while the symptom is active**), plus
-   the owner-supplied **source chat type** (channel / large supergroup /
+   the owner-supplied **source chat type** (channel / supergroup [any size] /
    private / basic group; joined vs non-member accessible) which selects
    whether the documented cross-session mechanism applies. The earlier one-shot
    active probe is **subsumed** by this experiment (same one-shot forensic

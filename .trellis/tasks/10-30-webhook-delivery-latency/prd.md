@@ -16,7 +16,9 @@ after the owner's total-silence clarification):
    can contribute **at most ~60 s** and is **not** the explainer. **Model
    correction 2 (2026-10-30, owner open-chat observation):** the silence is
    *coupled to the official client not having the chat open* — the client and
-   Budva are separate sessions, and for channels/large supergroups Telegram
+   Budva are separate sessions, and for channels/supergroups (any size — the
+   open-state gating has no protocol threshold; "large" is a maintainer
+   paraphrase, see facts-and-model terminology note) Telegram
    does not guarantee real-time delivery (it is gated by chat-open/active
    state); opening the chat triggers a catch-up **burst**. The leading causal
    class is **open-chat-triggered update acquisition (B1a–B1d, cross-session
@@ -229,7 +231,9 @@ facts-and-model.md`).
 - **Model correction 2 (2026-10-30, owner open-chat observation + Team B
   ground-fact check):** the silence is *coupled to the official client not
   having the chat open* — the client and Budva are **separate sessions**, and
-  for **channels/large supergroups** Telegram does not guarantee real-time
+  for **channels/supergroups** (any size — the open-state gating has no
+  protocol threshold; "large" is a maintainer paraphrase, see facts-and-model
+  terminology note) Telegram does not guarantee real-time
   delivery (gated by chat-open/active state); opening the chat triggers a
   catch-up **burst** (difference recovery). The leading causal class is
   **open-chat-triggered update acquisition (B1a–B1d)** — including the

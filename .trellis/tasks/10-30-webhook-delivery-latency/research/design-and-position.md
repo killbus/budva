@@ -165,10 +165,13 @@ open-chat trigger releases the updates**, which selects the fix direction
 on the box** (the agent has no box access); full detail is in
 `research/facts-and-model.md` (Model correction 2) and the Team B report.
 
-1. **Record the source chat type** (owner-supplied, the decisive fork):
-   channel / large supergroup vs private chat vs basic group; and whether the
+1. **Record the source chat type** (owner-supplied; **diagnostic** input per
+   the owner's type-agnostic requirement, not a design selector):
+   channel / supergroup (any size — no protocol threshold; "large" is a
+   maintainer paraphrase) vs private chat vs basic group; and whether the
    Budva account has **joined** it or only **can access** it (public, or
-   `chatInvitePeek`). This selects which documented mechanism applies.
+   `chatInvitePeek`). This selects which documented mechanism explains the
+   observed coupling.
 2. **Contrast three states** with plain-text probes carrying a unique token,
    **separating private/basic-group chats from supergroups/channels**
    (channel open-state has specific difference behavior — mixing confounds):
@@ -340,8 +343,9 @@ the loss semantics).
 
 1. **Evidence boundary corrected (Model correction 2):** the 10-minute
    total-silence window is coupled to the **open-chat / chat-active state**
-   (client and Budva are separate sessions; channels/large supergroups are not
-   guaranteed real-time). The leading causal class is **open-chat-triggered
+   (client and Budva are separate sessions; channels/supergroups — any size,
+   no protocol threshold — are not guaranteed real-time). The leading causal
+   class is **open-chat-triggered
    update acquisition (B1a–B1d)**; the endpoint serial worker is a bounded
    ≤60 s contributor (B3), **not** the proven root cause of the headline
    symptom.
