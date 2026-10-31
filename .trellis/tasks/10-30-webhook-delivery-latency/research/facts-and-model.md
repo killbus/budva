@@ -349,15 +349,70 @@ becoming active** (someone opens it), not Budva recovering on its own.
   new component** (matches the owner's native/no-reinventing preference).
   *Prerequisite:* confirm the release boundary with the boundary experiment
   below; applicability to channels/supergroups is the documented scope.
-- **Decisive fork = the source chat type in the ruleset** (owner must supply):
+
+## Owner requirement (2026-10-30): support EVERY source chat type — a single uniform action
+
+The owner states the fix must support **any** source chat type (private chat,
+basic group, supergroup, channel). This is **not** N per-type designs — it is
+one **type-agnostic uniform action** in Budva's own session:
+
+> **For every source chat in the ruleset, Budva calls `OpenChat` on its own
+> session** (and keeps it open, with `getChannelDifference` polling where
+> needed).
+
+- **Private chats / basic groups**: updates flow through the **global update
+  stream**; the "all updates are received only for opened chats" rule is
+  scoped to supergroups/channels, so these are NOT open-state-gated.
+  `OpenChat` is a **harmless no-op** here (at most it maintains the dialog).
+  "Support" = the session's global diff is healthy.
+- **Channels / supergroups**: updates ARE open-state-gated; `OpenChat` in
+  Budva's own session makes them real-time there, independent of the official
+  client.
+
+The same call covers all types, so "support any type" reduces to one
+mechanism plus a type-conditioned **verification target** (channels:
+real-time-while-open; private/basic-group: real-time via the global stream).
+
+This **downgrades the earlier "source chat type = decisive design fork"**: the
+type no longer selects the fix design — it now has **diagnostic** value only:
+(1) it tells whether the documented cross-session mechanism explains the
+owner's observed open-chat→burst coupling (accessible non-member
+channels/supergroups = yes; joined channels / private chats / basic groups =
+undocumented); and (2) **if the 10-minute silence was ever observed on a
+private chat or basic group, the channel mechanism does NOT cover it** — that
+is a separate bug (B1a transport/session, B2 local backpressure, or D reload
+gap) and must be chased independently. The boundary experiment surfaces both
+for free (private/basic-group arms are run in the same experiment).
+
+### Source-confirm items before implementation (not design forks)
+
+- **(a) TDlib channel polling semantics.** The pinned source confirms opening
+  a channel *initiates* `getChannelDifference`; whether the pinned TDlib
+  **keeps polling automatically** while the dialog is open is NOT confirmed.
+  The official protocol guidance (core.telegram.org/method/
+  updates.getChannelDifference) expects the *client* to keep polling per the
+  server timeout — if the pinned TDlib does not auto-poll, Budva must issue
+  its own periodic `getChannelDifference` for open channels (the API is
+  exposed by go-tdlib `v0.7.6`; Budva currently never calls it).
+- **(b) Lifecycle.** Re-open after re-auth; handle `updateChatInaccessible` /
+  `updateChatClosed`; ruleset hot-reload add/remove of source chats (add →
+  `OpenChat`; remove → optional `CloseChat`). Natural seams: the generation
+  build / `Replace` (`cmd/engine/main.go:168`) and the hot-reload path
+  (`main.go:183-196`).
+- **(c) Opened-chat ceiling.** No documented hard limit in the pinned TDlib;
+  if the ruleset references many channels, verify open-dialog memory /
+  behavior under the production source set.
+
+- **Source chat type — diagnostic fork (owner may supply; not required to
+  select the design anymore):**
   - **channel / large supergroup** the Budva account has **not joined but can
     access** → the cross-session passive-update explanation + the
     "Budva opens the chat" fix apply directly (pending boundary confirmation);
   - **joined** channel / supergroup → expected to be more real-time, but the
     open-state rule still applies; the boundary experiment localizes it;
   - **private chat / basic group** → the channel mechanism does **not**
-    apply; fall back to B1a transport/session, B2 local backpressure, D
-    reload.
+    apply; a 10-minute silence there is a **separate bug**: B1a
+    transport/session, B2 local backpressure, D reload.
 
 ### The decisive experiment now localizes the release boundary
 

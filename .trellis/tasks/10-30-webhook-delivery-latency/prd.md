@@ -192,10 +192,13 @@ facts-and-model.md`).
    localization experiment** (contrast A list-only / B open-after-activity /
    C client-closed, chat types separated, boundary timestamps + **one SIGQUIT
    dump while the symptom is active**) localizes *at which boundary* the
-   open-chat trigger releases the updates, and the owner supplies the **source
-   chat type** — together selecting among open-chat acquisition (B1a–B1d) vs
-   Run-loop stall (B2) vs endpoint backlog (B3) vs reload gap (D); the
-   Problem 1 fix direction follows that attribution.
+   trigger releases the updates. The **source chat type** is diagnostic (which
+   documented mechanism explains the coupling; a silence on a private/basic-
+   group = a separate B1a/B2/D bug). The Problem 1 fix is the **type-agnostic
+   active-subscriber** design (owner requirement: support **every** source
+   chat type — `OpenChat` on all ruleset source chats in Budva's own session;
+   a no-op for private/basic-group, the real fix for channels/supergroups),
+   confirmed by that attribution.
 3. Mechanism **reproduced and bounded by the controlled slow-receiver test**
    (R0) — **no production timing collection required**.
 4. Delivery contracts settled (R3) + loss policy recorded (R4); the receiver's

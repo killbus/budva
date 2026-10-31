@@ -76,7 +76,21 @@ subscriber"** — call `OpenChat` on the ruleset source chats (and keep them
 open / poll `getChannelDifference` per the server timeout) so Budva's *own*
 session receives real-time updates, independent of the official client — a
 first-class TDlib API, **native, no new component** (matches the native /
-minimal-maintenance constraint). This is **not** a delivery-rate change and is
+minimal-maintenance constraint). **Owner requirement (2026-10-30): support
+EVERY source chat type** — this is one **type-agnostic uniform action**
+(`OpenChat` on every ruleset source chat in Budva's own session): a harmless
+no-op for private chats / basic groups (their updates ride the global stream,
+not open-state-gated), and the real fix for channels/supergroups. The source
+chat type is now **diagnostic only** (which documented mechanism explains the
+observed coupling; a silence on a private/basic-group = a separate B1a/B2/D
+bug) — it no longer selects the design. Source-confirm before implementation:
+(a) whether the pinned TDlib auto-polls channel differences while a channel
+is open (else Budva polls `getChannelDifference` per the server timeout),
+(b) lifecycle (re-open after re-auth, `updateChatInaccessible`, ruleset
+hot-reload add/remove → OpenChat/CloseChat; seams at generation build /
+`Replace` `main.go:168` and hot-reload `main.go:183-196`), (c) opened-chat
+ceiling under the production source set. This is **not** a delivery-rate
+change and is
 *pending* the boundary-localization experiment + the owner-supplied source
 chat type (the fork that selects which documented mechanism applies). Evidence
 = the boundary experiment + one live SIGQUIT dump (Phase 0p, revised), the
@@ -334,10 +348,12 @@ the loss semantics).
 2. **The silence is localized once (Phase 0p, revised):** the
    **boundary-localization experiment** (A list-only / B open-after-activity /
    C client-closed, chat types separated, boundary timestamps + one SIGQUIT
-   dump) finds *at which boundary* the trigger releases updates, and the
-   owner-supplied **source chat type** selects the applicable documented
-   mechanism — the fix direction (active subscriber vs Run-loop vs endpoint vs
-   reload) follows that.
+   dump) finds *at which boundary* the trigger releases updates. The source
+   chat type is **diagnostic** (which documented mechanism applies; a silence
+   on a private/basic-group = a separate B1a/B2/D bug) — the Problem 1 fix is
+   the **type-agnostic active-subscriber** design (owner requirement: support
+   every chat type), and the experiment confirms which release boundary
+   governs production.
 3. **Mechanism reproduced + bounded by a controlled test (Problem 2):** the
    Phase 0 slow-receiver test suite reproduces the queue-wait and shows the
    concurrency/timeout change holds it in budget — **no production timing
@@ -357,11 +373,15 @@ platform.
 
 ## Open owner decisions (the implementation blockers)
 
-1. **Source chat type + membership (Model correction 2, decisive fork):** for
-   the ruleset source chats — channel / large supergroup vs private chat vs
-   basic group, and whether the Budva account has **joined** or only
-   **accesses** (public / `chatInvitePeek`) them. This selects which documented
-   Telegram mechanism applies and therefore the Problem 1 fix.
+1. **Support every source chat type (owner-stated requirement, 2026-10-30):**
+   the fix must work for private chats, basic groups, supergroups, and
+   channels. This is a **type-agnostic uniform action** (see facts-and-model
+   "Owner requirement"): `OpenChat` on every ruleset source chat in Budva's
+   own session — a no-op for private/basic-group, the real fix for
+   channels/supergroups. The **source chat type + membership** are no longer
+   a *design* fork — they are a **diagnostic** input (which documented
+   mechanism explains the observed coupling; a silence on a private/basic-
+   group is a separate bug: B1a/B2/D).
 2. **Loss policy:** best-effort (droppable) vs must-not-lose?
 3. **Duplicate policy:** are duplicate deliveries acceptable?
 4. **Ordering scope:** global / per-endpoint / per-chat / none?
