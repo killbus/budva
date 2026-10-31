@@ -381,8 +381,9 @@ platform.
 1. **Support every source chat type (owner-stated requirement, 2026-10-30):**
    the fix must work for private chats, basic groups, supergroups, and
    channels. This is a **type-agnostic uniform action** (see facts-and-model
-   "Owner requirement"): `OpenChat` on every ruleset source chat in Budva's
-   own session — the **channel/supergroup** classes that are open-state-gated
+   "Owner requirement"): `OpenChat` on every ruleset **channel/supergroup**
+   source chat in Budva's
+   own session — the open-state-gated classes
    (private/basic-group sources are NOT OpenChat'd: a client does not open
    every chat, and those ride the global stream anyway). The **source chat type + membership** are no longer
    a *design* fork — they are a **diagnostic** input (which documented
