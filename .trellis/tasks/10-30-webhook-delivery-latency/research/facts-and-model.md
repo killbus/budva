@@ -191,11 +191,13 @@ most client-like N-open behavior"):
   a **desktop client with N channel windows left open** does, **not** what a
   phone user does (a phone client holds ~1 open and closes on switch). Correcting
   the record: keep-open is *a behavior a client performs* (an unclosed tab), not
-  *the typical* client behavior. The footprint is only distinguishable at large N,
-  or **if the Budva account is the owner's daily phone account** (no comparable
-  profile). If Budva runs a **dedicated forwarding account**, it has no "normal
-  human profile" to deviate from — its footprint is self-contained, and opening
-  its subscribed channels reads as *more* like a real active user, not less.
+  *the typical* client behavior. The footprint (N channels open, held) is the
+  desktop-multi-window shape. Whether/how that reads as "conspicuous" is a
+  **non-client-baseline observation** — it evaluates against a hypothetical
+  detector, not against "does a client do this," so it is **outside the
+  conformance benchmark and not a design variable**. The dedicated-vs-shared
+  account axis does not enter the conformance computation (revised, owner
+  correction 2026-11-02); the only load-bearing account fact is user-vs-bot.
 
 **Inherent (document, don't mitigate):** view/active counts — an open dialog
 contributes by definition; the footprint **is** the fix.
@@ -370,9 +372,12 @@ reading the pinned source, no experiment)
 **Remaining before implementation (not source-confirms):** (4) **lifecycle +
 stagger design** (re-auth re-open, hot-reload add/remove, limiter-staggered
 initial batch) against the seams at `cmd/engine/main.go:168` / `main.go:183-196`
-— an implementation-design step; (5) **dedicated vs shared account** — an owner
-*fact* that affects only a footprint-risk term, not the design. Decides whether the "combined/scale" footprint
-   is distinguishable at all.
+— an implementation-design step. (5) **dedicated vs shared account — not a
+design variable (revised, owner correction 2026-11-02).** Conformance is a
+client-fact and account-agnostic: it is judged by what a client does, never by
+the account's attributes. The footprint's conspicuousness to a hypothetical
+detector is a non-client-baseline observation, outside the "behave like a
+client" benchmark — **no owner input required, and no remaining gate.**
 
 ## Owner inputs are NOT blocking the Problem-1 fix (reframe)
 

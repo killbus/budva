@@ -531,15 +531,21 @@ budget (owner-informed); no read API in the client log.
 - **View / active-count footprint is inherent.** An open dialog contributes to
   view/active counts by definition; the footprint *is* the fix (the session must
   own the open state). Not a risk to mitigate — documented, per the record.
-- **Identical under either account fact (Franklin).** The design is **the same
-  whether Budva runs a dedicated forwarding account or the owner's daily phone
-  account**. The account fact moves only the **risk weight** (how conspicuous the
-  footprint is at large N — a dedicated account has no "normal human profile" to
-  deviate from, so N open channels read as a normal active user; a daily phone
-  account with N channel windows held open is the desktop-multi-window shape). It
-  does **not** change the mechanism. **The design can be finalized now**; the
-  account fact is a **sign-off risk input, not a design gate** (it does not block
-  Gate A/B or the go-ahead).
+- **Conformance is a client-fact, and it is account-agnostic (revised, owner
+  correction 2026-11-02).** The benchmark is *"does an official client do this?"*
+  — answered by **client facts** (the normative spec, the pinned engine source,
+  the precedent survey), never by the account's attributes. A client on **any**
+  user account issues the same RPCs and holds the same open state, so the
+  **dedicated-vs-shared axis is not a design variable — it drops out of the
+  conformance computation entirely.** The footprint (N channels open, held) is a
+  *consequence of the fix* (the session must own the open state), inherent to
+  it; that it is the desktop-multi-window shape is a property *of the
+  footprint*, and whether a hypothetical detector would read it as unusual is a
+  **non-client-baseline observation, outside the "behave like a client"
+  benchmark** — not a risk-weight input, not a sign-off input, not a gate. The
+  **one** account fact that *is* load-bearing is **user-vs-bot**, and that is
+  the API's own client contract (`open_dialog` `CHECK(!is_bot)`, §5), not a
+  design choice. The design can be finalized now.
 - **Large-N (20–50 sources) tail latency — owner-informed acceptance.** At N>10
   the engine defers (10-poll cap, FIFO, `TDlib`:36854/36860); deferred sources
   still acquire but with **real catch-up latency after a cold start**. This is

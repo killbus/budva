@@ -38,7 +38,7 @@ the Stage 2 revision.
 | E | Resources / backpressure / scale | **Holds** | No open-set shrink; >10 deferred by engine FIFO (no starvation) as a declared trade-off; no unbounded growth. Large-N (20–50) catch-up tail latency is an owner-informed-acceptance item, not a design defect (R8). |
 | F | Failure & rollback | **Holds** | Never fail the ruleset load; pending set; bot-guard fatal-to-feature (loud, correct). **Caveat folded into R4**: "retry on the next edge" does not converge when no next edge exists (single source, no reload, no re-auth) — in-edge bounded retry is REQUIRED. |
 | G | Observability & acceptance | **Conditional** | CI/box split honest; "no read API in client log" is a good box signal. **Fake CI identified**: the re-auth re-open test bumped a counter and bypassed the real signal path (R7); stagger had no acceptance signal (R7); cgo-CI is a link signal, not behavior. |
-| H | Conformance / compliance | **Holds** | Shape precedent-backed (3 production libs); RPC 0-risk; no read API; view/active footprint inherent. Design is **identical under either account fact** (dedicated vs shared) — the account fact moves only the risk weight, not the mechanism → finalizable now; account fact is a sign-off input (R8). |
+| H | Conformance / compliance | **Holds** | Shape precedent-backed (3 production libs); RPC 0-risk; no read API; view/active footprint inherent. Conformance is a **client-fact and account-agnostic** (revised, owner correction 2026-11-02): judged by what a client does (spec + pinned source + precedent), never by the account's attributes — the dedicated-vs-shared axis is **not a design variable** and drops out (the footprint's conspicuousness to a hypothetical detector is a non-client-baseline observation, outside the benchmark). The one load-bearing account fact is **user-vs-bot** (`CHECK(!is_bot)`, the API's own contract). |
 | I | Scope & exclusions | **Holds** (all 4) | §9 re-verified: no hand-built poller, no Problem-2 absorption, no in-test real-time assertion, no read API, no shrinkage. |
 | J | Prior art / reinvention | **Holds** | Adopt/deviate/novel each cited; OpenChat-holds-N honestly marked NOVEL/engine-closed and a Gate B target, not falsely backed by precedent. |
 | K | Cost / risk / inversion | **Holds** | Cheap, reversible (plain set; ref-count only if a second open-origin ever appears). Asymmetry: missed-open = the bug recurs; extra-open = harmless footprint. |
@@ -105,8 +105,8 @@ deletion + adapter-swap trigger. R3 repo-callback wiring, no fan-out. R4
 in-edge bounded retry REQUIRED. R5 stagger async (Replace is
 sync-under-lock). R6 local pacing + P1-R3 wording. R7 §6 fake-CI fix +
 stagger acceptance signal + 1e12 classifier test. R8 §8 conformance update
-(account fact = risk weight only; large-N tail latency = owner-informed
-acceptance). R9 §8/§9 citation + exclusion re-check.
+(account fact = non-design-variable, account-agnostic client-fact; large-N tail
+latency = owner-informed acceptance). R9 §8/§9 citation + exclusion re-check.
 
 ---
 
