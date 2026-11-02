@@ -7,7 +7,8 @@
 > `research/<design>-dimensions.md`; precedent findings to
 > `research/precedent-openchat-lifecycle.md`.
 
-**Status**: Stage 2 revised; Gate B pending.
+**Status**: Stage 2.5 done (Gate A R1–R9 + Gate B SB1–SB4 folded); Stage 3
+convergence pending.
 
 ---
 
@@ -291,6 +292,19 @@ would inherit that loss → **silent silence after a session reset**. Firing in 
 swap critical section (the same line the dialog table is swapped) is the correct,
 loss-free point.
 
+**Callback lifetime (Revised, Gate B — SB2).** The callback is the **single
+trigger** for the whole fix, and `runAuthLoop` is **one-shot**: if the opener's
+swap callback is **not registered before the repo's `Start` is called** (i.e.
+before the one-shot `runAuthLoop` reaches its swap critical section), the swap
+fires with no listener, the fix **never runs, with no error**, and a restart
+reproduces the same ordering — **permanent total silence**. Two guards:
+(1) **register the callback before `Start`** (wiring order in `cmd/engine`;
+the opener must be constructed and its callback set before
+`telegramRepo.Start(ctx)`); (2) **log a WARN if the callback is nil at swap
+time** (inside the repo's swap critical section) so the failure is no longer
+silent. The **cold-restart** box check (§6, SB1/SB2) is what proves the wiring
+actually fires end-to-end.
+
 **The remaining (single) ordering hazard — reload vs. startup-swap overlap.**
 A hot-reload `ApplySet` (edge 2) and the startup-swap `ApplySet` (edge 1) run on
 the **same** `SourceOpener` (one mutex). `ApplySet` is a pure diff against
@@ -306,6 +320,22 @@ diff + in-flight guard. **Revised (Gate A):** the Stage 1 hazard was
 overlap is reload-vs-startup-swap, and it is resolved by the same diff + the
 in-flight guard (plus async execution, §1, so a slow open batch cannot block the
 reload's diff).
+
+**The async invariant (Revised, Gate B — SB3).** Because the open batch runs
+**async** (§1/§4), a hot-reload that *adds* a source can, for a brief window,
+push a message for that source **before the source is fully open** (the
+`GetChat`→`OpenChat` for it is still in flight). The correct invariant is
+therefore **not** "source open before its first push" (that was silently relaxed
+by R5's async execution) but **"eventually open + backfilled"**: a push that
+lands in the open in-flight window is at worst **delayed**, never **lost**,
+because the open's own diff fetch (`open_dialog`, pinned `mm.cpp:19593`)
+**backfills** any messages the channel produced since the session's last `pts`
+once the open completes and the engine resumes the re-poll. To start that
+backfill as soon as possible, **order `ApplySet` before
+`SetRuleSetWithPush` in the `Replace` callback** (`main.go:168`): the open set
+is driven first, then the push generation swaps in. *(Honest flag: "the backfill
+flows through the update pipeline as `updateNewMessage`s" is engine behavior, not
+something we assert in code; the SB1 quiet-channel box check also covers it.)*
 
 ### §4 — Stagger
 
@@ -360,7 +390,12 @@ and is **retried within the same apply edge, with a bounded backoff**, by the
 background goroutine from §1. **Rationale (Popper/Kahneman):** with a single
 source, no reload, and no re-auth, there is **no "next edge"** — "retry on the
 next edge" would **never converge**, so the in-edge retry is what makes a failed
-open recover without an external event. Per ID:
+open recover without an external event. **Revised (Gate B — SB4, the retry ctx):**
+the retry goroutine must run under the **opener's lifecycle ctx** (the same ctx
+that outlives any single `ApplySet`), **not** a per-edge / per-reload ctx —
+otherwise a hot-reload that fires while a retry is in flight would cancel that
+retry (it belongs to an *earlier* batch, not the reload), re-introducing the
+"no next edge" starvation. Per ID:
 
 | Failure | Detection | Semantics |
 |---|---|---|
@@ -430,10 +465,23 @@ re-open heartbeat.
   channel/supergroup source, Budva's session still receives that source's new
   messages (the actual bug symptom: silence when no session has it open).
   This CANNOT be asserted in any test (needs a live account + server open-state).
+- **Quiet-channel re-arm persistence (Revised, Gate B — SB1):** a
+  **point-in-time** arrival test only proves "it can start"; it cannot catch the
+  one way the foundation could still fail — the re-poll chain going quiet after
+  a channel has been idle for a full re-arm period. So the box check must
+  include a **quiet channel re-tested after one full re-arm period** (not merely
+  minutes after deploy): confirm the source is still acquiring (new messages
+  arrive) even though it was silent across a whole server-`timeout` re-arm
+  cycle. **This is the only acceptance that closes the server-side half of the
+  foundation** (the client-side firing is already source-pinned —
+  `open_dialog:19593` start, `:37413` non-final, `:37423` final re-arm — see
+  `research/design-dimensions.md`, Gate B source-confirm).
 - **Startup-swap / re-auth open wiring**: after a **live** session reset
   (re-auth, or process restart), the open set is fully re-opened — the adapter-swap
   callback firing inside a real `runAuthLoop` swap (see CI test above for the
-  mock; this is the live trigger).
+  mock; this is the live trigger). **Revised (Gate B — SB2):** this must include
+  a **real cold restart** (not just a live re-auth), because the callback's
+  lifetime is the single thing that determines whether the fix fires at all (§3).
 - **N>10 FIFO behavior**: with >10 channel/supergroup sources, deferred sources
   still acquire (no starvation) — observed at runtime (the engine's unbounded FIFO,
   `TDlib`:36854/36860; source-confirm 2).
@@ -451,8 +499,10 @@ positive row defensive-only), diff/`OpenChat`/`CloseChat` id-set + `GetChat`-bef
 `OpenChat` ordering + idempotency, stagger pacing (injectable pace), adapter-swap
 callback → full `ApplySet`, in-edge bounded retry (pure-Go, mocked adapter), and
 cgo-CI adapter link. *Box-only* = real-time arrival with owner's client closed;
-live re-auth/restart open wiring; N>10 no-starvation; large-N tail-latency budget
-(owner-informed); no read API in the client log.
+**quiet-channel re-arm persistence (re-test after one full re-arm period —
+closes the server-side half of the foundation)**; live re-auth/restart open
+wiring **including a real cold restart**; N>10 no-starvation; large-N tail-latency
+budget (owner-informed); no read API in the client log.
 
 ### §7 — Conformance (shape vs mechanism)
 
@@ -513,22 +563,29 @@ live re-auth/restart open wiring; N>10 no-starvation; large-N tail-latency budge
 
 ### §9 — Exclusions re-check (from the Frame; confirm none absorbed)
 
-Re-verified after R1–R8 (the re-auth collapse in R2 does **not** absorb any of
-the five exclusions).
+Re-verified after R1–R8 **and SB1–SB4** (the Gate B revisions do **not** absorb
+any of the five exclusions: SB1 adds a box-only check, SB2 is wiring order + a
+log line, SB3 is the in-callback ordering + backfill statement, SB4 is the
+retry's ctx).
 
 | Frame exclusion | Status in this revised draft |
 |---|---|
 | **Hand-built Go `getChannelDifference` poller** | **Not absorbed.** `SourceOpener` has **no timer/re-poll of its own**; it only issues `GetChat`/`OpenChat`/`CloseChat` (the stagger sleep is pacing, not a channel-difference poller). The re-poll is the engine's (P1-R5). §1/§7 make this the *central* layering point. |
 | **Problem 2 (endpoint HOL)** | **Not absorbed.** R5's async execution keeps `ApplySet` out of the `pushManager.Replace` critical section — it **relieves** the send path, and adds no dispatcher/concurrency/timeout work; the draft still only adds the open-set lifecycle. |
-| **Asserting real-time delivery in any test** | **Held.** Real-time arrival, live re-auth/restart open wiring, and N>10/large-N no-starvation are **box-only** (§6). CI asserts only that `OpenChat`/`CloseChat` are *called* correctly (diff, ordering, idempotency, stagger pace, adapter-swap → full `ApplySet`) — the adapter-swap CI test asserts the *trigger fires a full ApplySet* (mocked), **not** that updates arrive. |
+| **Asserting real-time delivery in any test** | **Held.** Real-time arrival, the **quiet-channel re-arm persistence (SB1)**, live re-auth/restart open wiring, and N>10/large-N no-starvation are **box-only** (§6). CI asserts only that `OpenChat`/`CloseChat` are *called* correctly (diff, ordering, idempotency, stagger pace, adapter-swap → full `ApplySet`) — the adapter-swap CI test asserts the *trigger fires a full ApplySet* (mocked), **not** that updates arrive. |
 | **Any read API (`readHistory`-class)** | **Not added.** The opener issues no read RPC; `GetChat` (resolve/prime, §2) is a *read of chat metadata*, not a `readHistory`/mark-read — it does not advance `pts`/mark read. Box-verified in §6 (client log shows no mark-read). |
 | **Shrinking the open set to non-member channels** | **Not absorbed.** The open set = **all** channel/supergroup sources (no membership filter, no shrink-to-non-member); §2/§5 keep all. |
 
 **Exclusions honored.** No hand-built poller, no Problem-2 scope, no in-test
 real-time assertion, no read API, no open-set shrinkage — after the re-auth
-collapse (R2), the local stagger (R6), and the async execution (R5).
+collapse (R2), the local stagger (R6), the async execution (R5), and the Gate B
+revisions (SB1–SB4).
 
 
 ## Gate A / Gate B verdicts
 
-*(pending — output: `research/design-dimensions.md`)*
+Complete in `research/design-dimensions.md` (Gate A: conditional pass →
+R1–R9; Gate B: pass with Stage 2.5 → SB1–SB4, including the T1
+source-confirm that refuted the "chain never starts" inversion). This file is
+the converged design; the verdict trace lives alongside the precedent file in
+`research/`.
