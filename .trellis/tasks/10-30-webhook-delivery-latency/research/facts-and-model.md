@@ -1,19 +1,234 @@
-# Facts & queueing model — webhook delivery latency (10-30)
+# Facts & converged model — webhook delivery latency (10-30)
 
 Forward, self-contained record for task `10-30-webhook-delivery-latency`.
-Baseline: `main` @ `415d90c` (post 10-29 push-stall fix, PR #7, v0.3.1).
-All paths repo-relative. **Producer-side only**: the webhook receiver is a
-black box (accepted / rejected(class) / unreachable); nothing here changes it.
+Baseline: code `main` @ `415d90c` (post 10-29 push-stall fix, PR #7, v0.3.1).
+**Status (2026-11-01):** the root cause of the headline symptom is
+**converged** and the fix direction is **converged**; all three
+implementation source-confirms (idle-open re-poll, >10 queueing,
+member-channel idle delivery) are **resolved** by reading the pinned source.
+What remains is lifecycle/stagger design + the owner's go-ahead. The record
+was reset off main (`bb0519b`) on 2026-11-01 and lives on branch
+`docs/10-30-type-agnostic-requirement` pending owner sign-off. All paths
+repo-relative. **Producer-side only**: the webhook receiver is a black box
+(accepted / rejected(class) / unreachable); nothing here changes it.
+
+## The two problems, and which is real
+
+| | Symptom | Status |
+|---|---|---|
+| **Problem 1 (HEADLINE)** | 10-minute window of **zero** inbound requests (text + media), coupled to the official client not having the chat **open**; a burst on open | **Root cause converged** (this record) |
+| **Problem 2 (secondary)** | steady-state per-message queue-wait behind the serial per-endpoint worker (≤60 s at `timeoutSeconds:60`) | **Downgraded to "potential, unobserved"** — no owner-observed per-message delay; see its section |
+
+Everything below leads with Problem 1. The pipeline / G-G-1 / exclusion
+sections are kept because Problem 2 reuses them.
 
 ## Symptom (as observed, 2026-10-30)
 
 A message visible in the official Telegram client is **not** observed as an
-inbound POST by the same-host receiver until **several minutes later**. Same
-machine — not network transit. The delay is **finite** (requests eventually
-arrive); it is **not** the 10-29 self-deadlock (which was *infinite*: zero
-inbound, idle push worker, restart required).
+inbound POST by the same-host receiver until **several minutes later** — or,
+in the headline case, not at all for a 10-minute window, then a catch-up burst.
+Same machine — not network transit. The delay is **finite** (requests
+eventually arrive); it is **not** the 10-29 self-deadlock (which was *infinite*:
+zero inbound, idle push worker, restart required).
 
-## The delivery pipeline, with the latency-relevant segments
+**The decisive coupling (owner, 2026-10-30, repeated):** while watching the
+gateway inbound log, staying on the official client's **chat list** (chat NOT
+opened) shows chat activity but produces **no** webhook request; the moment the
+chat is **opened**, a **burst** of inbound requests appears. This invalidates
+the assumption that had been silently carrying the model:
+
+> *Once the official client shows a message, Budva's independent TDLib session
+> must already have received the same `updateNewMessage`.*
+
+The official client and Budva are **separate sessions** (distinct local DB,
+update state, transport). The client's chat-list rendering establishes the
+state of *that* client, not the update-publication stage reached by Budva.
+
+## Root cause (converged 2026-11-01): Budva does not own the acquisition boundary of its ruleset sources
+
+**What is broken (stated at the first-principles level).** The product contract
+is declared by the ruleset: "source chat X's messages → endpoint Y". But *how*
+X's updates reach **Budva's own session** is never asserted by Budva. Budva is a
+**passive** subscriber that rides the account's update stream and never claims
+any chat-open state. Telegram's per-chat delivery policy for channels/supergroups
+is a function of *which sessions are actively acquiring that channel*, so a
+session that never opens a channel can go **silent** for that channel — with the
+recovery timing controlled by a condition **outside** Budva (someone else opening
+it). **No latency bound exists for those messages; there is an acquisition gap,
+not a slow delivery.** "Finite delay" is the wrong noun for the headline: it is
+*delivery absence until an external trigger*.
+
+**The mechanism, by chat class (open-state gating):**
+- **Channels / supergroups (any size — no protocol threshold):** updates are
+  **open-state-gated**. The pinned engine recovers a detected gap **only if** the
+  dialog is open or the account is a member (below); the periodic
+  `getChannelDifference` re-poll runs **only while** the dialog's open state is
+  held. A session that never opens the channel is not an active acquirer for it.
+- **Cross-session passive updates (why the owner's observation works):** for a
+  **non-member** public channel/supergroup (or a private one via `chatInvitePeek`),
+  **any** session that keeps polling that channel's difference causes the API to
+  passively push that channel's updates to **all** logged-in sessions. So the
+  official client opening the chat starts its own poll → the account's Budva
+  session (and any other session) starts receiving → **burst**; closing the chat
+  stops the poll → silence resumes.
+- **Member channels/supergroups:** the API *usually* sends passive updates but
+  *may stop or reduce* them; a member session that is not actively polling is
+  still subject to deferral.
+- **Private chats / basic groups:** NOT open-state-gated — they ride the **global
+  update stream** (common message-ID sequence + `getDifference` seq-gap recovery),
+  not per-channel difference. A 10-minute silence on a private/basic-group
+  source is a **separate bug** (transport/session, local backpressure, or reload
+  gap), not this mechanism.
+
+**Three-layer evidence (this is why the experiment was withdrawn):**
+
+1. **Normative spec** — `core.telegram.org/api/updates`, "Subscribing to updates
+   of channels/supergroups" (fetched 2026-11-01): *"The API will usually send
+   passive updates ... for channels/supergroups the user/bot is a member of.
+   However, in some cases the API may stop sending updates (or send fewer
+   updates) ... thus clients (user accounts only) should also additionally invoke
+   `updates.getChannelDifference` periodically for channels and supergroups the
+   user is currently viewing (i.e. explicitly opened ...)".* Non-final diff →
+   re-invoke immediately; final → re-invoke after the returned `timeout` seconds
+   (else 1 s). *"This mechanism may also be used to enable passive reception of
+   updates from channels or supergroups we're not a member of ... the API will
+   start passively sending updates ... to all logged-in sessions, as long as any
+   of the sessions continues to periodically invoke `updates.getChannelDifference`
+   every `timeout` seconds."* *"Clients should stop ... polling once the user
+   closes the channel/supergroup: the API may continue emitting passive updates
+   only if the user is a member."* *"Clients should also limit to 10 the maximum
+   number of channels/supergroups short-polled."*
+
+2. **Pinned engine source** — TDlib commit `22d49d5` (the exact commit go-tdlib
+   v0.7.6 pins), `td/telegram/MessagesManager.cpp`:
+   - `open_dialog` (:19524): `CHECK(!is_bot)`, `open_count++`, `was_opened = true`
+     (and only in the empty-chat edge case calls `read_history_inbox` — a normal
+     open does **not** mark the channel read).
+   - `add_pending_channel_update` (:7206): on a detected pts gap,
+     `if (d->was_opened || is_member || sponsored) { get_channel_difference(...) }
+     else { /* drop */ }` — **gap recovery is gated on open/member state**; a
+     never-opened, non-member channel is dropped, not recovered.
+   - `on_update_channel_too_long` (:6274): triggers `get_channel_difference`.
+   - re-poll is **open-gated**: `on_get_channel_difference` reads the returned
+     `timeout_` and `if (timeout > 0 && d->open_count > 0) add_timeout_in(...)`
+     — **the periodic poll self-continues only while the dialog stays open.**
+   - `close_dialog` (:19640): `open_count--`; at 0 the poll loop stops and
+     viewed/interaction state is cleared.
+   - `MAX_CONCURRENT_GET_CHANNEL_DIFFERENCES = 10` (:36860) — the engine itself
+     caps simultaneous channel-difference polls at 10; `retry_get_channel_difference_later`
+     (:37233) backs off 1 s → ×2 → cap 60–80 s.
+
+3. **go-tdlib v0.7.6 architecture** — module cache: it is a **CGO shell over the
+   C++ TDlib** (`client/tdlib.go`: `#include <td/telegram/td_json_client.h>`,
+   `td_execute`/`td_receive`, links `-ltdjson`). So **the full TDlib engine —
+   including the channel-difference poller above — already runs inside the Budva
+   process.** The Go side only needs to send the one application-level RPC
+   `OpenChat` (wrapper present at `client/function.go:7790`); it does **not**
+   reimplement MTProto. **Budva's session currently never calls `OpenChat`**
+   (source-verified: no `OpenChat`/`CloseChat`/`ViewMessages`/`getChannelDifference`
+   anywhere in the repo; the `ViewedMessages` symbols are Budva's own
+   forwarding-stats counter, not the TDlib API).
+
+Read together, the observation is exactly reproduced: **list-only → no session
+is polling the channel → Budva's session is not an active acquirer → silence;
+open → the client's session polls → (non-member: cross-session; member: that
+session's own polling) Budva's session receives the deferred updates → burst.**
+
+## The fix (converged): `OpenChat` each channel/supergroup source, keep it open
+
+For **each channel/supergroup source chat in the ruleset**, Budva calls
+`OpenChat` **on its own session** and **keeps it open** (never sends `CloseChat`
+unless the chat is removed from the ruleset). That one call makes Budva's session
+an **active acquirer**: the in-process engine then owns gap recovery
+(`was_opened=true` at :7206) and the periodic re-poll (`open_count>0` re-arm),
+so the channel's updates reach Budva **independently of whether the official
+client has it open**.
+
+- **Open once, keep — no periodic re-open.** The poll self-continues while
+  `open_count>0`; `OpenChat` establishes state, it is not a token to refresh.
+  Re-open happens only at **state-reset points**: after **re-auth** (TDlib resets
+  dialogs) and after **process restart** (`open_count` is in-process).
+  `OpenChat`/`CloseChat` fire only on state-change edges (startup, re-auth,
+  ruleset add/remove), never as a heartbeat.
+- **Keep ALL sources open — one `OpenChat` per source, not one held open at a
+  time.** Acquisition is per-channel state: closing/rotating source A drops A's
+  poll and re-introduces the silence for A; rotation means N−1 sources are
+  *permanently* un-acquired. The fix requires N opens for N channel/supergroup
+  sources. (See the engine's own 10-poll cap below for the >10 case.)
+- **Private/basic-group sources are NOT `OpenChat`'d** — they are not
+  open-state-gated and ride the global stream; "support" = the session's global
+  diff is healthy. This also matches a client (a client does not open every
+  chat). **So "support every source type" = one intent (own the acquisition
+  boundary) realized by each class's own client-conformant mechanism** —
+  channels/supergroups via `OpenChat`, private/basic-group via the global stream.
+  The type selects *which mechanism*; each mechanism is a known fact, so the
+  current production type is **diagnostic, not a design input**.
+- **Native, no new component, no hand-built poller.** This is a first-class
+  go-tdlib/TDlib API; the engine already does the polling.
+
+**Scale fact (engine-enforced, not something Budva must write):** the engine caps
+**simultaneous** channel-difference polls at 10 (`MAX_CONCURRENT_GET_CHANNEL_DIFFERENCES`),
+re-polls at the **server-returned** `timeout` (server-paced, not amplifiable),
+and does not emit open/close churn. With >10 channel/supergroup sources the
+engine queues them (11th waits), so **not all sources are strictly real-time at
+very large N** — an inherent scale trade-off to note, not a reason to "keep only
+one open".
+
+## Conformance assessment (owner's first-principles benchmark)
+
+The design benchmark is **"what would an official client do?"** — re-evaluated
+across three layers (correcting an earlier over-claim that "open-once-keep is the
+most client-like N-open behavior"):
+
+- **Mechanism layer — 0 risk.** Every RPC Budva sends (`openChat` /
+  `getChannelDifference` / `closeChat`) is one an official client sends
+  continuously; there is no non-client RPC.
+- **Single-chat shape — conformant.** "open once, then zero calls, engine
+  self-re-polls, never close" **is** a client's real terminal state (a tab/dialog
+  left open). No client heartbeats or re-opens.
+- **Combined / scale shape — NOT typical of a phone user; it is desktop
+  multi-window client behavior.** "N sources all open, held statically" is what
+  a **desktop client with N channel windows left open** does, **not** what a
+  phone user does (a phone client holds ~1 open and closes on switch). Correcting
+  the record: keep-open is *a behavior a client performs* (an unclosed tab), not
+  *the typical* client behavior. The footprint is only distinguishable at large N,
+  or **if the Budva account is the owner's daily phone account** (no comparable
+  profile). If Budva runs a **dedicated forwarding account**, it has no "normal
+  human profile" to deviate from — its footprint is self-contained, and opening
+  its subscribed channels reads as *more* like a real active user, not less.
+
+**Inherent (document, don't mitigate):** view/active counts — an open dialog
+contributes by definition; the footprint **is** the fix.
+
+**Dissolved:** compliance (dedicated-account / datacenter-IP / flood — a
+user-account daemon is the product's pre-existing architecture; the marginal RPC
+profile is "a user who keeps their N channels open"); **read receipts** — an
+official client does not mark a channel read on `openChat` (that is a separate
+`readHistory`-class call the UI issues); conformance = **Budva never calls any
+read API** (the default — it does not forward reads).
+
+**Standing discipline + four guardrails (the client-plausible part):**
+(1) open **only ruleset source chats**, never the account's other chats;
+(2) **stagger** the initial/re-auth `OpenChat` batch (reuse
+`internal/service/limiter`) — do not fire N `openChat` in the same instant;
+(3) **open-once-keep, no periodic toggle** (toggle churn is the non-human
+signature, and re-introduces the deferred state = the bug);
+(4) **do not fight the engine's 10 cap** (no logic to bypass its queueing).
+
+## Problem 2 (secondary, downgraded to "potential, unobserved"): steady-state endpoint HOL
+
+The serial per-endpoint worker + cap-256 buffer + single-attempt sink is a real
+**code property**, but there is **no owner-observed per-message queueing delay** —
+so per the "does the problem even hold" criterion it is not yet a *problem*, only
+a **potential contributor** to verify **if** per-message delay is ever observed.
+It is **not** a conformance question (a client does not queue webhook HTTP POSTs)
+and is a **separate leg** from Problem 1. The 4 product decisions (loss /
+duplicate / ordering / receiver `T`+fast-ack) **belong to this leg**, and this leg
+has no observed symptom — so **none of them gates the Problem-1 fix**.
+
+Its analysis (kept for when/if it is needed):
+
+### The delivery pipeline, with the latency-relevant segments
 
 ```
 TDlib update
@@ -27,587 +242,179 @@ TDlib update
   -> receiver (black box)
 ```
 
-Source anchors (these are the **source-confirmed facts**):
-
+Source anchors (source-confirmed facts):
 - `internal/infra/telegram/repo.go:431` — `r.updates <- typ` (cap-100, ms).
-- `internal/app/handler/service.go:352` — `SubmitV2` called **in the Run
-  loop**, *before* any forwarding/statistics task is `Add`-ed to the shared
-  task queue (`service.go:365`). So ordinary NEW text does **not** traverse
-  the shared task queue on its push path.
-- `internal/service/push/dispatcher.go:100` — `go generation.runWorker(worker)`
-  once **per endpoint**.
+- `internal/app/handler/service.go:352` — `SubmitV2` called **in the Run loop**,
+  before any forwarding/statistics task is `Add`-ed to the shared task queue
+  (`service.go:365`). Ordinary NEW text does **not** traverse the shared task
+  queue on its push path.
+- `internal/service/push/dispatcher.go:100` — one `runWorker` **per endpoint**.
 - `internal/service/push/dispatcher.go:214-237` — `runWorker` is a **serial**
-  `for rend := range worker.queue`; it calls `worker.sink.Push` and blocks
-  until it returns before reading the next envelope.
+  `for rend := range worker.queue`; blocks until `sink.Push` returns.
 - `internal/service/push/dispatcher.go:16,86` — per-endpoint buffer, default
   capacity **256**.
-- `internal/service/push/dispatcher.go:157-165` — `Submit` is a **non-blocking**
-  send; a full buffer → `SubmitRejectedBufferFull` + WARN `buffer_full`.
+- `internal/service/push/dispatcher.go:157-165` — `Submit` is **non-blocking**;
+  a full buffer → `SubmitRejectedBufferFull` + WARN `buffer_full`.
 - `internal/service/push/webhook.go:11` — `defaultWebhookTimeout = 5s`;
-  overridable per endpoint by `timeoutSeconds`
-  (`internal/domain/ruleset.go:35`).
-- `internal/service/push/delivery.go:167-172` — `Push` calls `client.Do` and
-  then **drains the response body**; the worker is occupied until the
-  **response** returns, not when the request is sent.
-- `internal/service/push/delivery.go:133-139` — `singleAttemptTransport`: the
-  sink makes **exactly one** attempt; no application retry loop.
+  overridable per endpoint by `timeoutSeconds` (`internal/domain/ruleset.go:35`).
+- `internal/service/push/delivery.go:167-172` — `Push` calls `client.Do` then
+  **drains the response body**; the worker is occupied until the response returns.
+- `internal/service/push/delivery.go:133-139` — `singleAttemptTransport`: exactly
+  one attempt; no application retry loop.
 
-## What a message's end-to-end delay decomposes into
-
-For one ordinary NEW-text event, three intervals sum to the observed gap:
+### How a message's delay decomposes (if Problem 2 ever manifests)
 
 | span | what it is | source |
 |---|---|---|
-| `T2−T1` | update receipt → `SubmitV2` (TDlib receipt, dispatch, filter) | `service.go:352` |
-| `T2−T3` | `SubmitV2` accepted (enqueue) → worker starts `http.Client.Do` (**endpoint buffer queue wait**) | `dispatcher.go:214-219` |
-| `T3−T4` | `http.Client.Do` start → receiver records arrival (HTTP/TLS/ingress) | `delivery.go:167` |
+| `T2−T1` | update receipt → `SubmitV2` | `service.go:352` |
+| `T2−T3` | `SubmitV2` accepted → worker starts `http.Client.Do` (**endpoint queue wait**) | `dispatcher.go:214-219` |
+| `T3−T4` | `http.Client.Do` start → receiver arrival (HTTP/TLS/ingress) | `delivery.go:167` |
 
-(`T1` = Budva receives the Telegram update; `T2` = accepted into the endpoint
-queue; `T3` = worker starts the delivery attempt; `T4` = receiver records
-arrival; `T5` = response completes at Budva.)
+### The queueing model — G/G/1
 
-For per-message delay in steady operation, the suspected dominant interval
-is **`T2−T3`** (local queue wait before the request is sent), which is why
-same-host deployment does **not** by itself disprove the mechanism. (This
-interval is *bounded* — HOL is capped at `timeoutSeconds` — so it cannot
-explain the owner's 10-minute **total-silence** window; that is a separate,
-upstream mechanism, corrected in the hypothesis section below.) **However, `T3−T4` (HTTP / receiver ingress) is not
-yet excluded** — the receiver's own response behavior has not been observed —
-so which interval actually dominates in production is **open**. The design
-resolves this **without production timing collection**: a **controlled
-slow-receiver test** (Phase 0) holds `T3−T4` constant (the stub sleeps a fixed
-`T`) and shows the Budva-side delay landing in `T2−T3` growing linearly — the
-dominant-interval question is thereby answered in a deterministic, reproducible
-way before the concurrency boundary changes. The payload carries `OccurredAt`
-(= `T2`, stamped at `SubmitV2`), so the receiver can later measure
-arrival-minus-`OccurredAt` (= `T2→T4`) with zero Budva code change (a
-post-deploy aid, Phase 0b); the producer-side enqueue/pickup stamps add the
-`T2−T3` / `T3−T4` split for the same post-deploy verification.
+One endpoint, one serial worker. `λ` = arrival rate, `B` = actual per-request
+service time (the full `client.Do` round-trip incl. body drain), `E[B]` its
+expectation, `timeout` an **upper bound** on `B` (so `1/timeout` is a
+worst-case **lower** service-rate bound, not the actual rate).
 
-## The queueing model — G/G/1, with a correct stability statement
+- **Stability** `ρ = λ·E[B] < 1`: conditionally stable; a burst drains when
+  `ρ<1`, grows when `ρ>1`. Bound uses `E[B]`, not the timeout.
+- **Worst-case wait** `queue_wait(event) ≤ requests_ahead × timeout` — a
+  **worst-case upper bound only**; the wait grows **linearly** (arithmetic) in
+  the service times ahead, **not** exponentially.
 
-One endpoint, one serial worker. Model it as a **G/G/1** queue (arbitrary
-arrival interarrival and arbitrary service-time distributions, one server).
-Let:
-- `λ` = event arrival rate to the endpoint,
-- `B` = the **actual** per-request service time (the full `client.Do`
-  round-trip including response-body drain, `delivery.go:171-172`),
-- `E[B]` = its **expected** value,
-- `timeout` = the configured per-request timeout, which bounds `B` from above
-  (`B ≤ timeout`), so `1/timeout` is a **worst-case (lower) service-rate
-  bound**, not the actual maximum service rate.
+A minute-scale delay would be *consistent with* a small backlog (3×60 s or
+tens×5 s) **or** many short requests — a plausible example, **not** a production
+conclusion. Production backlog size is not asserted (needs post-deploy
+queue-depth data).
 
-- **Stability** (the general single-server condition, traffic intensity
-  `ρ = λ·E[B] < 1`): the queue is *conditionally* stable. A burst drains and
-  the system returns to ~steady when `ρ < 1` (the observed *finite,
-  self-recovering* delay); when `λ·E[B] > 1` the backlog grows in time. The
-  bound uses `E[B]` (actual mean service time), **not** the timeout.
-- **Worst-case wait bound** (the robust, source-derived inequality):
-  ```
-  queue_wait(event) = sum of the actual service times of the requests ahead
-                    <= requests_ahead * timeout        [worst case]
-  ```
-  This is the statement the timeout *can* support: a large `timeout`
-  amplifies the **upper bound** on a request's worst-case occupancy. It is a
-  **worst-case upper bound only** — it does **not** yield the actual queue
-  length without actual service-time data.
+### Confirmed exclusions (source does not support, for Problem 2)
 
-The wait grows **linearly** (arithmetic) in the service times ahead, **not
-exponentially** — a delayed request does not slow the ones behind it beyond its
-own bounded service time; there is no compounding.
-
-### What a "minute-scale delay" does and does not imply
-
-A few minutes of delay is **consistent with** a small backlog (e.g. 3 requests
-× ~60s each, or tens of requests × a few seconds) **or** with many short
-requests, or with a queue-wait + HTTP-ingress combination. `timeout` gives an
-**upper bound** on one request's occupancy; it does **not** give the observed
-request duration or the actual backlog size. The **production** backlog size is
-therefore not asserted here (it would require post-deploy queue-depth data —
-Phase 0b) and is given only as *plausible examples*, not a conclusion. The
-**dominant interval** (queue wait vs HTTP/ingress), by contrast, is established
-by the **Phase 0 controlled slow-receiver test**, which does not need
-production data.
-
-## Confirmed exclusions (source does not support)
-
-- **"The 1s task-queue ticker is the cause of ordinary NEW-text push delay."**
-  Push delivery runs on the per-endpoint **channel** worker
-  (`dispatcher.go:214`), which has **no tick**; the 1s ticker
+- **The 1 s task-queue ticker is not the cause of ordinary NEW-text push delay.**
+  Push runs on the per-endpoint **channel** worker (no tick); the 1 s ticker
   (`internal/infra/queue/repo.go:51-62`) drives only the shared *task* queue
-  (forwards/stats/album), and ordinary NEW text does not enter it on its push
-  path.
-- **The 10-29 self-deadlock recurring.** That incident was *infinite* (zero
-  inbound, idle worker, restart cures). This is *finite and self-recovering*.
-  The fix (`415d90c`) removed the reentrancy; it did not touch the two
-  pre-existing serialization points this symptom implicates (the shared
-  1-task/second task worker and the serial per-endpoint delivery worker).
+  (forwards/stats/album), which ordinary NEW text does not enter on its push path.
+- **The 10-29 self-deadlock recurring.** That was *infinite* (zero inbound, idle
+  worker, restart cures); this is *finite and self-recovering*.
 - **A hidden Budva retry/backoff explaining the gap.** The sink is
-  single-attempt (`delivery.go:133-139`); a multi-minute gap is not explained
-  by retry backoff in this code.
+  single-attempt (`delivery.go:133-139`).
+- **Endpoint HOL alone explaining the 10-minute silence.** HOL is "slow but
+  continuous" (a request at least every `timeoutSeconds`=60 s); a 10-minute
+  *zero-request* window is an **absence of `SubmitV2`**, i.e. Problem 1, not HOL.
 
-**Not excluded (open):** same-host network/TLS transit and the receiver's own
-response time (`T3−T4`) are **not** ruled out by source alone. The receiver
-response time is a **black-box number the owner supplies** (one `curl` / the
-receiver's access log) and is part of the Phase 1 contract; the Budva-side
-split of the delay into `T2−T3` vs `T3−T4` is pinned down by the **Phase 0
-controlled test** (which holds `T3−T4` constant), with the post-deploy Phase
-0b metrics confirming it on the box. The only transit claim that *is*
-source-supported is that same-host deployment does not *disprove* the pre-wire
-queue-wait mechanism.
+**Evidence gate for Problem 2 (if pursued) = a controlled slow-receiver test**
+(in-repo, fixed `T`, reproduces queue-wait growth linearly, race-clean,
+CI-runnable) — **not** production timing collection. The receiver's per-request
+`T` (the effective `B`) is a black-box number only the owner can supply (one
+`curl -w '%{time_total}'` or the access log); the payload already carries
+`OccurredAt` (`service.go:351`) so the receiver can measure arrival-minus-submit
+for free.
 
-## Model correction (supersedes the endpoint-HOL "leading hypothesis"): the 10-minute silence is an ABSENCE of submissions, not slow delivery
+## Corrections to my earlier record (recorded honestly)
 
-**Observed signature the hypothesis must fit (owner, 2026-10-30):**
-1. There is a **window of 10 minutes or more with ZERO inbound requests**,
-   after which delivery resumes (a catch-up burst).
-2. **The silence is total**: it covers **text and media and everything** — not
-   just albums. (Owner clarification: "静默 = 没有任何信息,当然包括文本/其他
-   内容".)
-3. Production config **`timeoutSeconds: 60`**. Per
-   `cmd/engine/main.go:146-163` this bounds **both** the worker ctx
-   (`dispatcher.go:217`) and the `http.Client`, so one delivery attempt
-   occupies the endpoint worker **at most 60 s**.
+1. **`ChannelPoller.cpp` does not exist.** That filename was invented in an
+   earlier draft (a GitHub code search for it returns 0 results). The
+   channel-difference polling lives in `td/telegram/MessagesManager` (pinned
+   commit `22d49d5`).
+2. **"go-tdlib has no `GetChannelDifference` wrapper → Budva must hand-build a
+   raw `Send` poller" was the wrong direction.** Because go-tdlib is a CGO shell
+   over the C++ TDlib engine, the MTProto layer (including channel-difference
+   polling) runs **inside the engine already**; Budva only sends the
+   application-level `OpenChat`. No hand-built poller.
+3. **source-confirm (a) is resolved:** the pinned TDlib **does** auto-poll the
+   difference of an opened channel (the `open_count>0` re-arm at
+   `on_get_channel_difference`, unconditional on the success path). So the fix
+   is **literally "one `OpenChat` call + keep"**, not "OpenChat + our own poll
+   loop" and no re-poll nudge (all three source-confirms resolved, below).
 
-**What the signature rules out:**
+## Source-confirms — all three resolved (agent's job; closed 2026-11-01 by
+reading the pinned source, no experiment)
 
-- **Endpoint head-of-line blocking (HOL) alone.** HOL is "slow but
-  continuous": the worker emits one request per completed attempt, so the
-  receiver would see a request at least every `timeoutSeconds` = **60 s**. A
-  10-minute *zero-request* window cannot be a slow drain — it is an **absence
-  of `SubmitV2` calls for ~10 minutes**. Endpoint HOL is at most a ≤60 s
-  contributor, **not** the explainer.
-- **(C) endpoint worker wedged >10 min on one request.** Excluded by the 60 s
-  `timeoutSeconds` upper bound.
-- **(A) album starved behind the shared task queue, *alone*.** The shared task
-  queue (`internal/infra/queue/repo.go:51-62`, 1 task/s, serial) also carries
-  every forward task (each = up to a 3 s limiter wait,
-  `internal/service/limiter/service.go:12,30-44` + TDlib RPC + retry); album
-  members are pushed from a closure on that worker (`service.go:573` → push at
-  `:616/:624`), so a forward-task backlog can delay *album* pushes by minutes.
-  **But text and single media are pushed immediately, in the Run loop**
-  (`service.go:352` / `:259`), never via that queue. Since the silence also
-  covers text, (A) alone cannot explain it — though it may still contribute to
-  album latency on top of the silence.
+1. **Idle-open delivery vs gap-only — RESOLVED: the engine keeps an open
+   channel polling unconditionally (no gap required).** The re-poll sits on the
+   **success** path of `on_get_channel_difference`: if the diff is `final`,
+   `if (timeout > 0 && d->open_count > 0) channel_get_difference_timeout_
+   .add_timeout_in(dialog_id, timeout)` (`:37423`); when that timer fires,
+   `on_channel_get_difference_timeout` (`:36707`) calls
+   `get_channel_difference(dialog_id, d->pts, ...)` — **there is no
+   gap / too-long check anywhere on this path**. So an **idle-but-open** channel
+   keeps polling at the **server-returned** `timeout` and stays near-real-time.
+   **The fix form is therefore literally "one `OpenChat` + keep open"** — no
+   re-poll nudge is needed. (This is the load-bearing confirm; it fixes the fix
+   shape.)
+2. **Engine's >10 behavior — RESOLVED: unbounded FIFO pending queue, no loss,
+   no starvation.** Every channel-diff request funnels through
+   `do_get_channel_difference`, which pushes to `pending_get_channel_differences_`
+   (`:36854`); `process_pending_get_channel_differences` (`:36860-36863`) drains
+   the queue **only while** `get_channel_difference_count_ < 10`; each
+   completion re-drains, and a per-chat dedup keeps one outstanding request per
+   chat. Steady state with >10 open sources: **10 in flight, the rest rotate**
+   at their own server `timeout`; a channel with a large backlog re-queues its
+   next page immediately (per-page FIFO fairness, not per-channel), so it can
+   hold a slot for several consecutive turns. The 11th+ source is **deferred,
+   never dropped**; the extra per-channel latency ≈ queue position × one diff
+   RTT (small at a handful-to-a-dozen sources).
+3. **Member-channel idle delivery — RESOLVED (decision): keep the open set =
+   ALL channel/supergroup sources; do NOT shrink to non-member only.** The spec
+   says passive updates for member channels are sent "usually" but "in some
+   cases the API may stop (or send fewer)" — that is **not a guarantee**, so
+   relying on idle member delivery would re-introduce the silence. The engine's
+   own gap-recovery gate (`:7206`) treats `was_opened` and `is_member` as two
+   *separate* sufficiency conditions, corroborating that member-ness alone does
+   not keep the stream active. The volume saved by excluding member channels is
+   small (polling is already server-paced and 10-capped) versus the risk of
+   re-opening the exact bug. **Set = all sources; a member-channel reduction is
+   an optimization to revisit only if the footprint becomes a real concern,
+   with production evidence — not preset now.**
 
-**Path split (why "media is also a message" still matters here):**
-- text (`service.go:352`) and textless **single** media (`:259`) → push
-  **immediately in the Run loop**;
-- **album** members (`MediaAlbumId != 0`, `:281-287`) → deferred to the shared
-  task queue (3 s quiet window + serial worker).
-The silence covering *text* is the fact that shifts the suspicion upstream.
+**Remaining before implementation (not source-confirms):** (4) **lifecycle +
+stagger design** (re-auth re-open, hot-reload add/remove, limiter-staggered
+initial batch) against the seams at `cmd/engine/main.go:168` / `main.go:183-196`
+— an implementation-design step; (5) **dedicated vs shared account** — an owner
+*fact* that affects only a footprint-risk term, not the design. Decides whether the "combined/scale" footprint
+   is distinguishable at all.
 
-**Remaining candidates (the 10-minute zero-submission window):**
+## Owner inputs are NOT blocking the Problem-1 fix (reframe)
 
-- **(B1) update-stream gap.** The Budva↔Telegram update stream delivered
-  nothing for ~10 min (MTProto/session/connection stall, self-recovering) →
-  zero updates → zero `SubmitV2` → zero requests, then a flush.
-- **(B2) Run-loop stall.** The Run loop (the sole `Updates()` consumer,
-  `service.go:157-176`) blocked on a synchronous call for ~10 min, then
-  recovered. (If it blocked *permanently* it would be 10-29-shaped and need a
-  restart; this one recovers, so it is a *transient* stall or (B1).)
-- **(D) ruleset hot-reload gap.** `ruleset.yml` is a bind-mount hot-reloaded
-  via fsnotify (`docker-compose.yml:47`); a reload during the window that
-  dropped or swapped the push submitter could leave a no-push gap, closing
-  when the reload completes. (To check: ruleset-reload log lines inside the
-  window.)
-
-All three affect **everything** (text + media), matching the total-silence
-signature. **(B) and (D) are now the primary suspects; (A) and endpoint HOL
-are secondary contributors at most.**
-
-**The decisive, cheap probe (one-shot active probe, not a timing campaign):**
-
-Owner protocol (box-side, repeatable, ~1 message + 1 log + 1 QUIT per run):
-1. **Send a probe**: a **plain text** message with a unique token (e.g.
-   `probe <epoch> <rand>`) into a ruleset source chat, confirmed as sent in
-   the client. Text is required: it is the shortest path (immediate Run-loop
-   `SubmitV2`, `service.go:352`), bypassing the album quiet window and the
-   shared task queue — so its absence is a clean "zero submissions upstream"
-   signal.
-2. **Decision ladder** (watch the gateway inbound log for the token):
-   - arrives ≤10 s → normal (baseline is 1–5 s);
-   - arrives 10–60 s → watch only, still within the **normal worst case**
-     (the worker may be occupied ≤60 s on one `timeoutSeconds: 60` request —
-     ordinary HOL); do **not** conclude;
-   - **absent ≥2 min** → declare **we are inside the silence window** (real
-     windows are ≥10 min; normal max gap is 60 s — 2 min is a clean
-     boundary with ~no false positives).
-3. **At the moment of declaration (while the stall is live — it
-   self-recovers, hesitation loses the evidence):**
-   - `docker logs <engine> --since <window start> > stall-logs.txt`;
-   - `docker exec <engine> kill -QUIT 1` → the Go goroutine dump goes to
-     stderr → capture via `docker logs`; `restart: always` brings the process
-     back (expected, same as 10-29; delivery resuming on restart
-     re-confirms self-recovery);
-   - record the exact arrival time of the probe token in the catch-up burst →
-     the measured silence duration.
-4. **Read the dump — three decisive frames:**
-   - `handler.(*Service).Run`: parked in `select` on `<-updates` with an
-     empty channel → **(B1)** update-stream gap (then check the go-tdlib
-     receiver / session goroutines: alive and delivering, or wedged); parked
-     inside a concrete call frame (RPC / lock / IO) → **(B2)** Run-loop stall
-     — the frame names the blocker.
-   - the auth goroutine (`auth.(*Service).run`): alive in its select →
-     session alive; in a Closed state → the session-death variant of (B1).
-   - log grep in the window: `Ruleset reloaded` / `Failed to reload` →
-     **(D)**; `Push submission rejected ... buffer_full` (expected **absent**
-     — a full buffer is the *slow-continuous* signature and is logged at WARN,
-     `dispatcher.go:164`).
-
-**Production root cause: NOT yet determined.** The candidate set is now
-(B1)/(B2)/(D) for the silence, with (A)+endpoint-HOL as secondary. The fix
-direction accordingly shifts from "raise endpoint delivery rate" to
-"**find and fix the update-stream / Run-loop / reload gap**" (plus, if the
-dump confirms (B1), session-health observability/reconnect), with
-endpoint-concurrency + timeout tuning demoted to a secondary ≤60 s HOL
-improvement.
-
-## Model correction 2 (2026-10-30, owner open-chat observation + Team B ground-fact check): the open-chat trigger is the leading fact
-
-**New observed signature (owner, 2026-10-30):** while watching the gateway
-inbound log, the owner stays on the official client's **chat list** (does not
-open the chat); new activity is visible in the list but the webhook produces
-**no** request. The moment the owner **opens the chat**, a **burst** of
-inbound requests is produced. This was **repeated** — not a one-off.
-
-This invalidates the assumption that had been silently carrying the model:
-
-> *Once the official client shows a message, Budva's independent TDLib
-> session must already have received the same `updateNewMessage`.*
-
-That is **not** supported. The official client and Budva are **separate
-sessions** (distinct local DBs, update state, transport). The client's
-chat-list rendering establishes the state of *that* client, not the
-update-publication stage reached by Budva. So the silence is not only "absence
-of `SubmitV2`" downstream of a delivered update — it may be that the update
-**never reached Budva's session** while the chat stayed unopened, and is only
-released when the chat is opened.
-
-Source verification (this repo, done 2026-10-30): Budva makes **no** call to
-`OpenChat` / `CloseChat` / `ViewMessages` and **no** `getChannelDifference`;
-it is a **passive** update subscriber. Pinned dep `github.com/zelenin/go-tdlib
-v0.7.6` (confirmed in `go.mod`). The `ViewedMessages` symbols in budva are its
-own forwarding-statistics counter, not the TDlib API.
-
-Ground facts (Team B report
-`research/team-b-tdlib-open-chat-ground-fact-check.md`, disposition
-**CHANGES REQUESTED**; the four that do **not** depend on chat type):
-
-1. **Official-client visibility ≠ Budva update receipt** (P1-01). Separate
-   sessions. (Required correction: do not use client-display time as Budva's
-   update-receipt time — record them separately.)
-2. **Channels / large supergroups are not guaranteed real-time** (E1) — a
-   *documented Telegram expectation* (TDLib issues #2695, #2853, #366;
-   `core.telegram.org/api/updates`): delivery is faster while the chat is
-   opened; after enough missed updates Telegram sends current *state* rather
-   than individual messages. *Boundary:* this policy is documented for
-   channels / large supergroups only — not private chats or basic groups.
-3. **`openChat` is behaviorally significant in TDLib, and difference recovery
-   republishes in a burst** (P1-02 / P1-04): opening a channel in a TDLib
-   instance invokes `get_channel_difference`; recovered messages are emitted
-   as `updateNewMessage` close together. Explains why the catch-up is a
-   **burst**, not a return to real-time.
-4. **Documented cross-session passive-update effect (scoped)** (E3 / E4): for
-   an accessible **non-member** public channel/supergroup (or a private one
-   temporarily available via `chatInvitePeek`), **any** session's
-   `getChannelDifference` short-polling starts passive channel updates for
-   **all** logged-in sessions; Telegram Desktop does exactly this when a
-   channel is opened. *Boundary:* the doc does **not** establish this for
-   **joined** channels/supergroups, **private chats**, or **basic groups** —
-   those exact cross-session mechanisms remain unresolved (but the repeated
-   intervention tests rule out pure coincidence).
-
-**Terminology precision (verified against the pinned go-tdlib v0.7.6 module,
-2026-10-30):** "**large supergroup**" is a Team B / maintainer **paraphrase,
-not a protocol class** — the TDlib API has no size threshold and no size
-qualifier in the normative contract. The normative distinction is by
-**protocol class**, not size: basic group (`GroupChat` class) vs supergroup
-(`SuperGroup` class) vs channel. The open-state-gating clause — the pinned
-module's `OpenChat` contract verbatim
-(`client/function.go:7789`) — reads: *"Many useful activities depend on the
-chat being opened or closed (e.g., in **supergroups and channels** all updates
-are received only for opened chats)"* — **no size qualifier**, i.e. ALL
-supergroups (any member count) and ALL channels; basic groups are outside the
-gating. The "large" modifier belongs only to the *not-guaranteed-real-time*
-behavioral expectation (item 2, the maintainer's phrasing), never to the
-gating scope. **Practical effect: none for the design** (the uniform `OpenChat`
-covers every class); the correct diagnostic label is "supergroup (any size) /
-channel" as the gated scope, "basic group" as the non-gated class.
-
-Read together, the observation is directly explained for channels:
-**chat unopened** → official client is not active-polling that channel →
-Budva's passive session receives nothing → **silence**; **chat opened** → the
-official client starts `getChannelDifference` polling → (for non-member
-accessible channels) the server enables passive updates for the account's
-sessions → Budva receives the deferred updates → **burst**.
-
-**Conclusion (for channel / supergroup sources — any size, no protocol
-threshold):** the 10-minute
-silence is very likely **expected Telegram delivery behavior** (update
-acquisition gated by chat-open/active state), **not** a Budva webhook-worker
-bug. The earlier "self-recovering" read is revised to **coupled to the chat
-becoming active** (someone opens it), not Budva recovering on its own.
-
-### Consequences
-
-- **Candidate reframe.** The old coarse (B1) "update-stream gap" is decomposed:
-  **B1a** Budva transport/session interruption; **B1b** global PTS difference
-  recovery; **B1c** channel-difference recovery; **B1d** open-chat-triggered
-  cross-session / account-state coupling (**leading for non-member accessible
-  channels**). Plus **B2** local Go-side backpressure (bounded channels
-  `responses`/`Updates`/`r.updates`, P1-05), **B3** endpoint delivery backlog
-  (the old "Problem 2"), **D** ruleset hot-reload gap.
-- **Fix direction shifts** from "raise delivery rate / concurrency / timeout"
-  (which cannot explain an open-chat-gated acquisition) to **"make Budva an
-  active subscriber"**: have Budva call `OpenChat` for the **channel /
-  supergroup** ruleset source chats (the open-state-gated classes;
-  private/basic-group sources are not OpenChat'd — see the Owner requirement
-  below) and keep them open / poll `getChannelDifference` per the server
-  timeout, so *its own session* gets real-time updates, independent of whether
-  the official client is open. This is a first-class TDlib API — **native, no
-  new component** (matches the owner's native/no-reinventing preference).
-  *Prerequisite:* confirm the release boundary with the boundary experiment
-  below; applicability to channels/supergroups is the documented scope.
-
-## Owner requirement (2026-10-30, scope refined 2026-10-31): support EVERY source chat type — one uniform action, client-conformant scope
-
-The owner states the fix must support **any** source chat type (private chat,
-basic group, supergroup, channel). The action is uniform and type-agnostic,
-but the **scope is typed** — matching what an official client actually does:
-
-> **For every channel/supergroup source chat in the ruleset, Budva calls
-> `OpenChat` on its own session** (and keeps it open, with
-> `getChannelDifference` polling where needed). Private-chat and basic-group
-> sources are **not** OpenChat'd.
-
-- **Private chats / basic groups**: updates flow through the **global update
-  stream**; the "all updates are received only for opened chats" rule is
-  scoped to supergroups/channels, so these are NOT open-state-gated — no
-  `OpenChat` is **required**. And a client-conformant footprint does not open
-  every chat anyway (a client opens a chat when the user views it).
-  "Support" = the session's global diff is healthy.
-- **Channels / supergroups**: updates ARE open-state-gated; `OpenChat` in
-  Budva's own session makes them real-time there, independent of the official
-  client.
-
-So "support any type" = one mechanism (OpenChat) applied to the chat classes
-that need it (channels/supergroups), with a type-conditioned
-**verification target** (channels: real-time-while-open; private/basic-group:
-real-time via the global stream, no OpenChat).
-
-This **downgrades the earlier "source chat type = decisive design fork"**: the
-type no longer selects the fix design — it now has **diagnostic** value only:
-(1) it tells whether the documented cross-session mechanism explains the
-owner's observed open-chat→burst coupling (accessible non-member
-channels/supergroups = yes; joined channels / private chats / basic groups =
-undocumented); and (2) **if the 10-minute silence was ever observed on a
-private chat or basic group, the channel mechanism does NOT cover it** — that
-is a separate bug (B1a transport/session, B2 local backpressure, or D reload
-gap) and must be chased independently. The boundary experiment surfaces both
-for free (private/basic-group arms are run in the same experiment).
-
-### Source-confirm items before implementation (not design forks)
-
-- **(a) TDlib channel polling semantics.** The pinned source confirms opening
-  a channel *initiates* `getChannelDifference`; whether the pinned TDlib
-  **keeps polling automatically** while the dialog is open is NOT confirmed.
-  The official protocol guidance (core.telegram.org/method/
-  updates.getChannelDifference) expects the *client* to keep polling per the
-  server timeout. If the pinned TDlib does not auto-poll, Budva must issue its
-  own periodic `getChannelDifference`. **Correction (verified 2026-10-31
-  against the module cache): go-tdlib `v0.7.6` does NOT generate a
-  `GetChannelDifference` wrapper** (only the test RPC `TestGetDifference` is
-  generated), so the self-poll is a hand-built request via the exported raw
-  `client.Send(Request)` (`client/client.go:104`) — feasible, but not a
-  ready-made method.
-- **(b) Lifecycle.** Re-open after re-auth; handle `updateChatInaccessible` /
-  `updateChatClosed`; ruleset hot-reload add/remove of source chats (add →
-  `OpenChat`; remove → optional `CloseChat`). Natural seams: the generation
-  build / `Replace` (`cmd/engine/main.go:168`) and the hot-reload path
-  (`main.go:183-196`).
-- **(c) Opened-chat ceiling.** No documented hard limit in the pinned TDlib;
-  if the ruleset references many channels, verify open-dialog memory /
-  behavior under the production source set.
-- **(d) Dialog footprint vs a typical client (owner question, 2026-10-31).**
-  A normal client keeps ~1 dialog open at a time, so N persistent opens is
-  **not** the typical human footprint. But it is **functionally required**
-  for channels/supergroups: a dialog closed in Budva's own session means that
-  channel is deferred there (the documented gating) — a single-dialog pattern
-  is exactly the pattern that produces the 10-minute silence on the other
-  N−1 channels. The human analog that cares about all N channels in real time
-  is the one who **keeps them open** (a real, N-scaled behavior class —
-  desktop split view / pinned mobile chats), and the **most** client-like
-  N-open behavior is *open once and keep open*; the worst footprint would be
-  open/close **toggling** (rotation reintroduces the deferred state = the bug).
-  **Potential reduction (evidence-driven, not preset):** whether a *joined*
-  channel still delivers full `updateNewMessage` to an **idle** (unopened)
-  session is open (phone push-notification behavior suggests yes, possibly
-  with gaps). If the boundary experiment's arm A (nothing opened anywhere)
-  shows joined channels still arrive, the persistent-open set can **shrink to
-  non-member / accessible channels** (where open is definitely required) and
-  joined channels ride the idle stream + watchdog — moving the footprint
-  closer to a normal client. Decide from the experiment, not beforehand.
-  Footprint scales with the number of source channels (N dialogs resident +
-  per-channel diff polls if (a) resolves to no auto-poll) — a constant per
-  channel, not per message; at ruleset scale of a handful to a dozen channels
-  the footprint ≈ a heavy user; flag it if the source set is much larger.
-
-### Client-conformance criterion (owner refinement, 2026-10-31): the design
-benchmark is "what would an official client do"
-
-Owner refinement: the correctness/risk benchmark is **not** "serverless
-daemon vs client" deltas, but **behavioral conformance with an official
-client**. The first-principles question for every proposed behavior is:
-*does an official client ever do this?* Re-evaluating the earlier
-side-effect / risk / compliance list against that criterion:
-
-- **Compliance (dedicated-account / datacenter-IP / flood) — NOT a problem
-  for this design.** A user-account daemon is the product's pre-existing
-  architecture (a bot cannot do the forwarding sources); `openChat` /
-  `getChannelDifference` / `closeChat` are standard user RPCs every official
-  client sends continuously; the marginal RPC profile is that of "a user who
-  keeps their N channels open" — a real behavior class, N-scaled, not an
-  automation signature. The earlier framing ("dedicated account? datacenter
-  IP? account visible in view counts?") measured daemon-vs-client deltas that
-  the design **intends to eliminate** — the only real conformance checks are
-  the RPC profile and volume, which conformance addresses directly.
-- **Read receipts — conformed (not an action item).** An official client does
-  NOT mark channels read merely on `OpenChat`; marking read is a separate
-  `readHistory`-class call the app issues. Conformance = **Budva never calls
-  any read API** — which is the default (it does not forward reads). This was
-  reclassified from "a risk to test" to "conformance, trivially met".
-- **View-count / online-count impact — NOT avoidable and NOT a problem.**
-  Any session that is "open" to a channel contributes to its view/active
-  counts by definition; that is exactly the mechanism being used, and it is
-  what a user who keeps the channel open does. The footprint IS the fix;
-  "minimize visibility" would defeat the mechanism. (It is an inherent
-  consequence of the chosen mechanism, documented here — not a risk item.)
-- **FloodWait on startup burst — a VOLUME issue, keep (marginal).** An
-  official client does not open 50 channels in the same second; spread the
-  initial `OpenChat` batch (reuse `internal/service/limiter`) and bound the
-  open-dialog count by the source-set size. This survives the re-evaluation.
-- **Session-state fragility / lifecycle / re-open watchdog / leak — KEEP,
-  reframe.** The right frame is **conformance durability**, not "the daemon
-  introduces a fragile state": an official client also loses open state on
-  re-auth and re-opens on return. Budva must do the same (re-open after
-  re-auth, handle `updateChatInaccessible`, retire on generation close) —
-  i.e. replicate the client's resilience, not invent new fragility.
-- **Memory O(N) — keep as a scale fact, not a "risk".** It scales with the
-  source-set size (a client does the same for its pinned/open dialogs),
-  bounded and verifiable on the production source set.
-
-Net: of the earlier five-item side-effect list, **two items dissolve**
-(compliance; read receipts), **one is reclassified as inherent**
-(view/active counts), and **two survive as real** (volume/stagger; conformance
-durability). The design's single standing discipline is: *every new behavior
-must be one an official client performs, at a client-plausible volume.*
-
-- **Source chat type — diagnostic fork (owner may supply; not required to
-  select the design anymore):**
-  - **channel / supergroup** (any size — no protocol threshold) the Budva
-    account has **not joined but can access** → the cross-session
-    passive-update explanation + the
-    "Budva opens the chat" fix apply directly (pending boundary confirmation);
-  - **joined** channel / supergroup → expected to be more real-time, but the
-    open-state rule still applies; the boundary experiment localizes it;
-  - **private chat / basic group** → the channel mechanism does **not**
-    apply; a 10-minute silence there is a **separate bug**: B1a
-    transport/session, B2 local backpressure, D reload.
-
-### The decisive experiment now localizes the release boundary
-
-The repeated open-chat tests already reject coincidence, so the next experiment
-does **not** re-prove the effect — it finds **at which boundary the trigger
-releases the updates**. Use plain text with a unique token; contrast
-**A** (stay on the list, never open) / **B** (open after list activity) /
-**C** (fully close the client); **separate private/basic-group chats from
-supergroups/channels** (channel open-state has specific difference behavior —
-mixing confounds). Record the boundary timestamps (stable chat id + message id
-+ token): S0 send · C1 list-shown · C2 opened · B0 go-tdlib receives any update
-· B1 Budva `UpdateNewMessage` · B2 → `r.updates` · B3 handler start · B4
-`SubmitV2` · B5 endpoint worker pickup · B6 `http.Client.Do` start · W1
-receiver ingress · W2 response. Interpretation:
-- `B0/B1` appear **only after** `C2` → the coupling is **upstream** of Budva's
-  handler (update acquisition/recovery) → focus on acquisition (→ the
-  "Budva opens the chat" fix).
-- `B0/B1` precede `C2` but `B3–B6` are late → local to Budva/go-tdlib or
-  endpoint delivery.
-- A, B, C all recover similarly → transport/difference recovery or local
-  backpressure, not cross-session coupling.
-- `B4` prompt but `B5/B6` late → the serial endpoint worker is the interval.
-- `B6` prompt but `W1` late → the HTTP/proxy/socket boundary.
-Plus **one goroutine dump (SIGQUIT) while the symptom is active** (the 10-29
-method) to name the parked frame.
-
-> **Evidence boundary.** The *existence* of the open-chat→release coupling is
-> established by the owner's repeated field tests (behavioral). *Which
-> mechanism* and *at which boundary* it releases — and the *applicability to
-> the actual production chat type* — are **not yet proven**; the boundary
-> experiment + one live dump close them. This does **not** authorize changing
-> delivery parameters; it redirects the investigation upstream (update
-> acquisition) before any concurrency/timeout change.
-
-## What is NOT established (and how each is closed — no production timing campaign)
-
-1. **Which of the candidates produces the 10-minute silence, and at which
-   boundary the open-chat trigger releases the updates** — closed by
-   **Model correction 2's boundary experiment** (contrast A list-only / B
-   open-after-activity / C client-closed, chat types separated, boundary
-   timestamps S0/W2 + **one SIGQUIT dump while the symptom is active**), plus
-   the owner-supplied **source chat type** (channel / supergroup [any size] /
-   private / basic group; joined vs non-member accessible) which selects
-   whether the documented cross-session mechanism applies. The earlier one-shot
-   active probe is **subsumed** by this experiment (same one-shot forensic
-   cost, but it also localizes the boundary and tests the open-chat coupling).
-   For the secondary items ((A) album starve, endpoint HOL), a **controlled
-   test** (slow receiver / backlogged shared queue) is the deterministic
-   reproduction.
-2. **The receiver's per-request response time `T`** (= the effective `B`) and
-   whether it does synchronous work before 2xx — the black-box side, only the
-   owner can confirm; supplied as a single number (one
-   `curl -w '%{time_total}' -X POST` or the receiver's access log), not a
-   measurement campaign.
-3. **The delivery loss policy** (product decision) and the **ordering,
-   duplicate, fast-ack, and idempotency contracts** — Phase 1 owner decisions
-   that gate implementation.
-
-**Configured facts (owner-supplied, 2026-10-30):** `timeoutSeconds: 60` on the
-endpoint. Per `cmd/engine/main.go:146-163` this bounds both the worker ctx and
-the `http.Client`, so a single attempt occupies the endpoint worker **≤ 60 s**
-— which **excludes mechanism (C)** (a >10-minute single-request wedge) and
-caps the endpoint-HOL contribution at 60 s.
-
-The payload already carries `OccurredAt` (`service.go:351`), stamped at
-`SubmitV2` time, in both the v1 six-key envelope and the v2 notification — so
-the receiver-side arrival timestamp minus `OccurredAt` measures `T2→T4`
-**with zero Budva code change** (the cheapest *post-deploy* verification aid);
-the producer-side enqueue/pickup stamps (Phase 0b) add the `T2−T3` / `T3−T4`
-split for the same post-deploy purpose.
+- **Source chat type** = **diagnostic** only (which documented mechanism
+  explains the observed coupling; a silence on a private/basic-group = a separate
+  bug). It does **not** select the fix — the fix covers every class by its own
+  mechanism. Not required from the owner.
+- **The 4 product decisions** (loss / duplicate / ordering / receiver `T`+fast-ack)
+  belong to **Problem 2**, which is downgraded (no observed symptom). They do
+  **not** gate the Problem-1 fix.
+- **Net: no owner input is required to proceed to the Problem-1 fix.** The
+  source-confirms are all **resolved** (above); what remains is the
+  lifecycle/stagger design (an implementation step) and, for Problem 2, owner
+  decisions made only if/when that leg is pursued.
 
 ## Relation to the 10-29 record
 
-Supersedes nothing. This is a *finite-latency* follow-up to the completed
-`10-29-budva-push-stall` (infinite self-deadlock, fixed at `415d90c`). Both can
-be true at once: the deadlock is fixed and runtime-accepted, **and** the latest
-build can still show finite minute-scale webhook latency from the pre-existing
-serial per-endpoint worker + backlog. Team B's independent audit of the
-*mechanism*: `research/team-b-webhook-latency-follow-up.md` (findings
-TB-LAT-P1-01..04 / P2-01..02 corroborate the source anchors above). Team B's
-independent audit of *this task's* research/design:
-`research/team-b-team-a-report-audit.md` — **CHANGES REQUESTED**; the
-corrections it required are applied in this revision (evidence boundary →
-leading hypothesis, **controlled slow-receiver test as the evidence gate**
-(production timing collection is not a realistic prerequisite and is not used),
-rejected P95/P99 timeout rule, no preset concurrency, G/G/1 stability
-notation, backlog as example, conditional receiver-throughput claim, A1 as
-measurable acceptance, citation scope).
+Supersedes nothing. This is a *finite-latency / acquisition* follow-up to the
+completed `10-29-budva-push-stall` (infinite self-deadlock, fixed at `415d90c`).
+Both can be true at once: the deadlock is fixed and runtime-accepted, **and** the
+latest build can still show the Problem-1 acquisition gap (and, separately, a
+potential Problem-2 HOL). Team B's independent audit of the *mechanism*:
+`research/team-b-webhook-latency-follow-up.md`. Team B's independent audit of
+*this task's* research/design: `research/team-b-team-a-report-audit.md`
+(**CHANGES REQUESTED**; corrections applied). Team B's **ground-fact check of the
+open-chat observation**: `research/team-b-tdlib-open-chat-ground-fact-check.md`
+(**CHANGES REQUESTED**, 2026-10-30) — the origin of the open-chat framing; cited
+as **ground-fact evidence**, kept **verbatim** (its "large supergroups" phrasing
+is a maintainer paraphrase, not a protocol class — see the terminology note),
+**not** design approval.
 
-Team B's **ground-fact check of the open-chat observation**:
-`research/team-b-tdlib-open-chat-ground-fact-check.md` (**CHANGES REQUESTED**
-2026-10-30) — the source of Model correction 2 (open-chat trigger as the
-leading fact; B1 decomposition into B1a–B1d; the documented cross-session
-passive-update scope for accessible non-member channels/supergroups; the
-boundary-localization experiment). Cited as **ground-fact evidence**, not
-design approval; its applicability to the production chat type is the open
-owner-supplied fork.
+**Terminology precision (verified against the pinned go-tdlib v0.7.6 module):**
+"**large supergroup**" is a Team B / maintainer **paraphrase, not a protocol
+class** — the TDlib API has no size threshold and no size qualifier in the
+normative contract. The normative distinction is by **protocol class**: basic
+group (`GroupChat`) vs supergroup (`SuperGroup`) vs channel. The open-state-gating
+clause — the pinned module's `OpenChat` contract verbatim
+(`client/function.go:7789`) — reads: *"Many useful activities depend on the chat
+being opened or closed (e.g., in **supergroups and channels** all updates are
+received only for opened chats)"* — **no size qualifier**, i.e. ALL supergroups
+(any member count) and ALL channels; basic groups are outside the gating. The
+"large" modifier belongs only to the *not-guaranteed-real-time* behavioral
+expectation, never to the gating scope. **Practical effect: none** — the correct
+labels are "supergroup (any size) / channel" (gated) and "basic group"
+(non-gated).

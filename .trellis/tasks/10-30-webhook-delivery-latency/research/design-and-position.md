@@ -1,443 +1,353 @@
 # Design & position — webhook delivery latency (10-30)
 
-Design space and the chosen direction for task
-`10-30-webhook-delivery-latency`. Companion to
-`research/facts-and-model.md` (the facts this builds on). No code yet — this
-phase lands the design; implementation is a later gate.
+Design space and the chosen direction for task `10-30-webhook-delivery-latency`.
+Companion to `research/facts-and-model.md` (the facts and the converged root
+cause this builds on). **No code yet** — this phase lands the design;
+implementation is a later gate. Status (2026-11-01): **the Problem-1 root
+cause and fix direction are converged**; the record was reset off main
+(`bb0519b`) and lives on branch `docs/10-30-type-agnostic-requirement` pending
+owner sign-off.
 
-> **Evidence boundary.** Two distinct problems, two evidence routes:
+> **Evidence boundary (corrected 2026-11-01).** Two distinct problems, two
+> routes — and they are **not** at the same stage:
 >
-> 1. **The 10-minute total-silence window** (the owner's headline symptom):
->    the serial per-endpoint worker is **not** the leading explanation — with
->    `timeoutSeconds: 60` it can contribute at most a ≤60 s gap, and it emits
->    a request at least every 60 s under load. The signature (zero requests
->    for ≥10 min, covering **text as well as media**) is an **absence of
->    `SubmitV2` calls**. **Model correction 2 (owner open-chat observation):**
->    the silence is *coupled to the official client not having the chat open*
->    — client and Budva are **separate sessions**, and for channels/large
->    supergroups Telegram does not guarantee real-time delivery (gated by
->    chat-open/active state). The leading causal class is
->    **open-chat-triggered update acquisition (B1a–B1d)** — including the
->    *documented* cross-session passive-update effect for accessible
->    non-member channels/supergroups — with (B2) Run-loop stall, (B3) endpoint
->    backlog, (D) reload gap as secondary candidates. Evidence = the
->    **boundary-localization experiment + one live SIGQUIT dump** (Phase 0p,
->    revised) + the owner-supplied **source chat type** — a one-shot forensic,
->    not a timing campaign.
-> 2. **Steady-state per-message delay** (endpoint HOL + album deferral): the
->    serial per-endpoint worker + cap-256 buffer + single-attempt sink
->    (occupied until the HTTP response returns) is a source-confirmed
->    mechanism, a **≤60 s worst-case contributor** at current config,
->    reproduced and bounded deterministically by the Phase 0 **controlled
->    slow-receiver test** — not by production timing collection.
->
-> Nothing in this document authorizes implementation until the entry gate in
-> the last section is closed.
+> 1. **The 10-minute total-silence window (headline) — CONVERGED.** The root
+>    cause is **not** the serial per-endpoint worker (with `timeoutSeconds: 60`
+>    that is a ≤60 s contributor and emits a request at least every 60 s under
+>    load — it cannot produce a 10-minute *zero-request* window). The silence
+>    is **coupled to the official client not having the chat open** (client and
+>    Budva are separate sessions). The root cause is now **converged**: Budva
+>    does **not own the acquisition boundary** of its ruleset sources — it is a
+>    passive subscriber that **never `OpenChat`s**, so for open-state-gated
+>    classes (channels/supergroups) its session is not an active acquirer and
+>    goes silent until *some* session opens the chat. This is closed by
+>    **three-layer evidence** (the normative spec, the pinned TDlib engine
+>    source at the exact commit go-tdlib pins, and the go-tdlib CGO
+>    architecture) — **not** by an owner-run boundary experiment (withdrawn,
+>    see below). The **fix is converged**: `OpenChat` each channel/supergroup
+>    source on Budva's own session and keep it open; the in-process engine then
+>    owns gap recovery + periodic re-poll.
+> 2. **Steady-state per-message delay (Problem 2) — DOWNGRADED to "potential,
+>    unobserved."** The serial per-endpoint worker + cap-256 buffer +
+>    single-attempt sink is a real code property but there is **no
+>    owner-observed per-message queueing delay**, so per the "does the problem
+>    even hold" criterion it is a *potential* contributor, verified **if** such
+>    delay is ever seen (a controlled slow-receiver test, not production timing
+>    collection). It is a **separate leg** from Problem 1 and **does not gate
+>    the Problem-1 fix.**
+
+> Nothing in this document authorizes the Problem-1 **code change** until the
+> entry gate (last section) is closed — the source-confirms are **already
+> resolved**, so it now requires only the lifecycle/stagger design plus the
+> owner's go-ahead, **not** any owner-run experiment and **not** the Problem-2
+> contract decisions.
 
 ## Guiding constraints (owner-stated)
 
 1. **Producer-side only.** The webhook receiver is a black box. No receiver
-   change from this task; **fast-ack** (validate/enqueue/2xx, process async)
-   and **idempotent ingest** (de-dup by event id) are *receiver-side contracts*
-   this design depends on, not implements.
+   change from this task; **fast-ack** and **idempotent ingest** are
+   *receiver-side contracts* this design depends on (Problem 2), not
+   implements.
 2. **Native / no reinventing the wheel; minimize maintenance surface.** Prefer
    standard Go + already-present abstractions over a new bespoke service. A
    behavior that leaves this repo also leaves this repo's CI coverage — a real
-   maintenance cost, not an aesthetic one.
+   maintenance cost.
+3. **Conformance discipline.** Every new behavior must be one an official
+   client performs, at a client-plausible volume (see facts-and-model
+   "Conformance assessment").
 
-## The decision axes
+## The converged Problem-1 design: own the acquisition boundary
+
+**Root cause (converged).** Budva's session never `OpenChat`s any source chat,
+so it holds no open state for its ruleset sources. For channels/supergroups
+(open-state-gated, any size — no protocol threshold) that means its session is
+not an **active acquirer**: gap recovery and the periodic `getChannelDifference`
+re-poll in the pinned engine are gated on open/member state, and a never-opened,
+non-member channel is dropped rather than recovered. Updates reach Budva's
+session only when *another* session (e.g. the owner's client) opens the chat and
+starts polling (cross-session passive updates) — which is exactly the
+open→burst / close→silence the owner observed.
+
+**Fix (converged).** For **each channel/supergroup source chat in the ruleset**,
+call `OpenChat` **on Budva's own session** and **keep it open** (no `CloseChat`
+except on ruleset removal). One call makes Budva's session an active acquirer;
+the in-process engine (already running via go-tdlib's CGO linkage) then owns
+gap recovery and the open-gated periodic re-poll, so updates arrive
+**independently of the official client**.
+
+- **Open once, keep — no periodic re-open.** The engine's re-poll self-continues
+  while `open_count > 0`; `OpenChat` establishes state, it is not a token to
+  refresh. Re-open fires only at **state-reset points**: after **re-auth**
+  (dialogs reset) and after **process restart** (`open_count` is in-process).
+  No heartbeat, no toggle (toggle churn is the non-human signature and
+  re-introduces the deferred state = the bug).
+- **Keep ALL sources open — one `OpenChat` per source, not one held at a time.**
+  Acquisition is per-channel state; rotation/closing drops that channel's
+  acquirer and re-introduces its silence. (The engine itself caps simultaneous
+  diff polls at 10; see the scale note.)
+- **Private/basic-group sources are NOT `OpenChat`'d.** They are not
+  open-state-gated (global update stream, common message-ID sequence +
+  `getDifference`), and a client does not open every chat. "Support every type"
+  = one **intent** (own the acquisition boundary) realized by each class's own
+  **client-conformant mechanism**: channels/supergroups via `OpenChat`,
+  private/basic-group via the global stream. The chat **type is diagnostic only**
+  — it selects which mechanism, and each mechanism is a known fact, so the
+  current production type does **not** block the design.
+- **Native, no new component, no hand-built poller.** A first-class TDlib API;
+  the engine already polls.
+
+**Scale fact (engine-enforced, Budva need not write it):** the engine caps
+**simultaneous** channel-difference polls at 10, re-polls at the **server-
+returned** `timeout` (server-paced), and emits no open/close churn. With >10
+channel/supergroup sources the engine queues them (the 11th waits), so **not all
+sources are strictly real-time at very large N** — an inherent trade-off to note,
+not a reason to keep only one open.
+
+### Conformance guardrails (the client-plausible part)
+
+(1) open **only ruleset source chats**, never the account's other chats; (2)
+**stagger** the initial/re-auth `OpenChat` batch (reuse
+`internal/service/limiter`) — no N `openChat` in the same instant; (3)
+**open-once-keep, no periodic toggle**; (4) **do not fight the engine's 10
+cap**. View/active-count contribution is **inherent** (the footprint is the
+fix); read receipts are **conformed** (Budva never calls a read API); compliance
+is **dissolved** (standard user RPCs; a user-account daemon is the product's
+pre-existing architecture). Full three-layer assessment in facts-and-model.
+
+## Problem 1 — source-confirms RESOLVED (2026-11-01); then lifecycle design, then implement
+
+The three source-confirms are **closed by reading the pinned source** (no
+experiment). They fix the fix shape:
+
+1. **Idle-open delivery vs gap-only — RESOLVED: unconditional re-poll.** The
+   re-arm is on the **success** path of `on_get_channel_difference`:
+   `if (timeout > 0 && d->open_count > 0) add_timeout_in(dialog_id, timeout)`
+   (`:37423`), and the timer's handler `on_channel_get_difference_timeout`
+   (`:36707`) fires `get_channel_difference(dialog_id, d->pts, ...)` with **no
+   gap check**. An idle-but-open channel keeps polling at the server-returned
+   `timeout`. **Fix form = literally "one `OpenChat` + keep open"; no re-poll
+   nudge.**
+2. **>10 behavior — RESOLVED: unbounded FIFO pending queue, no loss, no
+   starvation.** `do_get_channel_difference` pushes to
+   `pending_get_channel_differences_` (`:36854`); drained only while
+   `count < 10` (`:36860-36863`); each completion re-drains; one outstanding
+   request per chat. With >10 open sources: 10 in flight, the rest rotate at
+   their own server `timeout`; a large-backlog channel re-queues its next page
+   immediately (per-page FIFO fairness). The 11th+ is **deferred, never
+   dropped**.
+3. **Member-channel idle delivery — RESOLVED (decision): keep the open set =
+   ALL channel/supergroup sources; do not shrink to non-member only.** The spec
+   sends passive member-channel updates "usually" but "in some cases ... may
+   stop (or send fewer)" — **not a guarantee**; relying on idle member delivery
+   would re-introduce the silence. The engine's gap-recovery gate (`:7206`)
+   treats `was_opened` and `is_member` as separate sufficiency conditions. The
+   saved volume is small vs the risk. **Set = all sources**; a member reduction
+   is a later optimization requiring production evidence, not preset.
+
+**Then, before coding:** lifecycle + stagger design (re-auth re-open, hot-reload
+add/remove, limiter-staggered initial batch) against the seams at
+`cmd/engine/main.go:168` and `main.go:183-196`. The dedicated-vs-shared-account
+fact (owner) affects only a footprint-risk term, not the design.
+
+Then implement (native, small): the `OpenChat` set for channel/supergroup
+sources at generation build + re-auth + hot-reload edges, with the stagger
+guardrail; a regression test asserting the open set matches the ruleset's
+channel/supergroup sources.
+
+## Problem 2 (secondary, downgraded to "potential, unobserved")
+
+The serial per-endpoint worker + backlog is *conditionally stable* G/G/1 (a
+burst drains when arrival < service rate; wait grows **linearly**, bounded by
+`timeout`, not exponentially). **No owner-observed per-message delay exists yet**,
+so this leg is **not pursued now** and **does not gate Problem 1**. Its 4 product
+decisions (loss / duplicate / ordering / receiver `T`+fast-ack) are **this leg's**
+blockers, made **if/when** per-message delay is actually observed.
+
+### The decision axes (for when Problem 2 is pursued)
 
 | axis | options |
 |---|---|
-| Where the queue lives | **A** external queue microservice · **B′** local outbox + external reader · **C** all in-budva (outbox+retry) — *rejected: "thickens" budva* |
-| First-hop semantics | unacked (fire-and-forget, droppable) vs acked append (at-least-once, local buffer 1–2 ms) |
+| Where the queue lives | **A** external queue microservice · **B′** local outbox + external reader · **C** all in-budva (outbox+retry) — *C rejected: "thickens" budva* |
+| First-hop semantics | unacked (droppable) vs acked append (at-least-once, local buffer 1–2 ms) |
 | Who owns retry / ordering / observability | queue side (Budva only appends) |
 
-## Positioning: two problems, two evidence routes — proportional, not a platform
+### Receiver-throughput effect (conditional, not absolute)
 
-**Problem 1 — the 10-minute total-silence window (headline symptom).**
-This is not a queue-draining story: a serial endpoint worker emits a request
-at least every `timeoutSeconds` (=60 s) while it has work, so the worst
-endpoint-side gap is **bounded by ~60 s**. A zero-request window of ≥10 min
-that also covers *text* is an **absence of submissions upstream of the
-endpoint worker**. **Model correction 2 (owner open-chat observation):** the
-silence is *coupled to the official client not having the chat open* — the
-client and Budva are **separate sessions**, and for **channels/large
-supergroups** Telegram does not guarantee real-time delivery (it is gated by
-chat-open/active state); opening the chat releases a **catch-up burst**
-(difference recovery). The leading causal class is therefore
-**open-chat-triggered update acquisition (B1a–B1d)** — including the
-*documented* cross-session passive-update effect for accessible **non-member**
-channels/supergroups — with **(B2)** a transient Run-loop stall, **(B3)**
-endpoint backlog, and **(D)** a ruleset hot-reload gap as secondary candidates
-(log signatures `Ruleset reloaded` / `Failed to reload` / `Push submission
-rejected ... retired`). The fix direction is **"make Budva an active
-subscriber"** — call `OpenChat` on the ruleset source chats (and keep them
-open / poll `getChannelDifference` per the server timeout) so Budva's *own*
-session receives real-time updates, independent of the official client — a
-first-class TDlib API, **native, no new component** (matches the native /
-minimal-maintenance constraint). **Owner requirement (2026-10-30): support
-EVERY source chat type** — one uniform action, **client-conformant scope**
-(`OpenChat` on every **channel/supergroup** source chat in Budva's own
-session — the classes that are open-state-gated; private/basic-group sources
-are NOT OpenChat'd, matching a client, and ride the global stream): the
-mechanism covers every type, the scope is typed. The source
-chat type is now **diagnostic only** (which documented mechanism explains the
-observed coupling; a silence on a private/basic-group = a separate B1a/B2/D
-bug) — it no longer selects the design. Source-confirm before implementation:
-(a) whether the pinned TDlib auto-polls channel differences while a channel
-is open (else Budva polls `getChannelDifference` per the server timeout),
-(b) lifecycle (re-open after re-auth, `updateChatInaccessible`, ruleset
-hot-reload add/remove → OpenChat/CloseChat; seams at generation build /
-`Replace` `main.go:168` and hot-reload `main.go:183-196`), (c) opened-chat
-ceiling under the production source set. This is **not** a delivery-rate
-change and is
-*pending* the boundary-localization experiment + the owner-supplied source
-chat type (the fork that selects which documented mechanism applies). Evidence
-= the boundary experiment + one live SIGQUIT dump (Phase 0p, revised), the
-cheapest and most decisive test available.
+Whether Budva-side concurrency + a receiver fast-ack raise end-to-end throughput
+depends on the receiver's own processing model:
 
-**Problem 2 — steady-state per-message delay (the ≤60 s contributor).**
-The serial per-endpoint worker + backlog is *conditionally stable* G/G/1: a
-burst drains when the arrival rate is below the service rate (finite,
-self-recovering delay); wait grows **linearly** in the service times ahead
-(bounded by `timeout`), not exponentially. The production backlog size and the
-dominant interval (`T2−T3` queue wait vs `T3−T4` HTTP/ingress) are not
-established from production data — and **do not need to be**: the dominant
-interval is **reproduced deterministically by a controlled slow-receiver test
-(Phase 0)**. The warranted response is *proportional*: (1) reproduce and bound
-the queue-wait mechanism in a unit test against a slow-receiver stub, then
-(2) bound per-request occupancy and raise service rate by a *test-justified,
-configurable* amount, in-repo — not a new always-on queueing platform.
-
-A durable outbox is justified **only** by an explicit must-not-lose policy,
-not by latency alone — and it does not address Problem 1 at all.
-
-## Receiver-throughput effect (conditional, not absolute)
-
-Whether Budva-side concurrency and a receiver fast-ack actually raise
-end-to-end throughput depends on the receiver's own processing model:
-
-- If the **receiver can process requests concurrently**, bounded producer
-  concurrency can raise webhook-ingress and end-to-end throughput, and
-  fast-ack (short HTTP occupancy) directly raises the Budva worker's service
-  rate even if downstream business throughput is unchanged.
-- If the **receiver (or its downstream dependency) is strictly serialized or
-  saturated** at some capacity, producer concurrency mainly *moves the
-  backlog* and can add contention; final business-processing throughput is
-  then bounded by the receiver, not by Budva.
-- An **external durable queue** generally does **not** raise final
-  business-processing throughput, but it does absorb bursts, isolate producer
-  availability from receiver outages, preserve events, control retries, and
-  support replay — reliability/decoupling benefits, separate from
-  latency containment.
-
-So "the receiver is slow, therefore Budva concurrency is pointless" is only
-true in the serialized/saturated case. The Phase 0 test (which interval the
-Budva-side delay lands in) and the Phase 1 receiver contract (fast-ack?
-concurrent? what ceiling?) decide which of these cases applies.
-
-## Sequencing (evidence-ordered) — no heavyweight platform
-
-The levers are real but must be applied in an order that (1) **reproduces and
-bounds the mechanism before the concurrency boundary changes**, and (2) does
-**not** preset parameters that require contracts to be chosen.
-
-> **The evidence is a controlled test, not production collection.** The
-> dominant interval and the queueing behavior are established **by unit/
-> contract tests against a controlled slow-receiver stub** — deterministic,
-> reproducible, race-clean, and run in CI. Production-side collection of
-> timing (capturing a live delayed event, per-request timing logs from the box)
-> is **not** a gate: it is non-reproducible, invasive, and the delayed
-> occurrence is the very thing being fixed. Producer-side observability
-> (queue depth, oldest age, enqueue→pickup duration) ships as a **post-deploy
-> verification aid** (and a cheap production dead-man's-switch), not as a
-> pre-implementation prerequisite. This is the deterministic equivalent of
-> "capturing one representative delayed occurrence": the stub *is* the
-> controlled occurrence.
-
-### Phase 0p — localize the silence-release boundary (the PRIMARY evidence
-for the headline symptom; revised per Model correction 2)
-
-The repeated open-chat intervention tests already reject coincidence, so this
-phase does **not** re-prove the effect — it finds **at which boundary the
-open-chat trigger releases the updates**, which selects the fix direction
-(update acquisition vs Run-loop vs endpoint vs reload). The **owner runs this
-on the box** (the agent has no box access); full detail is in
-`research/facts-and-model.md` (Model correction 2) and the Team B report.
-
-1. **Record the source chat type** (owner-supplied; **diagnostic** input per
-   the owner's type-agnostic requirement, not a design selector):
-   channel / supergroup (any size — no protocol threshold; "large" is a
-   maintainer paraphrase) vs private chat vs basic group; and whether the
-   Budva account has **joined** it or only **can access** it (public, or
-   `chatInvitePeek`). This selects which documented mechanism explains the
-   observed coupling.
-2. **Contrast three states** with plain-text probes carrying a unique token,
-   **separating private/basic-group chats from supergroups/channels**
-   (channel open-state has specific difference behavior — mixing confounds):
-   **A** official client stays on the list (never opens); **B** opens the chat
-   after list activity; **C** fully closes the client.
-3. **Record boundary timestamps** per probe (stable chat id + message id +
-   token): S0 send · C1 list-shown · C2 opened · B0 go-tdlib receives any
-   update · B1 Budva `UpdateNewMessage` · B3 handler start · B4 `SubmitV2` ·
-   B5 endpoint worker pickup · B6 `http.Client.Do` start · W1 receiver ingress
-   · W2 response; and take **one `kill -QUIT 1` goroutine dump while the
-   symptom is active** (the 10-29 method — names the parked frame).
-4. **Interpret**: `B0/B1` only after `C2` → coupling is **upstream** (update
-   acquisition/recovery) → the "Budva opens the chat" fix; `B0/B1` before
-   `C2` but `B3–B6` late → local to Budva/go-tdlib or endpoint; A/B/C all
-   recover similarly → transport/difference recovery or local backpressure,
-   not cross-session; `B4` prompt but `B5/B6` late → serial endpoint worker;
-   `B6` prompt but `W1` late → HTTP/proxy/socket boundary. In-window log grep
-   `Ruleset reloaded` / `Failed to reload` → (D).
-
-This is a **one-shot forensic, not a timing campaign**: a small set of
-probes + one dump, no continuous metrics, no shipped instrumentation.
-**Outcome determines the fix direction** (active-subscriber / Run-loop /
-endpoint / reload — vs endpoint tuning).
+- If the **receiver can process concurrently**, bounded producer concurrency can
+  raise webhook-ingress and end-to-end throughput, and fast-ack directly raises
+  the Budva worker's service rate.
+- If the **receiver (or its downstream) is strictly serialized / saturated**,
+  producer concurrency mainly *moves the backlog* and can add contention; final
+  business throughput is bounded by the receiver, not Budva.
+- An **external durable queue** generally does **not** raise final business
+  throughput, but absorbs bursts, isolates producer availability from receiver
+  outages, preserves events, controls retries, and supports replay —
+  reliability/decoupling benefits, separate from latency.
 
 ### Phase 0 — reproduce + bound the mechanism (a GATE, by controlled test)
 
 In-repo tests (`internal/service/push`, no production traffic):
-- **serial baseline reproduction:** a `WebhookSink` (or a test sink) backed by a
-  **slow-receiver stub** that sleeps `T` before responding 2xx; enqueue N
-  events on the current single-worker endpoint and assert the queue-wait
-  (`T3−T2`) grows **linearly** to ≈ `(N−1)·T` — reproducing the observed
-  finite minute-scale delay from the confirmed mechanism. This both confirms
-  the mechanism is real and **locates the dominant interval** (`T2−T3` grows;
-  `T3−T4` is held constant by the stub, so any delay beyond `(N−1)·T` is
-  attributable to ingress, not the queue).
-- **bounded, reproducible bounds:** the test asserts the resulting
-  queue-wait P-max / oldest-age against an explicit budget (a **measurable
-  acceptance**, not the `(N/concurrency)×T` planning formula).
-- **the fix is proven in the same suite:** with the concurrency/timeout change
-  applied, the same N-event burst against the same slow stub shows queue-wait
-  and oldest age **within budget**, in-flight ≤ configured concurrency, and
-  zero unexpected `buffer_full`.
-
-The stub makes the test deterministic: fixed `T`, fixed N, no network, no
-production data. It is the evidence that the design changes the right interval
-and by a bounded amount — **before** that change is merged.
+- **serial baseline reproduction:** a `WebhookSink`/test sink backed by a
+  **slow-receiver stub** that sleeps `T` before 2xx; enqueue N events on the
+  current single-worker endpoint and assert the queue-wait (`T3−T2`) grows
+  **linearly** to ≈ `(N−1)·T`. Confirms the mechanism is real and **locates the
+  dominant interval** (`T2−T3` grows; `T3−T4` held constant by the stub).
+- **bounded, reproducible bounds:** assert the resulting queue-wait P-max /
+  oldest-age against an explicit budget (a **measurable acceptance**).
+- **the fix proven in the same suite:** with the concurrency/timeout change, the
+  same burst shows queue-wait and oldest age **within budget**, in-flight ≤
+  configured concurrency, and zero unexpected `buffer_full`.
 
 ### Phase 0b — post-deploy verification aid (ships with the change, not a gate)
 
-Producer-side observability for the deployed box (in-repo, small):
-- stamp **enqueue time**; record **worker-pickup time** (queue-wait `T3−T2`);
-- expose **current queue depth** and **oldest queued-event age** per endpoint
-  (alongside the existing `enqueued / full / failed / duration / lastSuccess`
-  metrics);
-- retain a stable **event/message correlation key** (chat + message + event
-  type) in structured logs — no message content, no secrets.
+Producer-side observability (in-repo, small): stamp **enqueue time** and
+**worker-pickup time** (queue-wait `T3−T2`); expose **queue depth** and
+**oldest queued-event age** per endpoint (alongside the existing
+`enqueued / full / failed / duration / lastSuccess`); retain a stable
+**correlation key** (chat + message + event type) in structured logs. Receiver
+correlation is **free**: the payload carries `OccurredAt` (`service.go:351`),
+so the receiver can compute arrival-minus-`OccurredAt` with zero Budva change.
+Also supplies the dead-man's-switch on last delivery the 10-29 record flagged.
 
-Correlation with the receiver is **free** in the common case: the payload
-already carries `OccurredAt` (= `T2`, stamped at `SubmitV2`), so the receiver
-can compute arrival-minus-`OccurredAt` (= `T2→T4`) with zero Budva change. This
-phase is what lets the owner *verify after deploy* that the box's real `T` and
-arrival rate keep the queue-wait in budget — and provides the missing
-dead-man's-switch on last delivery the 10-29 record flagged. It is **not**
-required to land the change.
+### Phase 1 — settle the delivery contracts (owner decisions; this leg only)
 
-### Phase 1 — settle the delivery contracts (owner decisions; preconditions)
+loss policy (best-effort vs must-not-lose) · duplicate policy · ordering scope
+(global / per-endpoint / per-chat / none — decides worker topology) · receiver
+fast-ack · receiver idempotent ingest · receiver-supported concurrency ceiling.
 
-Record **before** implementation:
-- **loss policy:** best-effort (droppable) vs must-not-lose;
-- **duplicate policy:** are duplicate deliveries acceptable (drives the
-  receiver idempotency requirement and any retry);
-- **ordering scope:** global / per-endpoint / per-chat / none — this decides
-  the worker topology (worker pool vs chat partitioning);
-- **receiver fast-ack:** can the receiver validate/enqueue/2xx and process
-  async?
-- **receiver idempotent ingest:** can the receiver de-dup by event id?
-- **receiver-supported concurrency:** the ceiling for the producer
-  concurrency.
+### Phase 2 — choose parameters and topology (test-justified + configurable)
 
-### Phase 2 — choose parameters and topology (test-justified + configurable,
-not preset, and not production-measured)
+- **timeout** from the receiver's response time (one `curl -w
+  '%{time_total}'` or the access log — a single black-box number, **not** a
+  measurement campaign) + delivery semantics + failure budget + safety margin +
+  loss policy. **No concrete value before the receiver behavior and loss policy
+  are recorded.** "Set to P95/P99" is **rejected** (a loss knob under
+  at-most-once).
+- **concurrency** configurable; initial value from the **Phase 0 test budget**
+  (smallest N that holds the burst in budget) and the receiver-concurrency
+  contract — **not a preset 4**, not production-arrival-derived.
+- **topology:** unordered worker pool (ordering scope none / receiver
+  idempotent+order-independent) vs stable chat partitioning
+  (`hash(chat_id) % N`) if same-chat order is contractual.
+- **buffer-full behavior** + meaningful **latency/saturation alerts** from the
+  Phase 0b metrics.
 
-- **timeout:** chosen from the **receiver's response time** — the single
-  black-box number the **owner provides** (one `curl -w '%{time_total}' -X
-  POST` at the endpoint, or the receiver's own access log; **not** a
-  production measurement campaign) — plus delivery semantics, an acceptable
-  failure budget, an explicit safety margin, and the loss policy. In
-  **best-effort** mode, document the latency-versus-loss tradeoff — under
-  at-most-once semantics a shorter timeout *is* a loss knob (it classifies the
-  slow tail as failed and drops it). In **must-not-lose** mode, timeout tuning
-  alone is insufficient — durable retry + idempotency are required. **No
-  concrete value is set until the receiver's response behavior and the loss
-  policy are recorded.** A mechanical "set to P95/P99" rule is **rejected**:
-  under at-most-once delivery it would silently drop the slow tail.
-- **concurrency:** configurable; the initial value is a **small, bounded
-  number justified by the Phase 0 test budget** (the smallest N such that the
-  N-event burst against the slow stub holds queue-wait / oldest-age in
-  budget) and by the receiver-supported-concurrency contract — **not a fixed
-  undocumented default and not derived from production arrival-rate
-  measurement** (a low-volume forwarder's arrival rate is low and
-  non-reproducible to collect; it is revisited later via the Phase 0b
-  post-deploy metrics if saturation ever shows up).
-- **topology:** unordered worker pool (if the ordering scope is none, or the
-  receiver is idempotent and order-independent) vs **stable chat
-  partitioning** (`hash(chat_id) % N`, one serial consumer per partition) if
-  same-chat order is part of the contract.
-- **buffer-full behavior** and meaningful **latency/saturation alerts**
-  (from the Phase 0b metrics) defined.
+### Phase 3 — implement and validate (this leg)
 
-### Phase 3 — implement and validate
+bounded per-endpoint concurrency (native Go); the **Phase 0** slow-receiver
+suite as the regression suite + ordering tests for NEW/EDIT/DELETE +
+generation-retirement / goroutine-lifecycle tests + buffer-full + timeout/
+cancellation + **race testing of the dispatcher change**; the unchanged 10-29
+task-queue regression tests; TDLib-provisioned CI for handler tests; the
+**Phase 0b** observability alongside.
 
-- bounded per-endpoint concurrency (native Go: the endpoint channel consumed
-  by N goroutines, or N chat partitions);
-- the **Phase 0 controlled slow-receiver tests** (baseline reproduction +
-  bounded post-fix) merged as the regression suite, plus: **ordering tests
-  for NEW/EDIT/DELETE sequences**; generation retirement + goroutine-lifecycle
-  tests; buffer-full behavior; timeout + cancellation behavior; **race testing
-  of the dispatcher change**; the unchanged 10-29 task-queue regression tests;
-  TDLib-provisioned CI for handler tests;
-- the **Phase 0b observability** (queue depth, oldest age, enqueue→pickup)
-  shipped alongside, for post-deploy verification.
+### Phase 4 — reliable delivery, only if must-not-lose (this leg)
 
-### Phase 4 — reliable delivery, only if must-not-lose
-
-Only if the Phase 1 policy is must-not-lose: durable append before
-acknowledging producer acceptance, a stable idempotency key, retry
-classification + exponential backoff with jitter, `Retry-After` support, a
-DLQ, inspection/replay, and receiver-side duplicate suppression. The durable
-queue, if needed, is an **off-the-shelf wheel evaluated as a decision** (e.g.
-NATS JetStream or Redis Stream) — *not pre-approved by name* — wired through
-the existing `push.Sink` seam
+Only if the Phase 1 policy is must-not-lose: durable append before acknowledging
+acceptance, a stable idempotency key, retry classification + exponential
+backoff with jitter, `Retry-After`, a DLQ, inspection/replay, receiver-side
+duplicate suppression. The durable queue, if needed, is an **off-the-shelf wheel
+evaluated as a decision** (e.g. NATS JetStream or Redis Stream) — *not
+pre-approved by name* — wired through the existing `push.Sink` seam
 (`internal/service/push/dispatcher.go:32-36`) so the Budva-side diff stays
-small: a `queueSink` does one acked `append` (ms, returns immediately);
-`WebhookSink` is retired or demoted to fallback. First-hop is an **acked
-append**, not unreliable UDP (on one host UDP buys no performance and worsens
-the loss semantics).
+small: a `queueSink` does one acked `append` (ms); `WebhookSink` retired or
+demoted to fallback. First hop is an **acked append**, not unreliable UDP.
 
 ## Excluded (and why)
 
 - **Bespoke in-repo queue microservice** (new `cmd/`, new image, new CI path,
-  new failure domain, hand-rolled retry/DLQ) — the most wheel-inventing
-  option; violates constraint 2.
+  new failure domain, hand-rolled retry/DLQ) — most wheel-inventing; violates
+  constraint 2.
 - **C (in-budva durable outbox + retry)** — "thickens" Budva with exactly the
-  mechanics the owner does not want to own; the must-not-lose need is better
-  met by an off-the-shelf durable queue through the `push.Sink` seam.
+  mechanics the owner does not want to own; must-not-lose is better met by an
+  off-the-shelf durable queue through the `push.Sink` seam.
 - **B′ (local outbox + external reader) on its own merits** — buys
   engine-offline resilience but adds a second process *sharing* Budva's store
-  plus a **self-invented** claim/mark/de-dup handoff protocol (the highest
-  uniqueness / least-reusable part of any option). On the same host with the
-  queue in the same compose the offline resilience is moot. B′ only wins if
-  the first hop *must* be local.
+  plus a **self-invented** claim/mark/de-dup handoff (the least-reusable part).
+  On the same host with the queue in the same compose, offline resilience is
+  moot. B′ only wins if the first hop *must* be local.
 - **Presetting `concurrency = 4` or `timeout ≈ P95/P99`** — no test budget or
-  recorded contract supports those values and the timeout rule is a loss knob
-  under at-most-once; both become test-justified, configurable values
-  (Phase 2).
-- **Production-side timing collection as an implementation gate.** Capturing a
-  live delayed event or instrumenting the box before the change is
-  non-reproducible, invasive, and the occurrence being fixed is itself
-  intermittent. The evidence is the **controlled slow-receiver test** (Phase
-  0); production observability is a post-deploy aid (Phase 0b). A full T1–T4
-  tracing *platform* is likewise not required. (The Phase 0p
-  **boundary-localization experiment + one live SIGQUIT dump is the single
-  exception** and deliberately so: it is a one-shot forensic of the
-  *headline symptom* — the 10-minute silence — that no in-repo test can
-  reproduce, and it ships no instrumentation and collects no continuous
-  metrics.)
+  recorded contract supports those; the timeout rule is a loss knob under
+  at-most-once. Both become test-justified, configurable values (Phase 2).
+- **A hand-built `getChannelDifference` poller in Go for Problem 1.** Rejected
+  **because go-tdlib is a CGO shell over the C++ TDlib engine, which already
+  performs channel-difference polling** — Budva only sends `OpenChat`. (This
+  corrects an earlier draft that proposed a raw `Send` poller on the mistaken
+  premise that go-tdlib is a pure-Go MTProto client.)
+- **Production-side timing collection as an implementation gate** (Problem 2).
+  Non-reproducible, invasive; the delayed occurrence is the thing being fixed.
+  The evidence is the **controlled slow-receiver test** (Phase 0); production
+  observability is a post-deploy aid (Phase 0b). No full T1–T4 tracing platform.
 
-## Implementation entry gate (implementation remains blocked until closed)
+## Implementation entry gate (the Problem-1 code change stays blocked until closed)
 
-1. **Evidence boundary corrected (Model correction 2):** the 10-minute
-   total-silence window is coupled to the **open-chat / chat-active state**
-   (client and Budva are separate sessions; channels/supergroups — any size,
-   no protocol threshold — are not guaranteed real-time). The leading causal
-   class is **open-chat-triggered
-   update acquisition (B1a–B1d)**; the endpoint serial worker is a bounded
-   ≤60 s contributor (B3), **not** the proven root cause of the headline
-   symptom.
-2. **The silence is localized once (Phase 0p, revised):** the
-   **boundary-localization experiment** (A list-only / B open-after-activity /
-   C client-closed, chat types separated, boundary timestamps + one SIGQUIT
-   dump) finds *at which boundary* the trigger releases updates. The source
-   chat type is **diagnostic** (which documented mechanism applies; a silence
-   on a private/basic-group = a separate B1a/B2/D bug) — the Problem 1 fix is
-   the **type-agnostic active-subscriber** design (owner requirement: support
-   every chat type), and the experiment confirms which release boundary
-   governs production.
-3. **Mechanism reproduced + bounded by a controlled test (Problem 2):** the
-   Phase 0 slow-receiver test suite reproduces the queue-wait and shows the
-   concurrency/timeout change holds it in budget — **no production timing
-   collection required** (the deterministic equivalent of capturing one
-   delayed occurrence).
-4. **Delivery contracts settled:** loss, duplicate, ordering, fast-ack, and
-   idempotency policies are recorded; the receiver's response time `T` is a
-   single black-box number the owner supplies (one `curl`/access-log), not a
-   measurement campaign.
-5. **Parameters test-justified + configurable:** concurrency and timeout are
-   configurable and chosen from the Phase 0 test budget and the recorded
-   contracts/risk budget.
+1. **Root cause and fix are recorded and converged** (this document +
+   facts-and-model): Budva does not own the acquisition boundary of its ruleset
+   sources (never `OpenChat`s); fix = `OpenChat` each channel/supergroup source
+   on its own session and keep it open; private/basic-group ride the global
+   stream. Closed by three-layer evidence (spec + pinned engine source +
+   go-tdlib architecture), **no owner-run experiment required**.
+2. **Source-confirms 1–3 above resolved against the pinned source (2026-11-01,
+   no experiment):** idle-open delivery = **unconditional re-poll** (the re-arm
+   is on the success path, gated only on `open_count>0`, no gap check) → the
+   fix is literally "one `OpenChat` + keep", **no re-poll nudge**; >10 =
+   **unbounded FIFO pending queue, deferred never dropped**; member-channel
+   idle delivery = **keep the open set = all sources, do not shrink** (the
+   spec's "usually" is not a guarantee). These fix the fix shape.
+3. **Lifecycle + stagger guardrails designed** (re-auth re-open, hot-reload
+   add/remove, limiter-staggered initial batch) against the seams at
+   `main.go:168` / `main.go:183-196`.
+4. **Owner go-ahead** to implement (a decision, not an input): no owner-run
+   experiment, no Problem-2 contract, and no source-chat-type answer are
+   required to proceed.
 
-Closing these needs the one live probe capture, a small in-repo test suite,
-and explicit product semantics — not production collection and not a
+Closing this needs the lifecycle/stagger design + a small in-repo open-set
+test + the owner's go-ahead (the source-confirms are already resolved) —
+**not** a production collection, **not** an owner experiment, and **not** a
 platform.
 
-## Open owner decisions (the implementation blockers)
+## Owner decisions
 
-1. **Support every source chat type (owner-stated requirement, 2026-10-30):**
-   the fix must work for private chats, basic groups, supergroups, and
-   channels. This is a **type-agnostic uniform action** (see facts-and-model
-   "Owner requirement"): `OpenChat` on every ruleset **channel/supergroup**
-   source chat in Budva's
-   own session — the open-state-gated classes
-   (private/basic-group sources are NOT OpenChat'd: a client does not open
-   every chat, and those ride the global stream anyway). The **source chat type + membership** are no longer
-   a *design* fork — they are a **diagnostic** input (which documented
-   mechanism explains the observed coupling; a silence on a private/basic-
-   group is a separate bug: B1a/B2/D).
-2. **Loss policy:** best-effort (droppable) vs must-not-lose?
-3. **Duplicate policy:** are duplicate deliveries acceptable?
-4. **Ordering scope:** global / per-endpoint / per-chat / none?
-5. **Receiver `T` + contracts:** the receiver's per-request response time
-   (one `curl -w '%{time_total}' -X POST` or its access log — a single number,
-   **not** a production measurement) and whether the receiver can fast-ack +
-   idempotently ingest + support what concurrency ceiling?
-
-**No production-side timing collection is required from the owner.** The
-evidence for the mechanism and its bound is the in-repo controlled
-slow-receiver test (Phase 0); the owner's input is the black-box contract
-decisions above plus the single `T` number.
+- **Problem 1: none outstanding.** The type-agnostic requirement is **resolved**
+  (converged to: one intent, each class by its own client-conformant mechanism).
+  The only owner item is the **go-ahead to implement** (and, optionally, the
+  dedicated-vs-shared-account fact, which affects only a risk term).
+- **Problem 2 (only if/when that leg is pursued):** (1) loss policy; (2)
+  duplicate policy; (3) ordering scope; (4) receiver `T` + fast-ack /
+  idempotency / concurrency-ceiling contracts. These are **this leg's** blockers,
+  **not** the Problem-1 fix's.
 
 ## Team B citation scope (explicit)
 
 `research/team-b-webhook-latency-follow-up.md` independently confirms the
-**source mechanism** (serial per-endpoint worker, pre-wire queue wait, single
-attempt, occupied-until-response) and the **evidence boundary** (production
-causality unproven). It **does not** constitute approval of this task's
-parameter values, implementation ordering, product contracts, or final
-architecture. It is cited as mechanism corroboration only.
+**Problem-2 source mechanism** (serial per-endpoint worker, pre-wire queue wait,
+single attempt, occupied-until-response) and the **evidence boundary**. It does
+**not** constitute approval of this task's parameter values, implementation
+ordering, product contracts, or final architecture. Cited as Problem-2 mechanism
+corroboration only.
 
 `research/team-b-team-a-report-audit.md` is Team B's audit of this task's
-research/design (**CHANGES REQUESTED**); its corrections are applied in the
-current revision. One point is resolved **differently, by deliberate design**:
-Team B's P1-02 frames the evidence as capturing a representative *production*
-delayed occurrence. This task instead uses a **controlled slow-receiver
-test** as the gate (deterministic, reproducible, race-clean, CI-runnable) and
-demotes production-side observability to a post-deploy aid — production
-timing collection is not a realistic or required prerequisite. The evidence
-*boundary* Team B asks to preserve (do not claim the production incident is
-root-caused; measure the suspected interval before changing the concurrency
-boundary) is fully honored: the controlled test both reproduces the mechanism
-and bounds the change before it lands.
+research/design (**CHANGES REQUESTED**); corrections applied. One point is
+resolved **differently, by deliberate design**: Team B's P1-02 frames the
+evidence as capturing a representative *production* delayed occurrence; this
+task uses a **controlled slow-receiver test** as the (Problem-2) gate
+(deterministic, reproducible, race-clean, CI-runnable) and demotes production
+observability to a post-deploy aid. The evidence *boundary* Team B asks to
+preserve is honored.
 
-`research/team-b-tdlib-open-chat-ground-fact-check.md` is Team B's **ground-
-fact check of the owner's open-chat observation** (**CHANGES REQUESTED**,
-2026-10-30). It is the source of Model correction 2: the open-chat→release
-coupling as the leading fact, the B1 decomposition into B1a–B1d, the
-documented cross-session passive-update scope (accessible **non-member**
-public channels/supergroups and `chatInvitePeek`-accessible private ones;
-**not** established for joined channels, private chats, or basic groups), the
-channel-difference burst mechanism, and the boundary-localization experiment.
-It is cited as **ground-fact evidence, not design approval**; its applicability
-to the actual production chat type is the open owner-supplied fork (Open owner
-decisions #1).
+`research/team-b-tdlib-open-chat-ground-fact-check.md` is Team B's **ground-fact
+check of the owner's open-chat observation** (**CHANGES REQUESTED**,
+2026-10-30) — kept **verbatim** (its "large supergroups" phrasing is a
+maintainer paraphrase, not a protocol class). It originated the open-chat
+framing and the B1 decomposition; the **three-layer evidence in
+facts-and-model supersedes** its open B1a–B1d candidate set with the converged
+mechanism. Cited as **ground-fact evidence, not design approval**.
 
 ## Boundary restated
 
 Producer-side only. The receiver is a black box (accepted / rejected(class) /
-unreachable). fast-ack and idempotent-ingest are *required of* the receiver,
-confirmed by the owner, and out of scope to implement here.
+unreachable). fast-ack and idempotent-ingest are *required of* the receiver
+(Problem 2), confirmed by the owner, and out of scope to implement here.
