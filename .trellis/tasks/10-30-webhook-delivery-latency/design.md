@@ -7,7 +7,7 @@
 > `research/<design>-dimensions.md`; precedent findings to
 > `research/precedent-openchat-lifecycle.md`.
 
-**Status**: Stage 1 draft done; Gate A pending.
+**Status**: Stage 2 revised; Gate B pending.
 
 ---
 
@@ -41,7 +41,10 @@ stream). Chat **type is diagnostic** — it selects which mechanism applies.
      lifecycle lives in `internal/infra/telegram/repo.go` / `internal/app/auth`.
    - **process restart**: `open_count` is in-process → same as initial load.
 3. **Stagger** — the initial / re-auth batch of N `openChat`s must not fire in
-   the same instant (reuse `internal/service/limiter`).
+   the same instant. *[Revised Gate A / R6: the stagger is a local per-operation
+   pace inside the opener, NOT `internal/service/limiter` — that limiter is a
+   per-chatID forward throttle, a different axis; an N-distinct-chat open batch
+   never shares a chatID. See §4.]*
 4. **In-process state + failure edges** — the opened-set (idempotent
    re-open); error edges: chat inaccessible / chat closed / bot-guard /
    mid-batch interruption; hot-reload **removal** → `CloseChat`.
@@ -84,13 +87,20 @@ Scope: the four lifecycle/stagger seams from the Frame. Every non-obvious
 mechanism cites a precedent (pinned) from
 `research/precedent-openchat-lifecycle.md`, or a source-verified reason it is
 novel. Pins reused below: **TDlib** = commit `22d49d5` `MessagesManager.cpp`
-(`open_dialog`:19524, `close_dialog`:19640, gap-gate:7206, re-arm:37423,
-10-cap FIFO:36854/36860); **go-tdlib** = v0.7.6 (`function.go` `OpenChat`:7790 /
-`CloseChat`:7816 / `OpenChatRequest{ChatId int64}`:7784 / `CloseChatRequest{ChatId
-int64}`:7810; `types.go` `Chat{Id, Type ChatType}`:14877, `ChatType*`:14059-14142);
-**precedents** = Telethon v1.42.0, Pyrogram 2.0.106, mtcute `@mtcute/core`
-0.32.4 (+re-poll internals on master), teleproto 1.232.1 (all source-pinned in
-the 0b file).
+(`open_dialog`:19524, **`open_dialog` early-returns on `!have_input_peer`:19527**,
+`close_dialog`:19640, gap-gate:7206, re-arm:37423, 10-cap FIFO:36854/36860);
+**go-tdlib** = v0.7.6 (`function.go` `OpenChat`:7790 / `CloseChat`:7816 /
+`OpenChatRequest{ChatId int64}`:7784 / `CloseChatRequest{ChatId int64}`:7810;
+`type.go` `Chat{Id, Type ChatType}`:14877, `ChatTypeSupergroup{SupergroupId,
+IsChannel}`:14113-14118, `ChatType*`:14059-14142); **loader** =
+`internal/infra/ruleset` (`transform()` negates every source key unconditionally,
+`repo.go:215-221`; convention doc `doc.go:19-20`); **precedents** = Telethon
+v1.42.0, Pyrogram 2.0.106, mtcute `@mtcute/core` 0.32.4 (+re-poll internals on
+master), teleproto 1.232.1 (all source-pinned in the 0b file).
+
+> **Stage 2 (Gate A) note:** revisions R1–R9 below amend the Stage 1 draft. Where
+> a load-bearing claim changed, a one-line "**Revised (Gate A):** …" note marks the
+> diff from Stage 1. Stage 0 Frame and Stage 0b are unchanged.
 
 ### §1 — Mechanism & layer placement
 
@@ -104,18 +114,54 @@ single idempotent entry point:
 SourceOpener.ApplySet(ids []domain.ChatID)   // called on every edge; diff-driven
 ```
 
-`ApplySet` is the ONLY driver. Edges call it (not `OpenChat` directly):
+`ApplySet` is the ONLY driver. **Exactly two edges** call it (not `OpenChat`
+directly):
 
-- **initial load & hot-reload**: from the existing
+- **startup adapter-swap (full open):** the repo fires a **registered callback**
+  in its `runAuthLoop` adapter-swap critical section — the same place it does
+  `swapSessionTable()` + `clientAdapter = tdlibClient` (`repo.go:366-367`). The
+  callback calls `ApplySet(currentChannelIDs)`. A brand-new C++ client instance
+  has `open_count == 0` for every chat by construction, so this is **always a
+  full open**; it also covers **process restart** (same `runAuthLoop` re-runs) and
+  **re-auth** (which collapses to a fresh client — see §3).
+- **hot-reload diff (added→open / removed→close):** from the existing
   `cmd/engine/main.go:168` `pushManager.Replace(configs, callback)` convergence
   callback — the *same* callback that already runs `handlerService.SetRuleSetWithPush(rs, g)`,
   extended to also call `sourceOpener.ApplySet(sourceChannelIDs(rs))`. Both the
-  first load (main.go:175) and the watcher (main.go:183-196) already funnel
-  through `loadSnapshot` → `Replace`, so **one** call site covers both edges.
-- **re-auth**: a small **auth-state observer in the same package** subscribes to
-  the repo's auth-state stream; on each transition into `AuthStateReady` it calls
-  `ApplySet(currentIDs)`. (See §3 re-auth for the dimension-C hazard and why the
-  observer lives in-package rather than reusing `AuthStates()`.)
+  first load (main.go:175) and the watcher (main.go:183-196) funnel through
+  `loadSnapshot` → `Replace`, so **one** call site covers the reload edge.
+
+> **Revised (Gate A):** the Stage 1 draft had a **third** edge — a separate
+> "re-auth observer" reacting to `AuthStateReady` — plus an `authGen`
+> generation counter. Both are **deleted** (R2/R3): `runAuthLoop` is one-shot and
+> `LogOut`→`CleanUp()` deletes the DB, so there is **no in-process re-auth path**;
+> every session reset collapses to the adapter-swap. The open trigger is the
+> **adapter-swap**, NOT `AuthStateReady` (which lags the swap and can be lost —
+> `repo.go:355-361`).
+
+**`ApplySet` execution model (dimension C, R5).** `pushManager.Replace`
+(`internal/service/push/manager.go:24-45`) holds `m.mu` and runs the publish
+callback **synchronously** (line 37 `publish(candidate)`). A blocking
+N×(staggered `OpenChat` RPC) inside that callback would **hold the push manager's
+lock** and stall the generation swap + the push send path. Therefore `ApplySet`:
+1. **computes the diff synchronously** (fast, pure: `added` = `ids − opened`,
+   `removed` = `opened − ids`, reconciling `pending`), and
+2. **runs the actual RPC calls (`GetChat`→`OpenChat`) in a background goroutine**
+   with the stagger (§4). `ApplySet` returns quickly; it tracks in-flight work
+   (the `opened` set + a **per-ID in-flight guard**) so a concurrent edge cannot
+   double-fire the same ID.
+
+**Wiring the startup-swap edge (dimension C, R3).** The opener **registers a
+callback on the repo**, fired in the `runAuthLoop` swap critical section (the repo
+is the *same package*, `internal/infra/telegram`). **Do not add a raw fan-out
+channel:** `Updates()`/`AuthStates()` are **compete-not-broadcast**
+(`repo.go:140-148` — "multiple readers compete for events rather than receiving a
+broadcast"), so a second raw channel would re-create the starvation hazard (the
+auth service already stops reading `AuthStates()` after the first Ready,
+`auth/service.go:66-68`). A one-callback registration in the swap section avoids
+both the starvation and the "Ready can be lost" problem (R2). This is a **small,
+isolated** `infra/telegram` change; the exact shape (a callback field vs. a
+method) is an implementation detail.
 
 **Dimension-A rationale (why this placement):**
 1. **RPC calls stay in the infra/telegram layer** next to the client adapter —
@@ -141,160 +187,188 @@ SourceOpener.ApplySet(ids []domain.ChatID)   // called on every edge; diff-drive
    itself (see §7).
 
 **Where the "is it a channel" decision lives.** The classifier (§2) is a pure
-function over an ID (primary) — it can live in `internal/domain` (pure, no deps,
-trivially unit-testable) or as an unexported helper in `internal/infra/telegram`.
-**Recommendation: `internal/domain`** (exported `func IsChannelOrSupergroup(ChatID) (bool, bool)`)
-because (a) it depends only on the ID convention documented in
-`internal/domain/ruleset/doc.go:19-20`, (b) the `GetChat`-fallback *result* is a
-`bool` that folds back into the same decision, so the decision is ID-shaped
-in and ID-shaped out, and (c) keeping it in domain makes it testable without cgo
-(dimension G). The `GetChat` fallback call (the only RPC in the decision) stays in
-the telegram layer.
-
+function over an ID — it can live in `internal/domain` (pure, no deps, trivially
+unit-testable) or as an unexported helper in `internal/infra/telegram`.
+**Recommendation: `internal/domain`** (exported
+`func IsChannelOrSupergroup(ChatID) (open bool)`) because (a) it depends only on
+the ID convention documented in `internal/infra/ruleset/doc.go:19-20`, and
+(b) keeping it in domain makes it testable without cgo (dimension G). **Revised
+(Gate A):** the Stage 1 draft's rationale cited a "GetChat-fallback result folds
+back to a bool"; that is superseded — **id-magnitude alone decides open/not**
+(§2); `GetChat` is no longer a type fallback, it **resolves the input peer before
+the `OpenChat` call** (also §2). The `GetChat` call (the only RPC in the
+open path) stays in the telegram layer.
 ### §2 — Open-set derivation (classification)
 
-**Decision.** **ID-magnitude primary (ADOPT) + `GetChat` fallback.**
-Rationale: Telethon `resolve_id` (v1.42.0 `utils.py:1053-1063`) and Pyrogram
-`get_peer_type` (2.0.106 `utils.py:236-246`) both classify a bare ID by
-**sign/magnitude with no RPC**; Budva's stored `ChatID` is already in that
-marked/negated form (`ruleset/doc.go:19-20`; loader `negateChatIDs`
-`ruleset/repo.go:291`). `GetChat` is the fallback for IDs the magnitude test
-cannot classify (raw-positive / ambiguous) — a **raw positive channel id
-misclassifies as a basic group → never opened → silent** (0b finding 2); that is
-the exact bug being fixed, so the fallback must exist.
+**Decision (Revised, Gate A).** **ID-magnitude alone decides open/not — one RPC
+per opened source to resolve the input peer before `OpenChat`.** The Stage 1
+draft framed `GetChat` as a *type* fallback for ambiguous ids; that is wrong in
+light of the loader. The classifier is the single boundary **1e12** (`|id| >
+1_000_000_000_000`) — Telethon `resolve_id` (v1.42.0 `utils.py`,
+`if marked_id > 1000000000000: → PeerChannel`) and the Budva fixture
+`1002641439846 = 1e12 + 2641439846` (`internal/infra/ruleset/repo_test.go`).
 
-**Decision table.** For each source ID (the ruleset's `Sources` keys), `m = |id|`:
+**The loader makes stored source keys *always negative*.** `transform()`
+(`internal/infra/ruleset/repo.go:215-221`) does `newSources[-id] = src`
+**unconditionally** for every source key, and YAML keys are written positive
+(`doc.go:19-20`). Therefore a stored source key is `-yamlKey`:
+
+- **the `id ≥ 0 → private` row is unreachable for source keys** (a source key is
+  never `≥ 0` after negation);
+- **the "raw/ambiguous *positive* → GetChat fallback" row is unreachable for
+  source keys** (same reason).
+
+Both rows are kept in the pure function as **defensive / dead-on-the-source-path**
+branches — they document the classifier's full contract and are unit-tested as
+pure-function properties, but **no live source key reaches them**.
+
+**Decision table.** For each source key `id` (stored, always `< 0`), `m = |id|`:
 
 | Stored `ChatID` (`int64`) | Meaning (mark) | Open? | Mechanism | Authority |
 |---|---|---|---|---|
-| `id ≥ 0` | private (`PeerUser`) | **No** | global stream | id-sign (both libs) |
-| `id < 0` and `m ≤ 999_999_999_9` | basic group (`PeerChat`) | **No** | global stream | id-sign (both libs) |
-| `id < 0` and `m > 100_000_000_000` | channel **or** supergroup (`PeerChannel`) | **Yes** | `OpenChat` | id-sign (both libs); *channel-vs-sg split is diagnostic only* |
-| raw / ambiguous (magnitude test inconclusive) | unknown | **fallback** → `GetChat` | see below | `client.Chat.Type` (go-tdlib `type.go:14877`) |
+| `id < 0` and `m > 1_000_000_000_000` (1e12) | channel **or** supergroup (`PeerChannel`) | **Yes** | resolve peer (`GetChat`) → `OpenChat` | id-magnitude: Telethon `resolve_id` `>1e12`; fixture `1002641439846` |
+| `id < 0` and `m ≤ 1_000_000_000_000` (1e12) | basic group (`PeerChat`) | **No** | global stream | id-magnitude: Telethon `resolve_id` else-branch |
+| `id ≥ 0` (defensive) | private (`PeerUser`) | **No** | global stream | id-sign — **unreachable for source keys** (keys are always `<0`) |
 
-**The `GetChat` fallback branch** (only for the "raw/ambiguous" row): read
-`chat.Type` and map to the open decision by go-tdlib `ChatType` —
-`*client.ChatTypeSupergroup` → **open** (this covers **both** channels and
-supergroups: in go-tdlib a channel *is* a `ChatTypeSupergroup` with
-`Broadcast: true`; `type.go:14113`); `*client.ChatTypeBasicGroup` → no;
-`*client.ChatTypePrivate` → no; `*client.ChatTypeSecret` → no. **Open iff
-`chat.Type` is `*client.ChatTypeSupergroup`.** This matches mtcute `openChat`
-(which branches `isInputPeerChannel` then no-ops for non-channels, 0b §1) and
-teleproto `arm` (arms only `InputPeerChannel`, 1.232.1) — both branch on the
-resolved peer type, not the id.
+**Revised (Gate A) — the two misquotes fixed:**
+- the go-tdlib field is **`IsChannel`**, not `Broadcast`
+  (`client/type.go:14113-14118` `ChatTypeSupergroup{ SupergroupId int64; IsChannel
+  bool }`);
+- the loader path is **`internal/infra/ruleset`**, not `internal/domain/ruleset`.
 
-**Note (honest):** the **channel-vs-supergroup** sub-split is *never needed* to
-decide open/not — both open. It is only the diagnostic the record carries; the
-open decision needs just the 3-way {channel/supergroup} vs {basic-group} vs
-{private} split, which id-magnitude gives for free.
+**The real footgun is a *loader/validator* concern, not a classifier one.** If a
+user writes a channel's **unmarked** id (e.g. `2641439846`) in the YAML, the
+loader negates it to `-2641439846` — a **basic-group** magnitude — so the
+classifier could *never* see it as a channel. The documented convention
+(`internal/infra/ruleset/doc.go:19-20`) is "**write the marked magnitude, loader
+negates**." Rejecting/flagging an unmarked raw channel id belongs to **loader
+validation** and is **adjacent / out of scope for this open-set design** (R1).
+The open-set design does **not** keep a `GetChat` fallback as the defense for it.
+
+**`GetChat`'s real role: resolve the input peer before `OpenChat`.** The pinned
+`open_dialog` **silently early-returns when `!have_input_peer`**
+(`MessagesManager.cpp:19527`). For a fresh client — empty dialog map right after
+the adapter-swap — an `OpenChat` on a not-yet-known chat can be a **silent no-op**
+(open never registered → silence). So the per-ID open sequence is ordered
+**`GetChat` (resolve/prime the peer) → `OpenChat`**.
+**Honest flag (Gate B source-confirm):** the exact `openChat` *RPC-handler*
+semantics for a still-unknown dialog live in `Td.cpp`, which is **not in our
+pinned-source cache** (we pin `MessagesManager.cpp`). The `GetChat`→`OpenChat`
+ordering is therefore a **defensive design that is safe either way** — if the
+RPC handler does tolerate an unknown dialog, the extra `GetChat` is harmless; if
+it does not (or if `open_dialog` early-returns as `:19527` indicates), it is
+required. **Confirm the unknown-dialog behavior against `Td.cpp` before final
+sign-off.**
 
 ### §3 — Lifecycle edges
 
-One driver, `SourceOpener.ApplySet(ids)`, invoked from each edge. The opener
-maintains an in-memory `opened map[ChatID]struct{}` and diffs `ids` against it.
+One driver, `SourceOpener.ApplySet(ids)`. The opener maintains an in-memory
+`opened map[ChatID]struct{}` and diffs `ids` against it. **The edge set is
+exactly two** (Revised, Gate A — the Stage 1 "re-auth" third edge is collapsed;
+`authGen` is deleted).
 
-| Edge | Where it fires (function/layer) | Action | Ordering hazard (dimension C) |
+**Why two, not three (R2).** `runAuthLoop` (`internal/infra/telegram/repo.go:
+342-371`) is **one-shot** (no loop): `client.NewClient` →
+`swapSessionTable()` + `clientAdapter = tdlibClient` → `close(clientDone)`. It is
+invoked once from `Start` (`repo.go:115`). `LogOut` → `CleanUp()`
+(`repo.go:183-190`) **deletes the TDlib DB directory** → a clean restart is
+required. So **there is no in-process re-auth path**: logout/re-auth, session
+expiry, and session reload **all collapse to the next process start**, which goes
+through the **same** `runAuthLoop` adapter-swap. The Stage 1 "re-auth observer"
+and `authGen` counter were solving a mid-process re-auth that the current code
+does not have.
+
+| Edge | Trigger point | Action | Ordering hazard (dimension C) |
 |---|---|---|---|
-| **Initial load** | `main.go:168` `Replace` callback (via `loadSnapshot`, main.go:175) | `ApplySet(channelIDs(rs))` → open all; no closes (empty base) | none (first call) |
-| **Hot-reload add** | `main.go:168` `Replace` callback (via watcher main.go:183-196) | diff: `added → OpenChat` (staggered) | **must not race re-auth** — see below |
-| **Hot-reload remove** | same callback | diff: `removed → CloseChat` | same |
-| **Re-auth** | auth-state observer in `infra/telegram`; on each `AuthStateReady` | `ApplySet(currentIDs)` full re-open (dialogs + `open_count` lost) | **see below (the real hazard)** |
-| **Process restart** | = initial load (`open_count` is in-process; `RunAuthLoop` re-runs) | `ApplySet(channelIDs(rs))` | none |
+| **(1) startup adapter-swap** (covers restart + re-auth) | the repo's registered callback, fired in `runAuthLoop`'s swap critical section next to `swapSessionTable()` + adapter assignment (`repo.go:366-367`) | **full** `ApplySet(currentChannelIDs)` — open all | a fresh client has `open_count == 0` for every chat *by construction* → a full open is always correct; no generation counter needed |
+| **(2) hot-reload diff** | `main.go:168` `Replace` callback (via watcher main.go:183-196) | diff: `added → OpenChat` (staggered), `removed → CloseChat` | see below |
 
-**The re-auth ↔ reload ordering hazard (the one that matters).** `open_count` is
-in-process and is **lost whenever the TDlib session is swapped**. `runAuthLoop`
-(`repo.go:342-371`) re-creates the client and swaps the adapter on (re)auth; the
-`loadSnapshot`/`Replace` path and the re-auth path can therefore interleave.
-Resolution, in order of preference:
+**Trigger point = the adapter-swap, NOT `AuthStateReady` (R2).** The repo's own
+comment (`repo.go:355-361`) says `AuthorizationStateReady` **lags the swap line
+by the whole handshake and "can be lost"** — which is exactly why the dialog-table
+swap is done *at the swap line*, not at Ready. Triggering the re-open at `Ready`
+would inherit that loss → **silent silence after a session reset**. Firing in the
+swap critical section (the same line the dialog table is swapped) is the correct,
+loss-free point.
 
-1. **Single source of truth for `currentIDs`: the opener.** Both the `Replace`
-   callback and the re-auth observer call `ApplySet` on the **same** `SourceOpener`
-   (guarded by one mutex), passing the **latest** ruleset's channel IDs. `ApplySet`
-   is a pure diff against `opened`, so it is **idempotent under re-apply**: a
-   reload firing during re-auth just re-diffs the same set → **no double-open**
-   (an ID already in `opened` is not re-`OpenChat`'d), and a re-auth firing after a
-   reload re-opens the new set. This is the mtcute/teleproto idempotency: mtcute's
-   `notifyChannelOpened` increments a ref-count and *does not re-fetch* if already
-   open (`manager.ts:383-388`); teleproto `arm` skips `if (entry.channels.has(id))`
-   (1.232.1). We get the same "no double-open" from the diff.
-2. **The observer must run in-package, not reuse `AuthStates()`.**
-   `AuthStates()` (`repo.go:129`) is a **single channel already consumed** by the
-   auth service (`auth/service.go:58`), and that service **stops reading after the
-   first `Ready`** (`auth/service.go:66-68`) — a second consumer would starve. So
-   the repo must expose a **secondary auth-state signal** the opener can observe
-   (e.g. the repo internally notifies the opener of each `AuthStateReady`, or a
-   fan-out of the auth-state event). This is a **small, isolated change** in
-   `infra/telegram` (dimension C); it is *not* a redesign of auth. **This is the
-   one new wiring point** the draft introduces and the one I flag as open: the
-   exact plumbing (fan-out channel vs an observer callback registered on the repo)
-   is an implementation choice for the owner to confirm (see §8, the re-auth row,
-   and the report-back digest).
-3. **After a session swap, `open_count` is 0 for all chats**, so `ApplySet` must
-   treat re-auth as a **full re-open** even though `opened` still lists the IDs:
-   the opener keys its "needs (re)open" decision on the **auth generation**, not
-   just on the diff. Concretely: the opener holds an `authGen int`; on each
-   `AuthStateReady` it bumps `authGen`, and `ApplySet` re-opens every ID when the
-   recorded per-ID generation < current `authGen`. This guarantees re-auth
-   re-opens **all** sources even when the ruleset set is unchanged (a no-op diff
-   would otherwise do nothing). This mirrors teleproto `_resumeAuthorization`→
-   `_resume` **re-arming the surviving set after re-auth** (1.232.1).
+**The remaining (single) ordering hazard — reload vs. startup-swap overlap.**
+A hot-reload `ApplySet` (edge 2) and the startup-swap `ApplySet` (edge 1) run on
+the **same** `SourceOpener` (one mutex). `ApplySet` is a pure diff against
+`opened`, so it is **idempotent under re-apply**: a reload firing while the
+startup open-batch is still running just re-diffs the same set → **no double-open**
+(an ID already in `opened` *or* in-flight is not re-`OpenChat`'d; the per-ID
+in-flight guard, §1, closes the in-flight window). This is the mtcute/teleproto
+idempotency: mtcute's `notifyChannelOpened` increments a ref-count and *does not
+re-fetch* if already open (`manager.ts:383-388`); teleproto `arm` skips
+`if (entry.channels.has(id))` (1.232.1). We get the same "no double-open" from the
+diff + in-flight guard. **Revised (Gate A):** the Stage 1 hazard was
+"reload racing re-auth"; with re-auth collapsed to the startup-swap, the only
+overlap is reload-vs-startup-swap, and it is resolved by the same diff + the
+in-flight guard (plus async execution, §1, so a slow open batch cannot block the
+reload's diff).
 
 ### §4 — Stagger
 
-**Decision (DEVIATE from mtcute).** mtcute *documents* the 5-10 open-batch
-ban/limit risk ("…may start getting transport errors or even get banned",
-`openChat` doc 0.32.4) but **leaves mitigation to the caller**; a daemon has no
-human caller to honor that warning. So Budva staggers the initial/re-auth open
-batch itself.
+**Decision (Revised, Gate A — D1).** Stagger the N `OpenChat` calls of an open
+*batch* with a **per-operation** pace **implemented locally in the opener** — a
+ctx-aware short sleep (or `time.Ticker`) **between** opens, in the background
+goroutine from §1. The *stagger requirement* (don't fire N `openChat` in the same
+instant) is **unchanged**; only the mechanism is local.
 
-**Shape (per-call token, not per-chat).** Stagger the N `OpenChat` calls of an
-open *batch* by spacing the **RPC invocations**, e.g. `limiter`-paced
-`ApplySet` → for each ID to open: *acquire pacing slot → `OpenChat` → release*.
-A **pacing interval** between opens (e.g. a few hundred ms, **a tunable, not
-presets**) keeps the batch from firing N `openChat` in the same instant. The
-re-poll itself is server-paced by the engine and already ≤10-concurrent
-(`TDlib`:36854/36860), so **only the open *calls* are staggered**; we do not touch
-the engine's poll cadence (guardrail 4: don't fight the 10 cap).
+**Why local, NOT the `internal/service/limiter` (R6).** `internal/service/limiter`
+is a **per-chatID forward throttle**: `WaitForForward(ctx, chatID)` spaces forwards
+*to the same chatID* by a fixed 3 s (`internal/service/limiter/service.go:12,
+30-44`). An open **batch is N *distinct* chats**, so no two opens share a `chatID`
+and a per-chat limiter **never fires** — reusing it does nothing. **Do not** add a
+per-operation primitive to that package. **Revised (Gate A):** this supersedes
+Stage 1's "I lean (a) add a per-op token-bucket to `limiter`" and the record's
+P1-R3 "reuse `internal/service/limiter`" — **the limiter is for forwarding, a
+different axis; the stagger is local to the opener.** (P1-R3 wording corrected in
+the Frame's point 3, flagged, and here.)
 
-**⚠ Honest finding (route to Gate A): the existing `limiter.Service` does not fit.**
-`internal/service/limiter` is a **per-chat forward throttle** — `WaitForForward(ctx,
-chatID)` spaces forwards *to the same chat* by a fixed 3 s (`service.go:12,30-44`),
-keyed by `chatID`. An open **batch is N *distinct* chats**, so a per-chat limiter
-would never fire (no two opens share a `chatID`). The record's "reuse
-`internal/service/limiter`" (P1-R3) is therefore a **shape mismatch**. Options:
-(a) add a **per-operation** pacing primitive to `limiter` (a token bucket over
-*time*, not over `chatID`) — reuse the package, add a method; (b) a small
-`time.Ticker`-paced loop *inside* `SourceOpener` (no limiter reuse). **I lean
-(a)** to honor "reuse the limiter package," but (b) is arguably simpler and more
-local. **This is a decision the owner should make** (which pacing surface to use);
-the *stagger requirement* itself is uncontested.
+**Shape.** For each ID to open in the batch, in the background goroutine:
+`acquire pacing slot (ctx-aware sleep ≤ pace) → GetChat (resolve/prime, §2) →
+OpenChat`. The **pace is a tunable** (a few hundred ms; **not a preset**, and
+**injectable** for tests — R7). The re-poll itself is server-paced by the engine
+and already ≤10-concurrent (`TDlib`:36854/36860), so **only the open *calls* are
+staggered**; we do not touch the engine's poll cadence (guardrail 4: don't fight
+the 10 cap). **DEVIATE from mtcute** (which documents the 5-10 open-batch
+ban/limit risk — "…may start getting transport errors or even get banned",
+`openChat` doc 0.32.4 — but leaves mitigation to the caller; a daemon has no
+human caller to honor that warning, so Budva staggers itself).
 
 ### §5 — In-process state & failure edges
 
-**State: plain set, NOT ref-counting (decision).** mtcute keeps
-`channelsOpened: Map<id, count>` and increments/decrements (`manager.ts:153,
-380-423`) because a *UI* can open the same chat in multiple windows and only
-remove it on the last close. Budva has a **single opener — the ruleset** — a chat
-is either in the set or not. Ref-counting would model N "windows" that don't
-exist; it buys nothing for one integer. **Use `map[ChatID]struct{}` + `authGen`
-(§3).** Idempotency under re-apply is achieved by the **diff** (already-opened IDs
-are skipped) + the **auth-generation** bump on re-auth, not by a counter. This is
-the same *effect* as mtcute's ref-count for a count that never exceeds 1, at less
-machinery. (If a future feature ever opens a chat from a second origin, ref-count
-can be added then; not now.)
+**State: plain set + per-ID in-flight guard, NOT ref-counting (decision).**
+mtcute keeps `channelsOpened: Map<id, count>` and increments/decrements
+(`manager.ts:153, 380-423`) because a *UI* can open the same chat in multiple
+windows and only remove it on the last close. Budva has a **single opener — the
+ruleset** — a chat is either in the set or not. Ref-counting would model N
+"windows" that don't exist; it buys nothing for one integer. **Use
+`map[ChatID]struct{}` (`opened`) + a per-ID in-flight guard** (R2 deleted
+`authGen`; idempotency under re-apply is the **diff** + the in-flight guard, not a
+counter). This is the same *effect* as mtcute's ref-count for a count that never
+exceeds 1, at less machinery. (If a future feature ever opens a chat from a second
+origin, ref-count can be added then; not now.)
 
-**Failure edges (dimension F) — never fail the ruleset load.** `ApplySet` returns
-nothing to the caller about per-chat outcomes; the `Replace`/`loadSnapshot` path
-must **not** abort the generation on an open failure (a ruleset load must not be
-blocked by one inaccessible chat). Per ID:
+**Failure edges (dimension F).** `ApplySet` returns nothing about per-chat
+outcomes to the caller; the `Replace`/`loadSnapshot` path must **not** abort the
+generation on an open failure (a ruleset load must not be blocked by one
+inaccessible chat). **Revised (Gate A, R4): in-edge bounded retry is REQUIRED**
+(not "allowed but not required"). A failed `GetChat`/`OpenChat` goes to `pending`
+and is **retried within the same apply edge, with a bounded backoff**, by the
+background goroutine from §1. **Rationale (Popper/Kahneman):** with a single
+source, no reload, and no re-auth, there is **no "next edge"** — "retry on the
+next edge" would **never converge**, so the in-edge retry is what makes a failed
+open recover without an external event. Per ID:
 
 | Failure | Detection | Semantics |
 |---|---|---|
-| **`GetChat` fails** (fallback path) | `*client.Error` from `GetChat` | do NOT open on this edge; mark ID **pending** (reclassified next edge). Log WARN. (A magnitude-classified ID needs no `GetChat`, so this only hits the ambiguous row.) |
-| **`OpenChat` fails — inaccessible** (`CHAT_NOT_MODIFIED` / no-access / `CHANNEL_PRIVATE`-class) | go-tdlib error on `OpenChat` | mark **pending**; log WARN; **retry on the next `ApplySet` edge** (next reload, or next re-auth, or a bounded retry). Never fail load. |
-| **`OpenChat` fails — kicked / member-removed** | membership error | mark **pending** + log; same retry. (If a source the account can no longer see is in the ruleset, that is a *ruleset* problem, surfaced by the log, not a load failure.) |
-| **`OpenChat` fails — bot-guard / auth** (account is a bot; or not authorized) | `CHECK(!is_bot)`-class / auth error | **fatal-to-feature**: log ERROR once, disable the opener for this auth generation (do not spam). `OpenChat`'s `CHECK(!is_bot)` (`TDlib`:19524) means a **bot** session cannot open — if Budva's session were a bot this fix is inapplicable; flag as a precondition (Budva uses a **user** account per the record). |
-| **Mid-batch interruption** (ctx cancelled / process stop during the N-batch) | ctx.Done in the pacing loop | stop opening; the **pending** set (never-opened IDs) is retained in-memory and re-applied on the next edge (re-auth re-opens all; a restart re-opens all). Because re-auth/restart do a *full* re-open, a mid-batch stop self-heals on the next lifecycle event. |
+| **`GetChat` fails** (resolve/prime, §2 — runs for **every** opened source) | `*client.Error` from `GetChat` | do NOT `OpenChat` yet; keep ID **pending**; **retry the `GetChat`→`OpenChat` sequence in-edge with bounded backoff**; on exhaustion log WARN. (Revised: Stage 1 had this only for the "ambiguous" row; now `GetChat` primes the peer for *all* opened sources, so it can fail for any of them.) |
+| **`OpenChat` fails — inaccessible** (no-access / `CHANNEL_PRIVATE`-class) | go-tdlib error on `OpenChat` | mark **pending**; log WARN; **in-edge bounded backoff retry**; on exhaustion stay pending (next edge, if any, also retries). Never fail load. |
+| **`OpenChat` fails — kicked / member-removed** | membership error | mark **pending** + log; same in-edge retry. (If a source the account can no longer see is in the ruleset, that is a *ruleset* problem, surfaced by the log, not a load failure.) |
+| **`OpenChat` fails — bot-guard / auth** (account is a bot; or not authorized) | `CHECK(!is_bot)`-class / auth error | **fatal-to-feature**: log ERROR once, **stop retrying** (do not spam) for this session. `OpenChat`'s `CHECK(!is_bot)` (`TDlib`:19524) means a **bot** session cannot open — if Budva's session were a bot this fix is inapplicable; precondition = Budva uses a **user** account (per the record). |
+| **Mid-batch interruption** (ctx cancelled / process stop during the N-batch) | ctx.Done in the pacing loop | stop opening; the **pending** set (never-opened IDs) is retained in-memory and re-applied on the next edge (the startup-swap re-opens all; a restart re-opens all). Because the startup-swap does a *full* re-open, a mid-batch stop self-heals on the next lifecycle event. |
 
 **`CloseChat` failure (removal edge):** non-fatal — log, drop from `opened`;
 if the ID reappears the next `ApplySet` re-opens it. A lingering open after a
@@ -302,53 +376,83 @@ failed close is *harmless* (an extra open chat just keeps its channel acquiring;
 it does not cause the silence bug).
 
 **Pending-set note:** "pending" = "we intended to open but the call failed."
-It is **reconciled on the next edge**, not on a timer (consistent with
-"open-once-keep, no heartbeat" — guardrail 3). A bounded optional in-edge retry
-for transient errors is allowed but not required.
+It is **retried in-edge (bounded backoff, R4)** and, if still failing, carried to
+the next edge (startup-swap re-opens all). Consistent with "open-once-keep, no
+heartbeat" (guardrail 3): the retry is *bounded* within one edge, not a periodic
+re-open heartbeat.
 
 ### §6 — Test & acceptance (CI-assertable vs box-only)
 
 **CI-assertable (pure-Go, no cgo) — dimension G:**
-- **Classifier table test** (`internal/domain`): feed the decision table rows
-  (private `+id`, basic-group `-small`, channel/supergroup `-100…`, and a
-  raw-positive ambiguous id) → assert {open, no-open, fallback} outcomes. Pure
-  function, no TDlib.
+- **Classifier table test** (`internal/domain`): use the **1e12** boundary —
+  channel/supergroup `-100_000_000_000 - 1` (i.e. `|id| > 1e12`) → open; basic
+  group `-999_999_999` (`|id| ≤ 1e12`) → no; and the **positive-id row
+  (`id ≥ 0` → private → no)** is asserted **only as a defensive pure-function
+  property** — *not* a live source path, because the loader negates every source
+  key to `< 0` (`internal/infra/ruleset/repo.go:219`), so a stored source key is
+  never `≥ 0`. (Revised, Gate A: Stage 1's table used the wrong 1e11 boundary and
+  treated the positive/raw rows as live; both corrected.)
 - **Open-set diff test** with a **mocked adapter** (the `clientAdapter` interface
-  is already mockable — `GetChat` etc. are on it): build a `SourceOpener` over a
-  fake adapter; call `ApplySet([A,B,C])` then `ApplySet([B,C,D])`; **assert**
-  `OpenChat` called with `{A,B,C}` (1st) and `{D}` (2nd), `CloseChat` called with
-  `{A}` (2nd), and **idempotent re-apply** → `ApplySet([B,C,D])` again calls
-  neither. Assert `OpenChat`/`CloseChat` are called with the **exact marked
-  IDs** (the values that would go to go-tdlib).
-- **Re-auth re-open test**: bump `authGen` (simulate `AuthStateReady`) then
-  `ApplySet(sameIDs)` → assert `OpenChat` called for **all** IDs again (full
-  re-open), and **no double-open** when a reload and a re-auth interleave (assert
-  `OpenChat` not called twice for an ID still in `opened` within one generation).
-- **Failure-edge tests**: mocked adapter returns an error on `OpenChat` for one
-  ID → assert that ID is marked pending, `ApplySet` does not propagate the error
-  (load path unaffected), and the next `ApplySet` retries it.
+  is already mockable — `GetChat`/`OpenChat`/`CloseChat` are on it): build a
+  `SourceOpener` over a fake adapter; call `ApplySet([A,B,C])` then
+  `ApplySet([B,C,D])`; **assert** `OpenChat` called with `{A,B,C}` (1st) and `{D}`
+  (2nd), `CloseChat` called with `{A}` (2nd), and **idempotent re-apply** →
+  `ApplySet([B,C,D])` again calls neither. Assert `OpenChat`/`CloseChat` are
+  called with the **exact marked IDs** (the values that would go to go-tdlib).
+  Also assert the **`GetChat`→`OpenChat` ordering** per opened ID (R1): `GetChat`
+  observed *before* `OpenChat` for each opened source.
+- **Stagger pacing test** (Revised, Gate A — was missing in Stage 1): for an N-ID
+  open batch, with the **pace injectable** (test sets a small/nonzero pace and
+  records call timestamps), assert the `OpenChat` calls are **paced, not all in
+  the same instant** — e.g. the number of `OpenChat`s in the first 10 ms is < N,
+  or inter-call gaps ≥ the (small) injected pace. This is the CI signal that the
+  stagger actually fires.
+- **Adapter-swap callback test** (Revised, Gate A — replaces the Stage 1
+  "re-auth re-open" test, which was a *fake* CI test: bumping the deleted `authGen`
+  / simulating `AuthStateReady` tests the *reaction*, not the **trigger wiring**):
+  mock the repo's registered startup-swap callback, fire it, and assert it invokes
+  a **full** `ApplySet` (all current channel IDs opened). The **actual**
+  re-auth → open wiring (the callback firing inside a real `runAuthLoop` swap) is
+  **box-only** — it needs a live session reset (below).
+- **Failure-edge tests** (Revised, R4): mocked adapter returns an error on
+  `OpenChat` (and separately on `GetChat`) for one ID → assert the ID is marked
+  pending, `ApplySet` does **not** propagate the error (load path unaffected), and
+  the **in-edge bounded retry** re-issues the `GetChat`→`OpenChat` sequence within
+  the same edge (assert a second call attempt before the goroutine yields, and
+  that it stops after the bounded count).
 - **cgo-CI** (the TDLib-provisioned handler package): builds the two new
-  `clientAdapter` methods (`OpenChat`/`CloseChat` compile against go-tdlib
-  v0.7.6) — i.e. the adapter additions type-check and link. This is the "the
-  wrapper exists and is 1:1" signal, not a behavior test.
+  `clientAdapter` methods (`OpenChat`/`CloseChat` compile against go-tdlib v0.7.6)
+  — i.e. the adapter additions type-check and link. This is the "the wrapper
+  exists and is 1:1" signal, not a behavior test.
 
 **Box-only (live TDlib + server) — final acceptance, post-deploy:**
 - **Real-time arrival**: with the owner's official client **closed** on a
   channel/supergroup source, Budva's session still receives that source's new
   messages (the actual bug symptom: silence when no session has it open).
   This CANNOT be asserted in any test (needs a live account + server open-state).
+- **Startup-swap / re-auth open wiring**: after a **live** session reset
+  (re-auth, or process restart), the open set is fully re-opened — the adapter-swap
+  callback firing inside a real `runAuthLoop` swap (see CI test above for the
+  mock; this is the live trigger).
 - **N>10 FIFO behavior**: with >10 channel/supergroup sources, deferred sources
   still acquire (no starvation) — observed at runtime (the engine's unbounded FIFO,
   `TDlib`:36854/36860; source-confirm 2).
+- **Large-N (20–50 sources) tail latency (owner-informed acceptance, R8):**
+  deferred sources still acquire via the engine FIFO, but there is **real
+  catch-up latency after a cold start** (the 11th+ source waits on the 10-poll
+  cap). Named as an **owner-informed-acceptance** item — the owner decides the
+  acceptable catch-up budget for their N, not a CI threshold.
 - **No read API issued**: the box's TDlib client log shows `openChat` /
   `closeChat` / `getChannelDifference` but **no** `readHistory` /
   `readChannelHistory` / mark-read (conformance = never call a read API).
 
-**Acceptance signals named (Frame exit):** *CI* = classifier table,
-diff/`OpenChat`/`CloseChat` id-set + idempotency + re-auth re-open + failure-edge
-(pure-Go, mocked adapter), and cgo-CI adapter link. *Box-only* = real-time
-arrival with owner's client closed; N>10 no-starvation; no read API in the client
-log.
+**Acceptance signals named (Frame exit):** *CI* = classifier table (1e12;
+positive row defensive-only), diff/`OpenChat`/`CloseChat` id-set + `GetChat`-before-
+`OpenChat` ordering + idempotency, stagger pacing (injectable pace), adapter-swap
+callback → full `ApplySet`, in-edge bounded retry (pure-Go, mocked adapter), and
+cgo-CI adapter link. *Box-only* = real-time arrival with owner's client closed;
+live re-auth/restart open wiring; N>10 no-starvation; large-N tail-latency budget
+(owner-informed); no read API in the client log.
 
 ### §7 — Conformance (shape vs mechanism)
 
@@ -377,32 +481,52 @@ log.
 - **View / active-count footprint is inherent.** An open dialog contributes to
   view/active counts by definition; the footprint *is* the fix (the session must
   own the open state). Not a risk to mitigate — documented, per the record.
+- **Identical under either account fact (Franklin).** The design is **the same
+  whether Budva runs a dedicated forwarding account or the owner's daily phone
+  account**. The account fact moves only the **risk weight** (how conspicuous the
+  footprint is at large N — a dedicated account has no "normal human profile" to
+  deviate from, so N open channels read as a normal active user; a daily phone
+  account with N channel windows held open is the desktop-multi-window shape). It
+  does **not** change the mechanism. **The design can be finalized now**; the
+  account fact is a **sign-off risk input, not a design gate** (it does not block
+  Gate A/B or the go-ahead).
+- **Large-N (20–50 sources) tail latency — owner-informed acceptance.** At N>10
+  the engine defers (10-poll cap, FIFO, `TDlib`:36854/36860); deferred sources
+  still acquire but with **real catch-up latency after a cold start**. This is
+  named as an **owner-informed-acceptance** item (§6): the owner sets the
+  acceptable catch-up budget for *their* N; it is not a CI threshold and not a
+  design blocker (there is no alternative that avoids the engine cap — guardrail 4).
 
 ### §8 — Precedent citations
 
 | Mechanism | Verdict | Pinned project + version | One line |
 |---|---|---|---|
-| Type by id-sign/magnitude (primary) | **ADOPT** | Telethon v1.42.0 `resolve_id` (`utils.py:1053`); Pyrogram 2.0.106 `get_peer_type` (`utils.py:236`) | Classify a bare marked ID as {private, basic-group, channel} with no RPC; matches Budva's stored negated form (`ruleset/doc.go:19-20`). |
-| Type from resolved peer (fallback) | **ADOPT** | mtcute 0.32.4 `openChat` (`isInputPeerChannel` branch); teleproto 1.232.1 `arm` (`InputPeerChannel` only) | Resolve peer / `GetChat`, open iff channel/supergroup, no-op otherwise; used only for magnitude-ambiguous IDs. |
-| Open-once-keep, idempotent re-open | **ADOPT** | mtcute 0.32.4 `notifyChannelOpened` (`manager.ts:380-397`); teleproto 1.232.1 `arm` dedup | Re-apply is a no-op for already-open IDs (no double-open); a plain set + auth-gen gives the same effect for a single opener. |
-| Full re-open at re-auth | **ADOPT** | teleproto 1.232.1 `_resumeAuthorization`→`_resume` (re-arms surviving set after re-auth) | Re-auth loses `open_count` → re-open all sources even if the set is unchanged (auth-generation bump). |
-| Close-on-removal | **ADOPT** | mtcute 0.32.4 `closeChat` = "un-does `openChat`" (`notifyChannelClosed` `manager.ts:409-423`) | Ruleset removal → `CloseChat`; ref-count-to-0 removes the entry (we: set-delete). |
+| Open/not by **id-magnitude, single 1e12 boundary** | **ADOPT** | Telethon v1.42.0 `resolve_id` (`if marked_id > 1000000000000: PeerChannel`); Pyrogram 2.0.106 `get_peer_type` (`utils.py:236`); fixture `1002641439846 = 1e12+…` (`internal/infra/ruleset/repo_test.go`) | `|id|>1e12` → channel/supergroup (open); `|id|≤1e12` (stored, always `<0`) → basic group (no); the `id≥0` private row is **defensive-only / unreachable** for source keys (loader negates all, `repo.go:219`). |
+| `GetChat` to **resolve the input peer** before `OpenChat` | **ADOPT** | mtcute 0.32.4 `openChat` (`resolvePeer` before `notifyChannelOpened`); teleproto 1.232.1 `arm` (`getInputEntity`) | Order **`GetChat`→`OpenChat`** per ID so the peer is primed; `open_dialog` early-returns on `!have_input_peer` (`MessagesManager.cpp:19527`). **Revised (R1):** not a "type fallback" — id-magnitude already decides; `GetChat` primes the peer. |
+| Open-once-keep, idempotent re-open | **ADOPT** | mtcute 0.32.4 `notifyChannelOpened` (`manager.ts:380-397`); teleproto 1.232.1 `arm` dedup | Re-apply is a no-op for already-open/in-flight IDs (no double-open); a plain set + per-ID in-flight guard gives this for a single opener. |
+| Full re-open at **session reset** (startup-swap; re-auth collapsed into it) | **ADOPT (shape)** | teleproto 1.232.1 `_resumeAuthorization`→`_resume` (re-arms the set after a session reset) | A fresh client has `open_count==0` for all chats → full open at the **adapter-swap** (not `AuthStateReady`); **Revised (R2):** re-auth edge deleted, no `authGen`; the live trigger is box-only. |
+| Close-on-removal | **ADOPT** | mtcute 0.32.4 `closeChat` = "un-does `openChat`" (`notifyChannelClosed` `manager.ts:409-423`) | Ruleset removal → `CloseChat`; entry dropped from the set (set-delete, not ref-count). |
 | Keep a **set** open non-interactively | **ADOPT (shape)** | mtcute (`channelsOpened` map); Telethon v1.42.0 `MessageBox` (whole-set re-poll, no user); teleproto 1.232.1 `watch` (a set) | The set-at-once shape is real, production client behavior — not novel. |
-| Stagger the open batch | **DEVIATE from mtcute** | mtcute 0.32.4 `openChat` doc (5-10 ban/limit warning) | mtcute documents the risk but leaves mitigation to the caller; a daemon has no human caller → Budva staggers itself. **Note: existing `limiter` is per-chat, a shape mismatch — pacing surface is an open owner decision (§4).** |
-| `OpenChat`-RPC-holds-N mechanism | **NOVEL (engine-native)** | TDlib `22d49d5` (`open_count`:19524, re-arm:37423, 10-cap FIFO:36854/36860) | The re-poll is owned by the linked C++ engine, not hand-built (P1-R5); precedent cannot close this — **Gate B target**, closed at runtime by the box-only real-time-arrival acceptance. |
+| Stagger the open batch (**local**, not the per-chat limiter) | **DEVIATE from mtcute** | mtcute 0.32.4 `openChat` doc (5-10 ban/limit warning) | mtcute documents the risk but leaves mitigation to the caller; a daemon has no human caller → Budva staggers itself, **locally in the opener** (per-op pace). **Revised (R6):** `internal/service/limiter` is a per-chatID forward throttle — shape mismatch, **not** reused; P1-R3 wording corrected. |
+| **In-edge bounded retry** on failed open | **NOVEL (source-verified reason)** | Popper/Kahneman (no "next edge" exists for a single source with no reload/re-auth) | A failed `GetChat`/`OpenChat` is retried **within the same edge** with bounded backoff, else it never converges (R4). No precedent; justified by the edge-collapse in R2. |
+| `OpenChat`-RPC-holds-N mechanism | **NOVEL (engine-native)** | TDlib `22d49d5` (`open_count`:19524, `!have_input_peer` early-return:19527, re-arm:37423, 10-cap FIFO:36854/36860) | The re-poll is owned by the linked C++ engine, not hand-built (P1-R5); precedent cannot close this — **Gate B target** (incl. the `openChat`-for-unknown-dialog semantics in `Td.cpp`, not in our pinned cache), closed at runtime by the box-only real-time-arrival acceptance. |
 
 ### §9 — Exclusions re-check (from the Frame; confirm none absorbed)
 
-| Frame exclusion | Status in this draft |
+Re-verified after R1–R8 (the re-auth collapse in R2 does **not** absorb any of
+the five exclusions).
+
+| Frame exclusion | Status in this revised draft |
 |---|---|
-| **Hand-built Go `getChannelDifference` poller** | **Not absorbed.** `SourceOpener` has **no timer/re-poll**; it only issues `OpenChat`/`CloseChat`. The re-poll is the engine's (P1-R5). §1/§7 make this the *central* layering point. |
-| **Problem 2 (endpoint HOL)** | **Not absorbed.** No dispatcher/concurrency/timeout work; the draft only adds the open-set lifecycle. |
-| **Asserting real-time delivery in any test** | **Held.** Real-time arrival + N>10 no-starvation are **box-only** (§6); CI asserts only that `OpenChat`/`CloseChat` are *called* correctly. |
-| **Any read API (`readHistory`-class)** | **Not added.** The opener issues no read RPC; box-verified in §6 (client log shows no mark-read). |
+| **Hand-built Go `getChannelDifference` poller** | **Not absorbed.** `SourceOpener` has **no timer/re-poll of its own**; it only issues `GetChat`/`OpenChat`/`CloseChat` (the stagger sleep is pacing, not a channel-difference poller). The re-poll is the engine's (P1-R5). §1/§7 make this the *central* layering point. |
+| **Problem 2 (endpoint HOL)** | **Not absorbed.** R5's async execution keeps `ApplySet` out of the `pushManager.Replace` critical section — it **relieves** the send path, and adds no dispatcher/concurrency/timeout work; the draft still only adds the open-set lifecycle. |
+| **Asserting real-time delivery in any test** | **Held.** Real-time arrival, live re-auth/restart open wiring, and N>10/large-N no-starvation are **box-only** (§6). CI asserts only that `OpenChat`/`CloseChat` are *called* correctly (diff, ordering, idempotency, stagger pace, adapter-swap → full `ApplySet`) — the adapter-swap CI test asserts the *trigger fires a full ApplySet* (mocked), **not** that updates arrive. |
+| **Any read API (`readHistory`-class)** | **Not added.** The opener issues no read RPC; `GetChat` (resolve/prime, §2) is a *read of chat metadata*, not a `readHistory`/mark-read — it does not advance `pts`/mark read. Box-verified in §6 (client log shows no mark-read). |
 | **Shrinking the open set to non-member channels** | **Not absorbed.** The open set = **all** channel/supergroup sources (no membership filter, no shrink-to-non-member); §2/§5 keep all. |
 
 **Exclusions honored.** No hand-built poller, no Problem-2 scope, no in-test
-real-time assertion, no read API, no open-set shrinkage.
+real-time assertion, no read API, no open-set shrinkage — after the re-auth
+collapse (R2), the local stagger (R6), and the async execution (R5).
 
 
 ## Gate A / Gate B verdicts
