@@ -582,6 +582,44 @@ collapse (R2), the local stagger (R6), the async execution (R5), and the Gate B
 revisions (SB1–SB4).
 
 
+## Stage 3 — Convergence (orchestrator verdict)
+
+The five exit conditions are **met** (verified against this file, not assumed):
+
+1. **Every load-bearing claim is traceable to evidence.** The foundation's
+   client-side firing is source-pinned (start `open_dialog:19593`, non-final
+   `:37413`, final re-arm `:37423` — all unconditional, per the Gate B
+   source-confirm); the loader invariant is `repo.go:219`; the trigger point is
+   the repo's own comment `repo.go:355-361`; the async constraint is
+   `manager.go`. The one claim that is **not** source-closable — the
+   server-side delivery of `OpenChat`-holds-N — is explicitly **box-only**, and
+   the residual `openChat`-for-unknown-dialog semantics is named as a
+   source-confirm (`Td.cpp` not in the pinned cache), with the
+   `GetChat`→`OpenChat` ordering safe either way. No "I believe the engine does
+   X" remains.
+2. **No dimension is ENGAGED-but-unresolved.** Gate A's four "conditional"
+   dimensions (B/C/D/G) were closed by R1–R9 + SB1–SB4; Gate B confirmed no
+   unresolved target (its only "gap" — Popper's lack of the cached C++ source
+   on his machine — was closed by the orchestrator's :19593/:37413/:37423
+   confirm).
+3. **Exclusions are honored.** §9: all five Frame exclusions "Not absorbed /
+   Held", re-verified after SB1–SB4.
+4. **Every non-obvious mechanism cites a precedent or a source-verified reason.**
+   §8: 9 rows, each ADOPT (pinned library) / DEVIATE (mtcute's 5–10 warning) /
+   NOVEL (source-verified: in-edge retry; engine-native openChat-holds-N).
+5. **The acceptance signal is named.** §6 separates **CI-assertable** (classifier
+   1e12, diff/ordering/idempotency, stagger pace, adapter-swap→full `ApplySet`,
+   in-edge retry, cgo-CI link) from **box-only** (real-time arrival with the
+   owner's client closed, **quiet-channel re-arm persistence**, live
+   re-auth/restart wiring **incl. a cold restart**, N>10 no-starvation, large-N
+   tail-latency budget, no read API in the client log).
+
+**Converged.** The design is ready for the owner's **go-ahead to implement** —
+which, per the loop, is a **decision made after this Exit**, not a loop input.
+The implementation is a **new PR** (it does not ride the records PR #9).
+
+---
+
 ## Gate A / Gate B verdicts
 
 Complete in `research/design-dimensions.md` (Gate A: conditional pass →

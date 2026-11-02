@@ -225,3 +225,29 @@ normative layer holds.
 before `Start` + nil-WARN + cold-restart box), B3+T7 (self-healing invariant
 statement + `ApplySet` before `SetRuleSetWithPush`), T6 (retry uses opener
 lifecycle ctx). Then Stage 3 convergence (the five exit conditions).
+
+---
+
+## Stage 3 — convergence (orchestrator, 2026-11-02)
+
+**All five exit conditions met** (verified against the final `design.md`,
+commit `bfb8682` + the Stage 3 section added with it):
+
+1. **Load-bearing claims traceable** — foundation firing source-pinned
+   (:19593/:37413/:37423 unconditional); loader `repo.go:219`; trigger
+   `repo.go:355-361`; async `manager.go`; the server-side half and the
+   `openChat`-unknown-dialog semantics are explicitly box-only / a named
+   source-confirm (Td.cpp not in the pinned cache). No unclosed "I believe".
+2. **No ENGAGED-unresolved dimension** — Gate A's B/C/D/G conditionals closed
+   by R1–R9 + SB1–SB4; Gate B found no unresolved target (Popper's
+   evidence-layer gap closed by the orchestrator's pinned-source confirm).
+3. **Exclusions honored** — §9: 5/5 Not absorbed / Held after SB1–SB4.
+4. **Every non-obvious mechanism cited** — §8: 9 rows, all ADOPT (pinned) /
+   DEVIATE (mtcute 5–10 warning) / NOVEL (source-verified).
+5. **Acceptance named** — §6 CI-assertable vs box-only, with the SB1
+   quiet-channel re-arm check and the SB2 cold restart as the box-only
+   foundation-closing signals.
+
+**Status: CONVERGED.** The design is ready for the owner's go-ahead to
+implement (a decision after Exit, not a loop input). Implementation is a new
+PR (does not ride records PR #9).
