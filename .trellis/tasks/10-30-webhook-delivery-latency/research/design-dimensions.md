@@ -112,10 +112,116 @@ acceptance). R9 §8/§9 citation + exclusion re-check.
 
 ## Gate B — adversarial / inversion
 
-*(pending — runs on the Stage 2 revision. Targets pre-seeded from the 0b
-"What no precedent shows" list + Gate A: (1) `OpenChat`-RPC-holds-N
-statically from a non-interactive daemon — box-closed, the design's
-foundation; (2) `openChat` for an unknown dialog — `Td.cpp` source-confirm
-(not cached); (3) classifier completeness after R1 (1e12 boundary,
-unreachable rows); (4) N>10 FIFO no-starvation; (5) `CloseChat` on
-ruleset-removal as a config event.)*
+### Gate B — orchestrator independent source-confirm (T1, before the room returned)
+
+Munger's T1 (his top "most dangerous" target) claimed the re-poll chain
+could (a) never start for a quiet channel, or (b) be gated on an unshown
+user-activity/view condition so a non-interactive daemon never triggers it.
+**The pinned source refutes both.** The chain is now pinned to three lines:
+
+| Link | Line | Gate |
+|------|------|------|
+| **Start** | `open_dialog`, `case DialogType::Channel`, `get_channel_difference(dialog_id, d->pts, 0, MessageId(), true, "open_dialog")` | **mm.cpp:19593** — unconditional |
+| non-final | `if (!is_final) get_channel_difference(...)` (immediate re-fetch) | **mm.cpp:37413** — no gap check |
+| final re-arm | `if (timeout > 0 && d->open_count > 0) channel_get_difference_timeout_.add_timeout_in(dialog_id, timeout)` | **mm.cpp:37423** — no user-activity/view/foreground gate (37395–37435 scanned) |
+
+**Start = our own `OpenChat`** (`open_dialog:19593`), so the chain is
+initiated by the fix itself and needs no user activity. This **corrects a
+gap in source-confirm (a)**: that confirm covered the *re-arm* (:37423, no
+gap check) but had not located the *start* (:19593); the foundation is now
+pinned as start + continuation, both unconditional. The conformance risk on
+the mechanism is therefore lower than the room was told.
+
+**Munger's three valid points are absorbed as Stage-2.5 revisions:**
+- **B1 (acceptance blind spot):** a point-in-time box test proves "it can
+  start", not "it stays alive across a re-arm period" — add a "quiet
+  channel, re-test after one re-arm period" box check.
+- **B2 (T8 wiring lifetime):** the swap callback must be registered **before
+  `Start`**; add a WARN if the callback is nil at swap time; the box
+  acceptance must include a real cold restart.
+- **B3 (T7 invariant relaxed):** the async stagger (R5) does relax "source
+  open before the first push of a newly-added rule"; the consequence is
+  "late by seconds + backfill", not "lost" (opening triggers the diff
+  backfill) — state this, and order `ApplySet` before
+  `SetRuleSetWithPush` in the Replace callback.
+
+*(room verdicts below; the T1 source-confirm above ran before the room
+returned and directly addresses Munger's top target.)*
+
+### Gate B — room verdicts (Munger inversion + Popper falsification, 2026-11-02)
+
+**Verdict: PASS with Stage-2.5 revisions (statement/test-level only; no
+architectural change).** No target is fatal.
+
+**T1 (the foundation) — Munger's mechanism REFUTED by pinned source; the
+residual is the true box-only half.** Munger's T1 claimed the re-poll chain
+could never start for a quiet channel or be gated on an unshown
+user-activity condition. The pinned source refutes both (the three-line
+chain above: start :19593 unconditional, non-final :37413, final re-arm
+:37423 with no activity gate). Popper's T1 ("the pinned source only proves
+the if-path exists") was an **epistemic limit** — his machine did not have
+the cached `mm.cpp`, so he could not see :19593; that "evidence-layer gap"
+is closed by the orchestrator's confirm above. What remains box-only is the
+**server-side half** (does the server actually deliver to a session that
+holds N chats open) — that is the genuine "RPC-holds-N" behavioral claim,
+and it is box-only by nature. The foundation is therefore **stronger** than
+"if-path exists": the client-side firing is source-pinned; only the
+server's delivery behavior awaits the box.
+
+**Munger B1 — acceptance blind spot (ABSORBED).** A point-in-time box test
+proves "it can start", not "it stays alive across a re-arm period". Add a
+box check: a **quiet channel, re-test after one full re-arm period** (not
+minutes after deploy). This is the only acceptance that closes the
+server-side half of T1.
+
+**Munger B2 / Popper T8 — wiring lifetime (ABSORBED, now verifiable).** The
+swap callback must be **registered before `Start`** (before the one-shot
+`runAuthLoop` reaches its swap critical section), else the whole fix never
+fires and the failure is silent. Add a **WARN if the callback is nil at
+swap time**. The box acceptance must include a **real cold restart**.
+
+**Munger B3 / Popper T7 — the async invariant (ABSORBED, the one real race
+R5 introduced).** R5 (async stagger) relaxes "source open before the first
+push of a newly-added rule". The correct statement is **self-healing, not
+lost**: a push that lands in the open in-flight window is at worst **delayed**,
+because the open's own diff fetch (`open_dialog:19593`) **backfills** any
+missed messages as updates once the open completes. The invariant is
+"**eventually open + backfilled**", not "open before first push". Order
+`ApplySet` **before** `SetRuleSetWithPush` in the Replace callback so the
+backfill starts as soon as possible. (The "backfill flows through the update
+pipeline" claim is engine behavior; the B1 quiet-channel box check also
+covers it.)
+
+**Popper T6 — retry ctx (ABSORBED).** The in-edge retry (R4) goroutine must
+use the **opener's lifecycle ctx**, not a per-reload ctx — a hot-reload
+must not cancel an in-flight retry for a *different* (earlier) batch.
+
+**T2 — stays a source-confirm target.** The `openChat`-for-unknown-dialog
+handler is in generated code (`Td.cpp`/`RpcClient`) not in the source tree
+(orchestrator fetch: pinned `Td.cpp` is init-only, 1429 lines, no RPC
+dispatch; `RpcClient.cpp`/`Rpc.cpp`/`td_api.cpp` all 404). The
+GetChat→OpenChat ordering is **safe either way**; the box confirms the
+actual no-op behavior.
+
+**T3 — classifier unambiguous (Popper counter-example passed).** `m == 1e12`
+exactly → not open (`≤` includes the boundary); `m == 1e12 + 1` → open.
+No fix. The real footgun (unmarked channel id in YAML) is correctly
+loader/validator scope, not the classifier's.
+
+**T4 / T5 — box-only, as expected** (N>10 FIFO no-starvation; CloseChat
+stops the poll).
+
+**Count (Popper + orchestrator):** 5 load-bearing claims **closed now** by
+pinned source / go-tdlib contract / Budva Go source (foundation firing,
+classifier table, GetChat→OpenChat ordering, two-edge set, in-edge retry
+consistency); the rest **box-only** (T1 server delivery, T2 no-op, T4
+starvation, T5 poll-stop, T7 window, large-N tail). Popper independently
+re-verified the pinned commit `22d49d5` (go-tdlib `Makefile:1`) and the
+`openChat` contract in `td_api.tl` ("…in supergroups and channels all
+updates are received **only for opened chats**") — the foundation's
+normative layer holds.
+
+**Stage 2.5 revisions dispatched:** B1 (quiet-channel box check), B2 (callback
+before `Start` + nil-WARN + cold-restart box), B3+T7 (self-healing invariant
+statement + `ApplySet` before `SetRuleSetWithPush`), T6 (retry uses opener
+lifecycle ctx). Then Stage 3 convergence (the five exit conditions).
