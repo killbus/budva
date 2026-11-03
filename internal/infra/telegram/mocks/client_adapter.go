@@ -36,6 +36,68 @@ func (_m *ClientAdapter) EXPECT() *ClientAdapter_Expecter {
 	return &ClientAdapter_Expecter{mock: &_m.Mock}
 }
 
+// CloseChat provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) CloseChat(closeChatRequest *client.CloseChatRequest) (*client.Ok, error) {
+	ret := _mock.Called(closeChatRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CloseChat")
+	}
+
+	var r0 *client.Ok
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.CloseChatRequest) (*client.Ok, error)); ok {
+		return returnFunc(closeChatRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.CloseChatRequest) *client.Ok); ok {
+		r0 = returnFunc(closeChatRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.Ok)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.CloseChatRequest) error); ok {
+		r1 = returnFunc(closeChatRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_CloseChat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CloseChat'
+type ClientAdapter_CloseChat_Call struct {
+	*mock.Call
+}
+
+// CloseChat is a helper method to define mock.On call
+//   - closeChatRequest *client.CloseChatRequest
+func (_e *ClientAdapter_Expecter) CloseChat(closeChatRequest interface{}) *ClientAdapter_CloseChat_Call {
+	return &ClientAdapter_CloseChat_Call{Call: _e.mock.On("CloseChat", closeChatRequest)}
+}
+
+func (_c *ClientAdapter_CloseChat_Call) Run(run func(closeChatRequest *client.CloseChatRequest)) *ClientAdapter_CloseChat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.CloseChatRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.CloseChatRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_CloseChat_Call) Return(ok *client.Ok, err error) *ClientAdapter_CloseChat_Call {
+	_c.Call.Return(ok, err)
+	return _c
+}
+
+func (_c *ClientAdapter_CloseChat_Call) RunAndReturn(run func(closeChatRequest *client.CloseChatRequest) (*client.Ok, error)) *ClientAdapter_CloseChat_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateNewBasicGroupChat provides a mock function for the type ClientAdapter
 func (_mock *ClientAdapter) CreateNewBasicGroupChat(createNewBasicGroupChatRequest *client.CreateNewBasicGroupChatRequest) (*client.CreatedBasicGroupChat, error) {
 	ret := _mock.Called(createNewBasicGroupChatRequest)
@@ -1118,6 +1180,68 @@ func (_c *ClientAdapter_LogOut_Call) Return(ok *client.Ok, err error) *ClientAda
 }
 
 func (_c *ClientAdapter_LogOut_Call) RunAndReturn(run func() (*client.Ok, error)) *ClientAdapter_LogOut_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// OpenChat provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) OpenChat(openChatRequest *client.OpenChatRequest) (*client.Ok, error) {
+	ret := _mock.Called(openChatRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for OpenChat")
+	}
+
+	var r0 *client.Ok
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.OpenChatRequest) (*client.Ok, error)); ok {
+		return returnFunc(openChatRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.OpenChatRequest) *client.Ok); ok {
+		r0 = returnFunc(openChatRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.Ok)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.OpenChatRequest) error); ok {
+		r1 = returnFunc(openChatRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_OpenChat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OpenChat'
+type ClientAdapter_OpenChat_Call struct {
+	*mock.Call
+}
+
+// OpenChat is a helper method to define mock.On call
+//   - openChatRequest *client.OpenChatRequest
+func (_e *ClientAdapter_Expecter) OpenChat(openChatRequest interface{}) *ClientAdapter_OpenChat_Call {
+	return &ClientAdapter_OpenChat_Call{Call: _e.mock.On("OpenChat", openChatRequest)}
+}
+
+func (_c *ClientAdapter_OpenChat_Call) Run(run func(openChatRequest *client.OpenChatRequest)) *ClientAdapter_OpenChat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.OpenChatRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.OpenChatRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_OpenChat_Call) Return(ok *client.Ok, err error) *ClientAdapter_OpenChat_Call {
+	_c.Call.Return(ok, err)
+	return _c
+}
+
+func (_c *ClientAdapter_OpenChat_Call) RunAndReturn(run func(openChatRequest *client.OpenChatRequest) (*client.Ok, error)) *ClientAdapter_OpenChat_Call {
 	_c.Call.Return(run)
 	return _c
 }

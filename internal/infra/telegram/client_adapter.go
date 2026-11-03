@@ -38,6 +38,11 @@ type clientAdapter interface {
 	LoadChats(*client.LoadChatsRequest) (*client.Ok, error)
 	GetChatHistory(*client.GetChatHistoryRequest) (*client.Messages, error)
 	GetChat(*client.GetChatRequest) (*client.Chat, error)
+	// Open-state для правил (задача 10-30, Problem-1). 1-в-1 с go-tdlib v0.7.6
+	// (OpenChat/CloseChat, client/function.go). Потребитель — SourceOpener:
+	// Budva владеет границей аквизиции источников (open-once-keep).
+	OpenChat(*client.OpenChatRequest) (*client.Ok, error)
+	CloseChat(*client.CloseChatRequest) (*client.Ok, error)
 
 	// Управление чатами (для cmd/stand).
 	CreateNewSupergroupChat(*client.CreateNewSupergroupChatRequest) (*client.Chat, error)
@@ -270,6 +275,29 @@ func (r *Repo) GetChat(req *client.GetChatRequest) (*client.Chat, error) {
 		return nil, err
 	}
 	return chat, nil
+}
+
+// OpenChat сообщает TDLib, что чат открыт пользователем. Для каналов/
+// супергрупп это гейтит доставку апдейтов и open_count-gated re-poll — Budva
+// владельцем граница аквизиции источников (задача 10-30, Problem-1).
+// Тонкая 1-в-1 обёртка (без wait-for-ready: открыта идёт только после
+// GetChat-грея peer, см. SourceOpener.openOne).
+func (r *Repo) OpenChat(req *client.OpenChatRequest) (*client.Ok, error) {
+	ok, err := r.clientAdapter.OpenChat(req)
+	if err != nil {
+		return nil, fmt.Errorf("open chat: %w", err)
+	}
+	return ok, nil
+}
+
+// CloseChat сообщает TDLib, что чат закрыт (установка из ruleset, см.
+// SourceOpener). Тонкая 1-в-1 обёртка; non-fatal на стороне вызывающего.
+func (r *Repo) CloseChat(req *client.CloseChatRequest) (*client.Ok, error) {
+	ok, err := r.clientAdapter.CloseChat(req)
+	if err != nil {
+		return nil, fmt.Errorf("close chat: %w", err)
+	}
+	return ok, nil
 }
 
 // --- Управление чатами (stand) ---
