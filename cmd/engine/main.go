@@ -93,6 +93,17 @@ func run() error {
 	rulesetRepo := ruleset.New(cfg.Ruleset)
 
 	telegramRepo := telegram.New(cfg.Telegram, telegram.BusinessUpdates)
+
+	// 10-30 Problem-1: Budva владеет границей аквизиции источников.
+	// SourceOpener открывает (open-once-keep) каналы/супергруппы-источники в
+	// собственной сессии. КРИТИЧНО (SB2): RegisterSessionSwap ДО Start —
+	// runAuthLoop one-shot, и если callback не зарегистрирован к swap-строке,
+	// fix никогда не применится (тихая перманентная тишина, воспроизводимая
+	// рестартом). Worker живёт под engine ctx (SB4: lifecycle ctx дольше
+	// любого ApplySet).
+	sourceOpener := telegram.NewSourceOpener(telegramRepo, logger, cfg.Telegram.SourceOpenPace)
+	telegramRepo.RegisterSessionSwap(sourceOpener.OnSessionSwap)
+
 	if err := telegramRepo.Start(ctx); err != nil {
 		return fmt.Errorf("telegram repo: %w", err)
 	}
@@ -101,6 +112,7 @@ func run() error {
 			logger.Warn("Failed to close telegram repo", slog.Any("err", err))
 		}
 	}()
+	sourceOpener.Start(ctx)
 
 	queueRepo := queue.New()
 	if err := queueRepo.StartContext(ctx); err != nil {
@@ -165,6 +177,13 @@ func run() error {
 				}),
 			}
 		}
+		// 10-30 Problem-1 (SB3): open-set гонится ПЕРЕД переключением push-
+		// поколения — так backfill (open-собственный diff-fetch) стартует как
+		// можно раньше, и инвариант «eventually open + backfilled» удерживается
+		// (push в open in-flight-окне задерживается, но не теряется).
+		// ApplySet идемпотентен и async: diff считается синхронно, RPC — в
+		// фоновом worker (не держит push-менеджеров замок).
+		sourceOpener.ApplySet(rulesetSourceIDs(rs))
 		return pushManager.Replace(configs, func(g *push.Generation) { handlerService.SetRuleSetWithPush(rs, g) })
 	}
 	rs, err := rulesetRepo.Load()
@@ -220,4 +239,18 @@ func run() error {
 	logger.Info("Shutting down engine")
 
 	return nil
+}
+
+// rulesetSourceIDs — полный набор идентификаторов источников ruleset (ключи
+// rs.Sources). Это ПОЛНЫЙ набор для SourceOpener.ApplySet: классификация по
+// типу (открыть / не открыть) происходит внутри opener (domain
+// .IsChannelOrSupergroup), поэтому здесь передаются ВСЕ ключи, включая
+// приватные/базовые — opener сам отберёт каналы/супергруппы. Порядок
+// недетерминирован (map), но для diff-семантики неважен.
+func rulesetSourceIDs(rs *domain.RuleSet) []domain.ChatID {
+	ids := make([]domain.ChatID, 0, len(rs.Sources))
+	for id := range rs.Sources {
+		ids = append(ids, id)
+	}
+	return ids
 }

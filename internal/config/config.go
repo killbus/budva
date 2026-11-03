@@ -48,6 +48,13 @@ type TelegramConfig struct {
 	// с singleflight/rate-limit и повторяет вызов). Должен быть много
 	// меньше WarmupDeadline.
 	WarmupTicker time.Duration `envconfig:"TELEGRAM_WARMUP_TICKER" default:"500ms"`
+
+	// SourceOpenPace — per-open pace-floor между openChat-вызовами правил-
+	// источников (10-30 Problem-1): не N openChat в один миг (риск 5-10 open-
+	// batch, mtcute warning). Локальный stagger внутри SourceOpener, НЕ
+	// internal/service/limiter (тот — per-chatID forward-throttle, другая ось).
+	// 0 = только serialize (без явного паузы).
+	SourceOpenPace time.Duration `envconfig:"TELEGRAM_SOURCE_OPEN_PACE" default:"300ms"`
 }
 
 // StorageConfig описывает параметры KV-хранилища BadgerDB.

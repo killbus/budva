@@ -81,6 +81,14 @@ type Repo struct {
 
 	// convergence — окно сходимости холодного старта (см. metrics.go).
 	convergence *convergenceTracker
+
+	// onSessionSwap — колбэк, зажигаемый в swap-крит-секции runAuthLoop (там,
+	// где меняется dialog-карта + clientAdapter — фактическая граница сессии).
+	// Единый триггер полной re-open правил-источников (10-30 Problem-1):
+	// SourceOpener регистрирует его через RegisterSessionSwap ДО Start.
+	// НЕ AuthorizationStateReady: тот отстаёт от этой строки на весь handshake
+	// и может потеряться (см. runAuthLoop).
+	onSessionSwap func()
 }
 
 // New creates a Telegram repository with an immutable business-update mode.
@@ -145,6 +153,18 @@ func (r *Repo) Updates() <-chan client.Type {
 		panic("telegram.Repo.Updates: business updates are disabled; construct with BusinessUpdates")
 	}
 	return r.updates
+}
+
+// RegisterSessionSwap регистрирует колбэк полной re-open правил-источников,
+// зажигаемый в swap-крит-секции runAuthLoop (фактическая граница сессии).
+//
+// Должен вызываться ДО Start: runAuthLoop один разный (one-shot), и если
+// колбэк не зарегистрирован к моменту, когда он достигнет swap-строки, swap
+// сработает без слушателя — fix НИКОГДА не сработает, без ошибки, и
+// рестарт воспроизведёт ту же последовательность → перманентная тишина (SB2).
+// Второй колбэк не поддерживается (один opener).
+func (r *Repo) RegisterSessionSwap(fn func()) {
+	r.onSessionSwap = fn
 }
 
 // --- Авторизация ---
@@ -367,7 +387,31 @@ func (r *Repo) runAuthLoop(ctx context.Context) {
 	r.clientAdapter = tdlibClient
 	close(r.clientDone)
 
+	// Единственный триггер полной re-open правил-источников (10-30 Problem-1):
+	// фактическая граница сессии — с этого момента fn-вызовы бьют в нового
+	// клиента, и SourceOpener (зарегистрированный через RegisterSessionSwap до
+	// Start) сбрасывает opened и ре-открывает полный набор. Не блокирует:
+	// OnSessionSwap → ApplySet → signal (buffered), тяжёлая работа — в worker.
+	r.fireSessionSwap()
+
 	go r.listenUpdates(ctx)
+}
+
+// fireSessionSwap зажигает callback полной re-open правил-источников.
+// Вызывается из runAuthLoop в swap-крит-секции (после того как clientAdapter
+// уже указывает на нового клиента — с этого момента fn-вызовы бьют в него).
+//
+// Guard (SB2): если callback не зарегистрирован ДО Start (runAuthLoop one-shot),
+// swap сработает без слушателя и fix НИКОГДА не применится, без ошибки —
+// перманентная тишина, воспроизводимая рестартом. Поэтому nil-состояние
+// логируется WARN, чтобы сбой был не тихим.
+func (r *Repo) fireSessionSwap() {
+	if r.onSessionSwap == nil {
+		r.logger.Warn("session swap fired but no session-swap callback registered — source open-set will not be applied (register via RegisterSessionSwap before Start)",
+			slog.String("hint", "10-30 Problem-1: this means the open-boundary fix is disabled"))
+		return
+	}
+	r.onSessionSwap()
 }
 
 func (r *Repo) listenAuthStates(ctx context.Context, states <-chan client.AuthorizationState) {
