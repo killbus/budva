@@ -1021,6 +1021,68 @@ func (_c *TelegramRepo_GetCallbackQueryAnswer_Call) RunAndReturn(run func(getCal
 	return _c
 }
 
+// GetChat provides a mock function for the type TelegramRepo
+func (_mock *TelegramRepo) GetChat(getChatRequest *client.GetChatRequest) (*client.Chat, error) {
+	ret := _mock.Called(getChatRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetChat")
+	}
+
+	var r0 *client.Chat
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.GetChatRequest) (*client.Chat, error)); ok {
+		return returnFunc(getChatRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.GetChatRequest) *client.Chat); ok {
+		r0 = returnFunc(getChatRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.Chat)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.GetChatRequest) error); ok {
+		r1 = returnFunc(getChatRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// TelegramRepo_GetChat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetChat'
+type TelegramRepo_GetChat_Call struct {
+	*mock.Call
+}
+
+// GetChat is a helper method to define mock.On call
+//   - getChatRequest *client.GetChatRequest
+func (_e *TelegramRepo_Expecter) GetChat(getChatRequest interface{}) *TelegramRepo_GetChat_Call {
+	return &TelegramRepo_GetChat_Call{Call: _e.mock.On("GetChat", getChatRequest)}
+}
+
+func (_c *TelegramRepo_GetChat_Call) Run(run func(getChatRequest *client.GetChatRequest)) *TelegramRepo_GetChat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.GetChatRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.GetChatRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *TelegramRepo_GetChat_Call) Return(chat *client.Chat, err error) *TelegramRepo_GetChat_Call {
+	_c.Call.Return(chat, err)
+	return _c
+}
+
+func (_c *TelegramRepo_GetChat_Call) RunAndReturn(run func(getChatRequest *client.GetChatRequest) (*client.Chat, error)) *TelegramRepo_GetChat_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendBotStartMessage provides a mock function for the type TelegramRepo
 func (_mock *TelegramRepo) SendBotStartMessage(sendBotStartMessageRequest *client.SendBotStartMessageRequest) (*client.Message, error) {
 	ret := _mock.Called(sendBotStartMessageRequest)

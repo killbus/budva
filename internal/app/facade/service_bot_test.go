@@ -102,7 +102,7 @@ func TestService_GetBotInfo(t *testing.T) {
 func TestService_GetInlineMenu(t *testing.T) {
 	t.Parallel()
 
-	t.Run("explicit message", func(t *testing.T) {
+	t.Run("explicit message skips GetChat", func(t *testing.T) {
 		t.Parallel()
 
 		gw := mocks.NewTelegramRepo(t)
@@ -118,12 +118,31 @@ func TestService_GetInlineMenu(t *testing.T) {
 		assert.Same(t, want, got)
 	})
 
-	t.Run("latest message", func(t *testing.T) {
+	t.Run("reply markup pointer is authoritative", func(t *testing.T) {
+		t.Parallel()
+
+		gw := mocks.NewTelegramRepo(t)
+		svc := New(gw)
+		want := &client.Message{Id: 777}
+		gw.EXPECT().GetChat(&client.GetChatRequest{ChatId: 100}).
+			Return(&client.Chat{ReplyMarkupMessageId: 777}, nil)
+		gw.EXPECT().GetMessage(mock.MatchedBy(func(req *client.GetMessageRequest) bool {
+			return req.ChatId == 100 && req.MessageId == 777
+		})).Return(want, nil)
+
+		got, err := svc.GetInlineMenu(context.Background(), 100, 0)
+
+		require.NoError(t, err)
+		assert.Same(t, want, got)
+	})
+
+	t.Run("empty markup pointer falls back to latest", func(t *testing.T) {
 		t.Parallel()
 
 		gw := mocks.NewTelegramRepo(t)
 		svc := New(gw)
 		want := &client.Message{Id: 43}
+		gw.EXPECT().GetChat(&client.GetChatRequest{ChatId: 100}).Return(&client.Chat{}, nil)
 		gw.EXPECT().GetChatHistory(mock.MatchedBy(func(req *client.GetChatHistoryRequest) bool {
 			return req.ChatId == 100 && req.FromMessageId == 0 && req.Limit == 1
 		})).Return(&client.Messages{Messages: []*client.Message{want}}, nil)
@@ -139,10 +158,25 @@ func TestService_GetInlineMenu(t *testing.T) {
 
 		gw := mocks.NewTelegramRepo(t)
 		svc := New(gw)
+		gw.EXPECT().GetChat(&client.GetChatRequest{ChatId: 100}).Return(&client.Chat{}, nil)
 		gw.EXPECT().GetChatHistory(mock.Anything).Return(&client.Messages{}, nil)
 
 		_, err := svc.GetInlineMenu(context.Background(), 100, 0)
 		require.ErrorAs(t, err, new(*MessageNotFoundError))
+	})
+
+	t.Run("GetChat error", func(t *testing.T) {
+		t.Parallel()
+
+		gw := mocks.NewTelegramRepo(t)
+		svc := New(gw)
+		wantErr := errors.New("chat unavailable")
+		gw.EXPECT().GetChat(mock.Anything).Return(nil, wantErr)
+
+		got, err := svc.GetInlineMenu(context.Background(), 100, 0)
+
+		require.ErrorIs(t, err, wantErr)
+		assert.Nil(t, got)
 	})
 }
 
