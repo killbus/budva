@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	alogger "github.com/pure-golang/adapters/logger"
@@ -13,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/pure-golang/budva-claude/internal/app/facade"
 	"github.com/pure-golang/budva-claude/internal/domain"
 	"github.com/pure-golang/budva-claude/internal/infra/telegram"
 	"github.com/pure-golang/budva-claude/internal/transport/grpc/pb"
@@ -24,11 +26,51 @@ import (
 // telegram.warmRetryInfoDelay — пакетная константа не экспортируется).
 const chatNotReadyRetryDelay = 2 * time.Second
 
+// callbackAnswerTimeout is the server-side wait for ClickCallbackButton.
+// go-tdlib returns TDLib error 502 when the bot misses its query timeout;
+// that error is mapped to DeadlineExceeded rather than Internal.
+const callbackAnswerTimeout = 10 * time.Second
+
 // mapFacadeError маппит ошибку facade-сервиса в gRPC-статус.
 // ChatNotReadyError (chat остался непрогретым в окне wait-for-ready) —
 // Unavailable + RetryInfo: сервис временно не готов, а не сломан, и клиенту
-// известно, когда повторять. Остальные ошибки — Internal (прежнее поведение).
+// известно, когда повторять. Новые semantic typed errors only apply to bot-menu
+// RPC paths. Остальные ошибки — Internal (прежнее поведение).
 func mapFacadeError(err error) error {
+	var floodWait *telegram.FloodWaitError
+	if errors.As(err, &floodWait) {
+		st := status.New(codes.ResourceExhausted, err.Error())
+		if withRetry, derr := st.WithDetails(&errdetails.RetryInfo{
+			RetryDelay: durationpb.New(floodWait.Delay),
+		}); derr == nil {
+			st = withRetry
+		}
+		return st.Err()
+	}
+	var messageNotFound *facade.MessageNotFoundError
+	if errors.As(err, &messageNotFound) {
+		return status.Error(codes.NotFound, err.Error())
+	}
+	var botNotFound *telegram.BotNotFoundError
+	if errors.As(err, &botNotFound) {
+		return status.Error(codes.NotFound, err.Error())
+	}
+	var targetNotBot *facade.TargetNotBotError
+	if errors.As(err, &targetNotBot) {
+		return status.Error(codes.FailedPrecondition, err.Error())
+	}
+	var callbackError *telegram.CallbackAnswerError
+	if errors.As(err, &callbackError) {
+		if callbackError.Code == 502 {
+			return status.Error(codes.DeadlineExceeded, err.Error())
+		}
+		if callbackError.Code >= 400 && callbackError.Code < 500 {
+			return status.Error(codes.FailedPrecondition, err.Error())
+		}
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return status.Error(codes.DeadlineExceeded, err.Error())
+	}
 	var notReady *telegram.ChatNotReadyError
 	if errors.As(err, &notReady) {
 		st := status.New(codes.Unavailable, err.Error())
@@ -55,6 +97,11 @@ type facadeService interface {
 	DeleteMessages(ctx context.Context, chatID int64, messageIDs []int64) error
 	GetMessageLink(ctx context.Context, chatID int64, messageID int64) (string, error)
 	GetMessageLinkInfo(ctx context.Context, link string) (*client.MessageLinkInfo, error)
+	ResolveBot(ctx context.Context, username string) (*client.Chat, *client.User, error)
+	GetBotInfo(ctx context.Context, botUserID int64) (*client.UserFullInfo, error)
+	GetInlineMenu(ctx context.Context, chatID int64, messageID int64) (*client.Message, error)
+	ClickCallbackButton(ctx context.Context, chatID int64, messageID int64, callbackData []byte) (*client.CallbackQueryAnswer, error)
+	SendBotCommand(ctx context.Context, chatID int64, command string, botUserID int64, parameter string) error
 }
 
 // Transport реализует gRPC-сервер FacadeGRPC.
@@ -206,6 +253,99 @@ func (t *Transport) GetMessageLinkInfo(ctx context.Context, req *pb.GetMessageLi
 	}, nil
 }
 
+// ResolveBot resolves a bot username to its private chat and user IDs.
+func (t *Transport) ResolveBot(ctx context.Context, req *pb.ResolveBotRequest) (*pb.ResolveBotResponse, error) {
+	username := strings.TrimSpace(req.GetUsername())
+	username = strings.TrimPrefix(username, "@")
+	if username == "" {
+		return nil, status.Error(codes.InvalidArgument, "username is required")
+	}
+	chat, user, err := t.facadeService.ResolveBot(ctx, username)
+	if err != nil {
+		alogger.FromContext(ctx).Error("Failed to resolve bot", slog.Any("err", err))
+		return nil, mapFacadeError(err)
+	}
+	return &pb.ResolveBotResponse{
+		ChatId:    chat.Id,
+		BotUserId: user.Id,
+	}, nil
+}
+
+// GetBotInfo returns bot commands, menu button and descriptions.
+func (t *Transport) GetBotInfo(ctx context.Context, req *pb.GetBotInfoRequest) (*pb.BotInfoResponse, error) {
+	fullInfo, err := t.facadeService.GetBotInfo(ctx, req.GetBotUserId())
+	if err != nil {
+		alogger.FromContext(ctx).Error("Failed to get bot info", slog.Any("err", err))
+		return nil, mapFacadeError(err)
+	}
+	return botInfoToProto(req.GetBotUserId(), fullInfo), nil
+}
+
+// GetInlineMenu returns the inline keyboard of a message.
+func (t *Transport) GetInlineMenu(ctx context.Context, req *pb.GetInlineMenuRequest) (*pb.InlineMenuResponse, error) {
+	msg, err := t.facadeService.GetInlineMenu(ctx, req.GetChatId(), req.GetMessageId())
+	if err != nil {
+		alogger.FromContext(ctx).Error("Failed to get inline menu", slog.Any("err", err))
+		return nil, mapFacadeError(err)
+	}
+	return inlineMenuToProto(msg), nil
+}
+
+// ClickCallbackButton clicks a callback button and returns the bot answer.
+func (t *Transport) ClickCallbackButton(ctx context.Context, req *pb.ClickCallbackButtonRequest) (*pb.CallbackAnswerResponse, error) {
+	if len(req.GetCallbackData()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "callback_data is required")
+	}
+
+	// go-tdlib's callback call blocks independently of the request context.
+	// The goroutine keeps it alive for one call; on timeout its result is
+	// discarded and TDLib completes in the background.
+	callCtx, cancel := context.WithTimeout(ctx, callbackAnswerTimeout)
+	defer cancel()
+	type callbackResult struct {
+		answer *client.CallbackQueryAnswer
+		err    error
+	}
+	resultCh := make(chan callbackResult, 1)
+	go func() {
+		answer, err := t.facadeService.ClickCallbackButton(callCtx, req.GetChatId(), req.GetMessageId(), req.GetCallbackData())
+		resultCh <- callbackResult{answer: answer, err: err}
+	}()
+
+	select {
+	case result := <-resultCh:
+		switch callCtx.Err() {
+		case context.DeadlineExceeded:
+			return nil, status.Error(codes.DeadlineExceeded, "bot did not answer callback before deadline")
+		case context.Canceled:
+			return nil, status.Error(codes.Canceled, "callback request canceled")
+		}
+		if result.err != nil {
+			alogger.FromContext(ctx).Error("Failed to click callback button", slog.Any("err", result.err))
+			return nil, mapFacadeError(result.err)
+		}
+		return callbackAnswerToProto(result.answer), nil
+	case <-callCtx.Done():
+		if callCtx.Err() == context.Canceled {
+			return nil, status.Error(codes.Canceled, "callback request canceled")
+		}
+		return nil, status.Error(codes.DeadlineExceeded, "bot did not answer callback before deadline")
+	}
+}
+
+// SendBotCommand sends a slash command to a bot chat.
+func (t *Transport) SendBotCommand(ctx context.Context, req *pb.SendBotCommandRequest) (*pb.EmptyResponse, error) {
+	command := strings.TrimSpace(req.GetCommand())
+	if command == "" {
+		return nil, status.Error(codes.InvalidArgument, "command is required")
+	}
+	if err := t.facadeService.SendBotCommand(ctx, req.GetChatId(), command, req.GetBotUserId(), req.GetParameter()); err != nil {
+		alogger.FromContext(ctx).Error("Failed to send bot command", slog.Any("err", err))
+		return nil, mapFacadeError(err)
+	}
+	return &pb.EmptyResponse{}, nil
+}
+
 // clientMessageToProto маппит *client.Message (raw TDLib) в pb.Message.
 func clientMessageToProto(msg *client.Message) *pb.Message {
 	if msg == nil {
@@ -235,5 +375,89 @@ func clientMessageToProto(msg *client.Message) *pb.Message {
 		ChatId:  msg.ChatId,
 		Text:    text,
 		Forward: msg.ForwardInfo != nil,
+	}
+}
+
+// botInfoToProto maps raw TDLib UserFullInfo to the bot menu DTO.
+func botInfoToProto(botUserID int64, fullInfo *client.UserFullInfo) *pb.BotInfoResponse {
+	if fullInfo == nil || fullInfo.BotInfo == nil {
+		return &pb.BotInfoResponse{BotUserId: botUserID}
+	}
+	botInfo := fullInfo.BotInfo
+	commands := make([]*pb.BotCommand, 0, len(botInfo.Commands))
+	for _, command := range botInfo.Commands {
+		if command == nil {
+			continue
+		}
+		commands = append(commands, &pb.BotCommand{
+			Command:     command.Command,
+			Description: command.Description,
+		})
+	}
+	response := &pb.BotInfoResponse{
+		BotUserId:        botUserID,
+		Commands:         commands,
+		Description:      botInfo.Description,
+		ShortDescription: botInfo.ShortDescription,
+	}
+	if botInfo.MenuButton != nil {
+		response.MenuButton = &pb.BotMenuButtonInfo{
+			Text: botInfo.MenuButton.Text,
+			Url:  botInfo.MenuButton.Url,
+		}
+	}
+	return response
+}
+
+// inlineMenuToProto maps a raw message's inline keyboard, preserving row and button order.
+func inlineMenuToProto(msg *client.Message) *pb.InlineMenuResponse {
+	if msg == nil {
+		return &pb.InlineMenuResponse{}
+	}
+	response := &pb.InlineMenuResponse{MessageId: msg.Id}
+	keyboard, ok := msg.ReplyMarkup.(*client.ReplyMarkupInlineKeyboard)
+	if !ok {
+		return response
+	}
+	response.Rows = make([]*pb.InlineButtonRow, 0, len(keyboard.Rows))
+	for _, row := range keyboard.Rows {
+		protoRow := &pb.InlineButtonRow{Buttons: make([]*pb.InlineButton, 0, len(row))}
+		for _, button := range row {
+			if button == nil {
+				continue
+			}
+			protoButton := &pb.InlineButton{Text: button.Text}
+			switch buttonType := button.Type.(type) {
+			case *client.InlineKeyboardButtonTypeCallback:
+				protoButton.Action = &pb.InlineButton_CallbackData{CallbackData: buttonType.Data}
+			case *client.InlineKeyboardButtonTypeUrl:
+				protoButton.Action = &pb.InlineButton_Url{Url: buttonType.Url}
+			case *client.InlineKeyboardButtonTypeWebApp:
+				protoButton.Action = &pb.InlineButton_WebApp{
+					WebApp: &pb.WebAppButtonInfo{Text: button.Text, Url: buttonType.Url},
+				}
+			default:
+				var otherType string
+				if button.Type != nil {
+					otherType = button.Type.InlineKeyboardButtonTypeType()
+				}
+				protoButton.Action = &pb.InlineButton_OtherType{OtherType: otherType}
+			}
+			protoRow.Buttons = append(protoRow.Buttons, protoButton)
+		}
+		response.Rows = append(response.Rows, protoRow)
+	}
+	return response
+}
+
+// callbackAnswerToProto maps raw TDLib callback answer to the response DTO.
+func callbackAnswerToProto(answer *client.CallbackQueryAnswer) *pb.CallbackAnswerResponse {
+	if answer == nil {
+		return &pb.CallbackAnswerResponse{}
+	}
+	return &pb.CallbackAnswerResponse{
+		Text:      answer.Text,
+		ShowAlert: answer.ShowAlert,
+		Url:       answer.Url,
 	}
 }

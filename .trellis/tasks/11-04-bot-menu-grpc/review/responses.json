@@ -1,0 +1,174 @@
+{
+  "round": 2,
+  "finding_responses": [
+    {
+      "id": "B1",
+      "status": "ACCEPTED",
+      "fix": "Added telegram.BotNotFoundError, converted TDLib 400 \"Username not found\" on SearchPublicChat, mapped it to codes.NotFound, and added repo + gRPC tests through ResolveBot.",
+      "evidence": [
+        "internal/infra/telegram/errors.go",
+        "internal/infra/telegram/client_adapter.go",
+        "internal/transport/grpc/transport.go",
+        "internal/infra/telegram/client_adapter_bot_test.go",
+        "internal/transport/grpc/transport_bot_test.go"
+      ]
+    },
+    {
+      "id": "B2",
+      "status": "ACCEPTED",
+      "fix": "Applied FloodWaitFromError to Repo.GetMessage, Repo.GetChatHistory, Repo.SendMessage, and Repo.SendBotStartMessage; preserved SendMessageAndWait behavior by deriving retry delay from the typed error; added mocked-adapter 7.5s tests for all four wrappers and updated the warmup 429 assertion.",
+      "evidence": [
+        "internal/infra/telegram/client_adapter.go",
+        "internal/infra/telegram/repo.go",
+        "internal/infra/telegram/client_adapter_bot_test.go",
+        "internal/infra/telegram/warmup_test.go"
+      ]
+    },
+    {
+      "id": "B3",
+      "status": "ACCEPTED",
+      "fix": "Enforced the 10s handler deadline with a goroutine and select over the buffered callback result and ctx.Done(); timeout returns DeadlineExceeded and in-flight TDLib results are discarded. Replaced the mock-supplied-error test with a testing/synctest virtual-time test. Select race hardened: both branches check callCtx.Err() and prioritize DeadlineExceeded/Canceled over a late result; synctest fake returns a plain late TDLib error and still asserts DeadlineExceeded. Callback tests were rerun with -count=20.",
+      "evidence": [
+        "internal/transport/grpc/transport.go",
+        "internal/transport/grpc/transport_bot_test.go"
+      ]
+    },
+    {
+      "id": "B4",
+      "status": "ACCEPTED",
+      "fix": "GetBotInfo now treats nil/missing fullInfo.BotInfo as TargetNotBotError; added facade and transport negative tests mapping to FailedPrecondition.",
+      "evidence": [
+        "internal/app/facade/service.go",
+        "internal/app/facade/service_bot_test.go",
+        "internal/transport/grpc/transport_bot_test.go"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "internal/transport/grpc/pb/facade.proto",
+      "intent": "Add the approved five-RPC bot menu surface, request/response messages, and InlineButton oneof.",
+      "design_clause": "design §5"
+    },
+    {
+      "path": "internal/transport/grpc/pb/facade.pb.go",
+      "intent": "Regenerated Go bindings using the verified protoc/plugins command.",
+      "design_clause": "design §5, §9"
+    },
+    {
+      "path": "internal/transport/grpc/pb/facade_grpc.pb.go",
+      "intent": "Regenerated gRPC service bindings using the verified protoc/plugins command.",
+      "design_clause": "design §5, §9"
+    },
+    {
+      "path": "internal/infra/telegram/client_adapter.go",
+      "intent": "Add SearchPublicChat, GetUser, GetUserFullInfo and SendBotStartMessage adapters, apply flood-wait conversion to the five new TDLib paths, and convert callback failures to the semantic typed error. Convert username-not-found and flood-wait errors on bot-menu call paths; wrappers now include GetMessage, GetChatHistory, SendMessage, and SendBotStartMessage.",
+      "design_clause": "design §4, §6, §7, design §6, §7"
+    },
+    {
+      "path": "internal/infra/telegram/errors.go",
+      "intent": "Add FloodWaitError/FloodWaitFromError reusing parseFloodWait, plus CallbackAnswerError for callback 4xx/502 semantics. Add BotNotFoundError for TDLib username-not-found and existing FloodWaitError/CallbackAnswerError typed errors.",
+      "design_clause": "design §7, design §7"
+    },
+    {
+      "path": "internal/app/facade/service.go",
+      "intent": "Add five thin wrapper methods, latest-message lookup, bot validation, callback payload construction and /start deep-link routing. Return TargetNotBotError when GetUserFullInfo has no BotInfo.",
+      "design_clause": "design §4, §6, design §7"
+    },
+    {
+      "path": "internal/app/facade/errors.go",
+      "intent": "Add semantic TargetNotBotError and MessageNotFoundError for new bot-menu paths only.",
+      "design_clause": "design §7"
+    },
+    {
+      "path": "internal/transport/grpc/transport.go",
+      "intent": "Extend facadeService, add five handlers, raw TDLib-to-proto mapping, callback validation and new typed-error gRPC status mapping. ClickCallbackButton now applies callbackAnswerTimeout and context deadlines map to DeadlineExceeded. Map BotNotFoundError to NotFound and enforce callback timeout with goroutine/select; in-flight TDLib result is discarded on timeout.",
+      "design_clause": "design §4, §6, §7, design §7"
+    },
+    {
+      "path": "internal/transport/grpc/mocks/facade_service.go",
+      "intent": "Hand-added new facadeService methods using existing mockery v3 testify style; no regeneration was run.",
+      "design_clause": "design §8"
+    },
+    {
+      "path": "internal/app/facade/mocks/telegram_repo.go",
+      "intent": "Hand-added new telegramRepo methods using existing mockery v3 testify style; no regeneration was run.",
+      "design_clause": "design §8"
+    },
+    {
+      "path": "internal/infra/telegram/mocks/client_adapter.go",
+      "intent": "Hand-added new clientAdapter methods so existing package tests compile with the widened adapter interface.",
+      "design_clause": "design §6, §8"
+    },
+    {
+      "path": "internal/infra/telegram/errors_test.go",
+      "intent": "Cover 7-second retry-after conversion to 7.5s and non-flood passthrough.",
+      "design_clause": "design §8"
+    },
+    {
+      "path": "internal/app/facade/service_bot_test.go",
+      "intent": "Strict-mock tests proving the five wrappers build expected TDLib requests and semantic errors. Add non-bot GetBotInfo negative test.",
+      "design_clause": "design §8, design §7, §8"
+    },
+    {
+      "path": "internal/transport/grpc/transport_bot_test.go",
+      "intent": "Cover inline/bot-info/callback mappings, latest-menu request, validation, and error mapping including RetryInfo details. Add username-not-found gRPC status, non-bot GetBotInfo status, and testing/synctest callback deadline test.",
+      "design_clause": "design §8, design §7, §8"
+    },
+    {
+      "path": "Taskfile.yml",
+      "intent": "Add pinned proto plugin installation and regeneration command; protoc 34.x must be on PATH.",
+      "design_clause": "design §9, §11.1"
+    },
+    {
+      "path": "docs/TEST-MATRIX.md",
+      "intent": "Record the required manual live bot-menu acceptance steps.",
+      "design_clause": "design §8, §11.5"
+    },
+    {
+      "path": "internal/transport/grpc/doc.go",
+      "intent": "Document the five new gRPC methods following existing package convention.",
+      "design_clause": "design §11.5"
+    },
+    {
+      "path": "internal/app/facade/doc.go",
+      "intent": "Document bot-menu wrappers and no-reply-wait boundary following existing package convention. Clarify synchronous callback answer is distinct from reply waiting.",
+      "design_clause": "design §2, §11.5, design §11.5"
+    },
+    {
+      "path": "internal/infra/telegram/doc.go",
+      "intent": "Document new TDLib wrappers and typed bot-menu errors following existing package convention. Correct bot-menu wrapper and typed-error documentation after flood-wait conversion.",
+      "design_clause": "design §11.5, design §11.5"
+    },
+    {
+      "path": "internal/transport/grpc/transport_bot_test.go",
+      "intent": "Pin the callback server-deadline contract by observing the deadline context and asserting DeadlineExceeded without sleeping. Add username-not-found gRPC status, non-bot GetBotInfo status, and testing/synctest callback deadline test.",
+      "design_clause": "design §7, §8, design §7, §8"
+    },
+    {
+      "path": "internal/infra/telegram/repo.go",
+      "intent": "Preserve SendMessageAndWait retry semantics when SendMessage returns typed FloodWaitError.",
+      "design_clause": "design §7"
+    },
+    {
+      "path": "internal/infra/telegram/warmup_test.go",
+      "intent": "Update the 429 warmup assertion for the now-typed FloodWaitError result.",
+      "design_clause": "design §7, §8"
+    },
+    {
+      "path": "internal/infra/telegram/client_adapter_bot_test.go",
+      "intent": "Cover TDLib username-not-found through SearchPublicChat and retry-after 7 → 7.5s through four wrappers using mocked clientAdapter.",
+      "design_clause": "design §7, §8"
+    }
+  ],
+  "test_notes": [
+    "Environment block from implementer-prompt.md was exported exactly; all Go commands used -p 2 and -tags libtdjson.",
+    "go build -p 2 -tags libtdjson ./internal/transport/grpc/ ./internal/app/facade/ ./internal/infra/telegram/ ./cmd/facade/ — green.",
+    "go vet -p 2 -tags libtdjson ./internal/transport/grpc/ ./internal/app/facade/ ./internal/infra/telegram/ — green.",
+    "go test -p 2 -count=1 -tags libtdjson ./internal/transport/grpc/ ./internal/app/facade/ ./internal/infra/telegram/ — green.",
+    "gofmt -l for changed Go files — clean.",
+    "Round 2 verification: Repo-level tests use mocked clientAdapter for SearchPublicChat username-not-found and retry-after 7 through GetMessage/GetChatHistory/SendMessage/SendBotStartMessage; ClickCallbackButton timeout is pinned with testing/synctest at virtual 10s; GetBotInfo nil BotInfo is covered in facade and transport.",
+    "protoc regeneration was unchanged in round 2 and remains the verified command with protoc 34.2 and pinned generation plugins; only the documented protoc header changed from 7.34.1 to 7.34.2 in round 1.",
+    "These scoped checks are not architecture proof; no live Telegram or bot interaction was performed."
+  ]
+}

@@ -465,6 +465,148 @@ func (_c *FacadeService_GetMessageLinkInfo_Call) RunAndReturn(run func(ctx conte
 	return _c
 }
 
+// GetBotInfo provides a mock function for the type FacadeService
+func (_mock *FacadeService) GetBotInfo(ctx context.Context, botUserID int64) (*client.UserFullInfo, error) {
+	ret := _mock.Called(ctx, botUserID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetBotInfo")
+	}
+
+	var r0 *client.UserFullInfo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) (*client.UserFullInfo, error)); ok {
+		return returnFunc(ctx, botUserID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) *client.UserFullInfo); ok {
+		r0 = returnFunc(ctx, botUserID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.UserFullInfo)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = returnFunc(ctx, botUserID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// FacadeService_GetBotInfo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetBotInfo'
+type FacadeService_GetBotInfo_Call struct {
+	*mock.Call
+}
+
+// GetBotInfo is a helper method to define mock.On call
+//   - ctx context.Context
+//   - botUserID int64
+func (_e *FacadeService_Expecter) GetBotInfo(ctx interface{}, botUserID interface{}) *FacadeService_GetBotInfo_Call {
+	return &FacadeService_GetBotInfo_Call{Call: _e.mock.On("GetBotInfo", ctx, botUserID)}
+}
+
+func (_c *FacadeService_GetBotInfo_Call) Run(run func(ctx context.Context, botUserID int64)) *FacadeService_GetBotInfo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *FacadeService_GetBotInfo_Call) Return(userFullInfo *client.UserFullInfo, err error) *FacadeService_GetBotInfo_Call {
+	_c.Call.Return(userFullInfo, err)
+	return _c
+}
+
+func (_c *FacadeService_GetBotInfo_Call) RunAndReturn(run func(ctx context.Context, botUserID int64) (*client.UserFullInfo, error)) *FacadeService_GetBotInfo_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetInlineMenu provides a mock function for the type FacadeService
+func (_mock *FacadeService) GetInlineMenu(ctx context.Context, chatID int64, messageID int64) (*client.Message, error) {
+	ret := _mock.Called(ctx, chatID, messageID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetInlineMenu")
+	}
+
+	var r0 *client.Message
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, int64) (*client.Message, error)); ok {
+		return returnFunc(ctx, chatID, messageID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, int64) *client.Message); ok {
+		r0 = returnFunc(ctx, chatID, messageID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.Message)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, int64) error); ok {
+		r1 = returnFunc(ctx, chatID, messageID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// FacadeService_GetInlineMenu_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetInlineMenu'
+type FacadeService_GetInlineMenu_Call struct {
+	*mock.Call
+}
+
+// GetInlineMenu is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chatID int64
+//   - messageID int64
+func (_e *FacadeService_Expecter) GetInlineMenu(ctx interface{}, chatID interface{}, messageID interface{}) *FacadeService_GetInlineMenu_Call {
+	return &FacadeService_GetInlineMenu_Call{Call: _e.mock.On("GetInlineMenu", ctx, chatID, messageID)}
+}
+
+func (_c *FacadeService_GetInlineMenu_Call) Run(run func(ctx context.Context, chatID int64, messageID int64)) *FacadeService_GetInlineMenu_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *FacadeService_GetInlineMenu_Call) Return(message *client.Message, err error) *FacadeService_GetInlineMenu_Call {
+	_c.Call.Return(message, err)
+	return _c
+}
+
+func (_c *FacadeService_GetInlineMenu_Call) RunAndReturn(run func(ctx context.Context, chatID int64, messageID int64) (*client.Message, error)) *FacadeService_GetInlineMenu_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetMessages provides a mock function for the type FacadeService
 func (_mock *FacadeService) GetMessages(ctx context.Context, chatID int64, messageIDs []int64) ([]*client.Message, error) {
 	ret := _mock.Called(ctx, chatID, messageIDs)
@@ -730,6 +872,236 @@ func (_c *FacadeService_UpdateMessage_Call) Return(err error) *FacadeService_Upd
 }
 
 func (_c *FacadeService_UpdateMessage_Call) RunAndReturn(run func(ctx context.Context, chatID int64, messageID int64, text string) error) *FacadeService_UpdateMessage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ResolveBot provides a mock function for the type FacadeService
+func (_mock *FacadeService) ResolveBot(ctx context.Context, username string) (*client.Chat, *client.User, error) {
+	ret := _mock.Called(ctx, username)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResolveBot")
+	}
+
+	var r0 *client.Chat
+	var r1 *client.User
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*client.Chat, *client.User, error)); ok {
+		return returnFunc(ctx, username)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *client.Chat); ok {
+		r0 = returnFunc(ctx, username)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.Chat)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) *client.User); ok {
+		r1 = returnFunc(ctx, username)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*client.User)
+		}
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = returnFunc(ctx, username)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// FacadeService_ResolveBot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResolveBot'
+type FacadeService_ResolveBot_Call struct {
+	*mock.Call
+}
+
+// ResolveBot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - username string
+func (_e *FacadeService_Expecter) ResolveBot(ctx interface{}, username interface{}) *FacadeService_ResolveBot_Call {
+	return &FacadeService_ResolveBot_Call{Call: _e.mock.On("ResolveBot", ctx, username)}
+}
+
+func (_c *FacadeService_ResolveBot_Call) Run(run func(ctx context.Context, username string)) *FacadeService_ResolveBot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *FacadeService_ResolveBot_Call) Return(chat *client.Chat, user *client.User, err error) *FacadeService_ResolveBot_Call {
+	_c.Call.Return(chat, user, err)
+	return _c
+}
+
+func (_c *FacadeService_ResolveBot_Call) RunAndReturn(run func(ctx context.Context, username string) (*client.Chat, *client.User, error)) *FacadeService_ResolveBot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ClickCallbackButton provides a mock function for the type FacadeService
+func (_mock *FacadeService) ClickCallbackButton(ctx context.Context, chatID int64, messageID int64, callbackData []byte) (*client.CallbackQueryAnswer, error) {
+	ret := _mock.Called(ctx, chatID, messageID, callbackData)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClickCallbackButton")
+	}
+
+	var r0 *client.CallbackQueryAnswer
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, int64, []byte) (*client.CallbackQueryAnswer, error)); ok {
+		return returnFunc(ctx, chatID, messageID, callbackData)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, int64, []byte) *client.CallbackQueryAnswer); ok {
+		r0 = returnFunc(ctx, chatID, messageID, callbackData)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.CallbackQueryAnswer)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, int64, []byte) error); ok {
+		r1 = returnFunc(ctx, chatID, messageID, callbackData)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// FacadeService_ClickCallbackButton_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClickCallbackButton'
+type FacadeService_ClickCallbackButton_Call struct {
+	*mock.Call
+}
+
+// ClickCallbackButton is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chatID int64
+//   - messageID int64
+//   - callbackData []byte
+func (_e *FacadeService_Expecter) ClickCallbackButton(ctx interface{}, chatID interface{}, messageID interface{}, callbackData interface{}) *FacadeService_ClickCallbackButton_Call {
+	return &FacadeService_ClickCallbackButton_Call{Call: _e.mock.On("ClickCallbackButton", ctx, chatID, messageID, callbackData)}
+}
+
+func (_c *FacadeService_ClickCallbackButton_Call) Run(run func(ctx context.Context, chatID int64, messageID int64, callbackData []byte)) *FacadeService_ClickCallbackButton_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		var arg3 []byte
+		if args[3] != nil {
+			arg3 = args[3].([]byte)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *FacadeService_ClickCallbackButton_Call) Return(callbackQueryAnswer *client.CallbackQueryAnswer, err error) *FacadeService_ClickCallbackButton_Call {
+	_c.Call.Return(callbackQueryAnswer, err)
+	return _c
+}
+
+func (_c *FacadeService_ClickCallbackButton_Call) RunAndReturn(run func(ctx context.Context, chatID int64, messageID int64, callbackData []byte) (*client.CallbackQueryAnswer, error)) *FacadeService_ClickCallbackButton_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendBotCommand provides a mock function for the type FacadeService
+func (_mock *FacadeService) SendBotCommand(ctx context.Context, chatID int64, command string, botUserID int64, parameter string) error {
+	ret := _mock.Called(ctx, chatID, command, botUserID, parameter)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendBotCommand")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, int64, string) error); ok {
+		return returnFunc(ctx, chatID, command, botUserID, parameter)
+	}
+	r0 = ret.Error(0)
+	return r0
+}
+
+// FacadeService_SendBotCommand_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendBotCommand'
+type FacadeService_SendBotCommand_Call struct {
+	*mock.Call
+}
+
+// SendBotCommand is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chatID int64
+//   - command string
+//   - botUserID int64
+//   - parameter string
+func (_e *FacadeService_Expecter) SendBotCommand(ctx interface{}, chatID interface{}, command interface{}, botUserID interface{}, parameter interface{}) *FacadeService_SendBotCommand_Call {
+	return &FacadeService_SendBotCommand_Call{Call: _e.mock.On("SendBotCommand", ctx, chatID, command, botUserID, parameter)}
+}
+
+func (_c *FacadeService_SendBotCommand_Call) Run(run func(ctx context.Context, chatID int64, command string, botUserID int64, parameter string)) *FacadeService_SendBotCommand_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 int64
+		if args[3] != nil {
+			arg3 = args[3].(int64)
+		}
+		var arg4 string
+		if args[4] != nil {
+			arg4 = args[4].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		)
+	})
+	return _c
+}
+
+func (_c *FacadeService_SendBotCommand_Call) Return(err error) *FacadeService_SendBotCommand_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *FacadeService_SendBotCommand_Call) RunAndReturn(run func(ctx context.Context, chatID int64, command string, botUserID int64, parameter string) error) *FacadeService_SendBotCommand_Call {
 	_c.Call.Return(run)
 	return _c
 }

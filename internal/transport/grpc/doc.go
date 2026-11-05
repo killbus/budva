@@ -11,6 +11,7 @@
 //   - SendMessage, SendMessageAlbum, ForwardMessage
 //   - UpdateMessage, DeleteMessages
 //   - GetMessageLink, GetMessageLinkInfo
+//   - ResolveBot, GetBotInfo, GetInlineMenu, ClickCallbackButton, SendBotCommand
 //
 // Конфигурация:
 //

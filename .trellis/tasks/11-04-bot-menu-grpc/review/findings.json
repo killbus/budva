@@ -1,0 +1,112 @@
+{
+  "verdict": "PASS",
+  "round": 2,
+  "system_context": "Round 2 re-review in /home/agent/.paseo/worktrees/3i5ks3q2/bot-menu-grpc, branch feat/bot-menu-grpc, HEAD 609f181 with uncommitted implementation changes. Scope was limited to verifying B1-B4 against the code and checking whether their fixes introduced a new boundary, deadline, goroutine, or contract violation. The exact scoped environment from implementer-prompt.md was exported. go test -p 2 -count=1 -tags libtdjson ./internal/transport/grpc/ ./internal/app/facade/ ./internal/infra/telegram/ is green; go vet -p 2 -tags libtdjson on the same packages is green; the callback deadline test passes with -count=20; and go test -race -p 1 for TestClickCallbackButton_ContextDeadlineMapsToDeadlineExceeded is green.",
+  "spec_conformance_summary": {
+    "criteria": {
+      "C1_additivity_and_compatibility": "met: no new change alters the five-RPC additive proto surface or the existing 10 RPCs. Existing RPC test files remain untouched.",
+      "C2_non_goals_honored": "met: the fixes introduce no reply polling/stream, Web App execution, Bot API client/token, generic Execute RPC, second TDLib session, new module, required env, or ruleset change.",
+      "C3_no_new_runtime_dependency_env_config": "met: no dependency, runtime env, or ruleset changes were introduced in round 2.",
+      "C4_reuse_no_reinvention": "met: username-not-found and flood-wait semantics remain in infra, use the TDLib ResponseError value model, and reuse parseFloodWait.",
+      "C5_layering": "met: transport maps typed values returned through facade; TDLib-specific detection remains in infra; no dependency cycle was introduced.",
+      "C6_error_mapping": "met: B1 maps username-not-found to NotFound, B2 covers every TDLib call reachable from the five new RPCs, B3 enforces the callback deadline, and B4 maps nil BotInfo to the non-bot/FailedPrecondition path.",
+      "C7_test_assertions": "met: each previous finding now has a behavior-binding test at its owning boundary. The flood tests use mocked clientAdapter calls, the username test uses a TDLib ResponseError value, the callback test uses virtual time and a late-result fake, and B4 has facade and transport negatives.",
+      "C8_scope": "met: round 2 changes are limited to the existing bot-menu implementation, its typed errors, tests, and documentation."
+    },
+    "previous_blocking_resolution": {
+      "B1": "resolved: telegram.BotNotFoundError is produced by Repo.SearchPublicChat for the TDLib ResponseError value with code 400 and message 'Username not found', the error is wrapped with %w, and transport maps it through errors.As to codes.NotFound.",
+      "B2": "resolved: FloodWaitFromError is now applied to all TDLib wrappers reached by the five new RPCs: SearchPublicChat/GetUser/GetUserFullInfo, GetMessage/GetChatHistory, GetCallbackQueryAnswer, and SendMessage/SendBotStartMessage. Non-429 errors pass through as the same wrapped error value. SendMessageAndWait derives its retry delay from FloodWaitError and retains the prior retry-wait behavior.",
+      "B3": "resolved: the handler starts the blocking facade call in a goroutine and selects over a buffered result channel and the 10s context. The result branch prioritizes DeadlineExceeded/Canceled over a late result; the Done branch returns the same status immediately. The buffered channel prevents the producer from blocking after the handler returns, and go-tdlib's own 60s catch timeout bounds the background call.",
+      "B4": "resolved: facade.Service.GetBotInfo rejects nil UserFullInfo or nil BotInfo with TargetNotBotError before transport conversion, so the handler maps it to FailedPrecondition. Facade and transport negative tests cover the path."
+    },
+    "fix_boundary_check": {
+      "B1": "the typed error is defined in infra and mapped at transport; no app-layer TDLib parsing was introduced.",
+      "B2": "non-429 existing-path errors retain identity because FloodWaitFromError returns the original error when no retry-after pattern is present. The warmup 429 assertion is intentionally strengthened to require FloodWaitError while retaining the strict no-LoadChats/no-retry checks and call-count assertion. sendMessageAndWaitOnce still returns the parsed wait and retries according to the existing loop.",
+      "B3": "no channel leak is present: exactly one buffered send is made, the result channel is buffered to capacity one, and cancel is deferred. The callback virtual-time test plus the race run found no data race. The goroutine can outlive the handler only until go-tdlib's bounded catch timeout; it returns to the buffered channel without blocking.",
+      "B4": "the non-bot decision happens in facade before the transport DTO is produced, preserving the established typed-error boundary and leaving the success mapper unchanged."
+    }
+  },
+  "test_assertion_review": [
+    {
+      "area": "B1 username-not-found",
+      "result": "pass",
+      "evidence": "client_adapter_bot_test.go:28-43 drives Repo.SearchPublicChat with client.ResponseError{Code:400, Message:'Username not found'} and asserts BotNotFoundError. transport_bot_test.go:221-240 asserts the typed error maps to NotFound. The error is wrapped, so errors.As is required and exercised by the tests."
+    },
+    {
+      "area": "B2 flood-wait call-site coverage",
+      "result": "pass",
+      "evidence": "client_adapter_bot_test.go:45-101 exercises 7.5s FloodWaitError conversion through GetMessage, GetChatHistory, SendMessage, and SendBotStartMessage. The transport mapper test separately asserts ResourceExhausted plus RetryInfo 7.5s. SearchPublicChat, GetUser, GetUserFullInfo, and GetCallbackQueryAnswer were already covered or call the same helper in code."
+    },
+    {
+      "area": "B2 non-429 and warmup regression",
+      "result": "pass",
+      "evidence": "FloodWaitFromError returns err unchanged for non-flood errors, preserving ErrorIs for the 400-other and plain-error warmup cases. The 429 case in warmup_test.go:1087-1090 now asserts the typed delay; the remaining strict mock expectations and one-call assertion are unchanged."
+    },
+    {
+      "area": "B3 callback deadline",
+      "result": "pass",
+      "evidence": "transport_bot_test.go:162-187 uses testing/synctest. The fake waits on ctx.Done or 20s and returns a plain late error; the handler must return at 10s with DeadlineExceeded. If the select enforcement were removed, the fake would return at 20s and both the status and elapsed-time assertion would fail. The test passed with -count=20 and under -race."
+    },
+    {
+      "area": "B4 GetBotInfo non-bot",
+      "result": "pass",
+      "evidence": "service_bot_test.go:90-99 returns UserFullInfo{} and asserts TargetNotBotError. transport_bot_test.go:80-92 asserts that typed error becomes FailedPrecondition. The positive bot-info mapping test remains intact."
+    },
+    {
+      "area": "Existing assertions",
+      "result": "pass",
+      "evidence": "No existing 10-RPC test or assertion was deleted or weakened. The only warmup_test assertion changed is the 429 branch, which was strengthened from identity passthrough to typed FloodWaitError with the expected 5.5s delay."
+    }
+  ],
+  "blocking_findings": [],
+  "resolved_previous": [
+    {
+      "id": "B1",
+      "title": "ResolveBot username-not-found is never mapped to NotFound",
+      "status": "resolved",
+      "evidence": [
+        "internal/infra/telegram/errors.go:39-46 defines BotNotFoundError.",
+        "internal/infra/telegram/client_adapter.go:274-289 matches the TDLib ResponseError value with code 400 and exact message 'Username not found' and wraps BotNotFoundError.",
+        "internal/transport/grpc/transport.go:54-57 uses errors.As on BotNotFoundError and returns codes.NotFound.",
+        "client_adapter_bot_test.go:28-43 and transport_bot_test.go:230-240 cover the production TDLib error shape and gRPC mapping."
+      ]
+    },
+    {
+      "id": "B2",
+      "title": "Flood-wait mapping is missing on the GetInlineMenu and SendBotCommand production paths",
+      "status": "resolved",
+      "evidence": [
+        "internal/infra/telegram/client_adapter.go:89-100, 134-145, 261-272, and 390-401 now pass errors from the four previously missing wrappers through FloodWaitFromError.",
+        "The other new RPC wrappers SearchPublicChat, GetUser, GetUserFullInfo, and GetCallbackQueryAnswer also apply the helper.",
+        "internal/infra/telegram/repo.go:265-270 converts the typed flood error back to the prior retry delay for SendMessageAndWait.",
+        "warmup_test.go:1087-1090 strengthens the code-429 case while retaining strict no-LoadChats and one-call assertions.",
+        "client_adapter_bot_test.go:45-101 exercises all four newly wrapped call sites with the TDLib 429 value and 7.5s delay."
+      ]
+    },
+    {
+      "id": "B3",
+      "title": "ClickCallbackButton's 10s server deadline is not enforceable",
+      "status": "resolved",
+      "evidence": [
+        "internal/transport/grpc/transport.go:300-333 creates a 10s call context, runs the blocking call in a goroutine, uses a capacity-one result channel, and selects on the result or context.",
+        "transport.go:316-332 checks callCtx.Err before accepting a result and returns DeadlineExceeded or Canceled with priority over a late result.",
+        "transport_bot_test.go:162-187 uses synctest and a 20s late-result fake, proving the handler returns at the 10s virtual deadline.",
+        "go test -race -p 1 for the callback deadline test is green; the buffered channel and deferred cancel prevent channel or goroutine blocking leaks."
+      ]
+    },
+    {
+      "id": "B4",
+      "title": "GetBotInfo returns OK for a non-bot id instead of FailedPrecondition",
+      "status": "resolved",
+      "evidence": [
+        "internal/app/facade/service.go:179-187 rejects nil UserFullInfo and nil BotInfo with TargetNotBotError.",
+        "internal/transport/grpc/transport.go:58-60 maps TargetNotBotError to FailedPrecondition.",
+        "service_bot_test.go:90-99 covers the facade negative path and transport_bot_test.go:80-92 covers the gRPC status."
+      ]
+    }
+  ],
+  "withdrawn": [],
+  "follow_ups": [],
+  "discarded_count": 0,
+  "escalation_reason": ""
+}
