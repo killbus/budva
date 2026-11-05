@@ -3,7 +3,7 @@
   "name": "bot-reply-keyboard-menu",
   "title": "Chat reply-keyboard menu over gRPC",
   "description": "Expose a bot chat's active bottom reply keyboard (replyMarkupShowKeyboard) through the existing GetInlineMenu RPC: additively return menu kind, reply rows and keyboard flags; resolve message_id=0 via chat.reply_markup_message_id. No new RPC, no Web App execution.",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,16 +11,23 @@
   "creator": "killbus",
   "assignee": "killbus",
   "createdAt": "2026-11-05",
-  "completedAt": null,
+  "completedAt": "2026-11-05",
   "branch": "feat/bot-reply-keyboard-menu",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
-  "pr_url": null,
+  "pr_url": "https://github.com/killbus/budva/pull/13",
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {},
+  "merged_commit": "0bfb9fb03fecc1c2d77887e6cf6dfed40a72ffc8",
+  "merged_pr": 13,
+  "archived": ".trellis/tasks/archive/2026-11/11-05-bot-reply-keyboard-menu",
+  "release": {
+    "version": "v0.5.1",
+    "status": "planned-not-overwriting-v0.5.0"
+  }
 }
