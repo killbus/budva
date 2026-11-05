@@ -52,7 +52,7 @@ passing a design gate and an independent architecture review:
 | P1 design gate | design-reviewer | D1-D8 met, PASS | ✅ |
 | P2 implement | implementer | scoped checks green | ✅ |
 | P3 independent review | reviewer | no blocking finding | ✅ r1 FAIL (B1–B4) → r2 PASS |
-| P4 closeout | main | branch commit + owner gate | ⏳ |
+| P4 closeout | main | branch commit + owner gate | ✅ squash-merged `7b6c162` (PR #12) |
 
 ## Evidence
 
@@ -87,6 +87,20 @@ passing a design gate and an independent architecture review:
   Reviewer independently re-ran scoped tests/vet plus `-race` on the callback deadline test.
   Non-blocking round-1 follow-ups (O2/O3/O5/O9 hardening, doc claims) recorded in the
   round-1 findings copy; O10 doc claims were fixed. Merge/publish remains owner-gated.
+- P4: committed `c94d389` on `feat/bot-menu-grpc`, pushed to `origin`
+  (killbus/budva), PR **#12** opened against `main`; CI (`ci-test.yml`) dispatched with
+  `--ref feat/bot-menu-grpc` and is running. Merge/publish remains owner-gated.
+- P4 CI evidence: the `pull_request` run for `c94d389` succeeded (`gh pr checks 12` →
+  pass). The separately dispatched `workflow_dispatch` run on the same SHA failed once in the
+  pre-existing `internal/service/transform` `TestTransform_Link` (asserted text contained the
+  other test's `Next` title — cross-talk in TDLib static `ParseTextEntities` under parallel
+  tests); a rerun of that run succeeded, and the transform suite is green locally under
+  `-race -count=10`. The diff does not touch `internal/service/transform`. Treated as a
+  pre-existing CI flake, not introduced by this change.
+- P4 closeout done: PR #12 squash-merged to main as `7b6c162` after explicit owner
+  approval (2026-11-05); `pull_request` ci-test was green before merge. Task archived under
+  `.trellis/tasks/archive/2026-11/11-04-bot-menu-grpc/`. No release/publish performed
+  (owner-gated separately).
 - P2 environment: local TDLib is available for verification without building it — Debian
   `libtd-dev`/`libtdjson1.8.38`/`libsqlcipher1` extracted under `/home/agent/.local/tdlib`
   (headers + shared libs), linker shims in `/home/agent/.local/tdlib-shims`; build/test with

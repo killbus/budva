@@ -3,7 +3,7 @@
   "name": "bot-menu-grpc",
   "title": "Bot menu operations over gRPC",
   "description": "Owner-confirmed semantics (2026-11-04): a USER account interacts with a bot's menu inside that bot's private chat (option A2) — NOT bot-account menu CRUD. Deliverable now: research report (done) + a thin, no-new-dependency design that reuses go-tdlib on the existing user session (resolve bot chat, read bot command menu, read/click inline callback buttons, send /command). WebApp menus out of scope. Research is the dominant phase; implementation requires owner go-ahead.",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": "LOOP P2 implementation. Owner semantics: a USER account interacts with a bot's menu inside the bot's private chat (option A2), NOT bot-account menu CRUD. No bot token, no second session, no new dependency, no ruleset change; reuse go-tdlib on the existing user session. Agreed v1: 5 additive FacadeGRPC RPCs — ResolveBot, GetBotInfo, GetInlineMenu, ClickCallbackButton, SendBotCommand; no reply fetching/polling/stream; WebApp menus out of scope. Design gate PASSED round 2 (D1-D8 met, design_sha256 ad40f183…); implementer at work. Merge/publish gated on explicit owner approval.",
   "package": null,
@@ -26,5 +26,8 @@
     "selected_option": "A2",
     "design_ready": "true",
     "v1_scope": "full A2: ResolveBot/GetBotInfo/GetInlineMenu + ClickCallbackButton/SendBotCommand; NO reply polling/stream (owner 2026-11-04); WebApp menus out of scope"
-  }
+  },
+  "archived": ".trellis/tasks/archive/2026-11/11-04-bot-menu-grpc",
+  "merged_commit": "7b6c162e64786064da6d300c0b506607be5c5b76",
+  "merged_pr": 12
 }
