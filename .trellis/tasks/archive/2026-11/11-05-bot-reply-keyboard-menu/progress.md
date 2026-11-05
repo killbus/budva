@@ -46,8 +46,8 @@
 | P0 setup | main | worktree + task artifacts, base ab172b7 | ✅ |
 | P1 design gate | design-reviewer | D1-D8 met, PASS | ✅ r1 PASS |
 | P2 implement | implementer | scoped checks green | ✅ |
-| P3 independent review | reviewer | no blocking finding | ⏳ r1 |
-| P4 closeout | main | branch commit + owner gate | pending |
+| P3 independent review | reviewer | no blocking finding | ✅ r1 PASS |
+| P4 closeout | main | branch commit + owner gate | ⏳ PR #13 / CI run 42083282095 |
 
 ## Evidence
 
@@ -71,6 +71,16 @@
   (`facade.pb.go`, `facade_grpc.pb.go` both OK). Diff is additive; `facade_grpc.pb.go`
   unchanged (no new RPC). Implementer also proved red by temporarily removing the reply
   mapping (recorded in `responses.json`).
+- P3: independent Reviewer round 1 PASS (agent `35e99e8f-165e-4035-b082-5e8b18fd3aad`),
+  no blocking findings, no follow-ups, 1 discarded (unreachable). Verified additivity,
+  layering (no infra diff), selection contract, mapping, tests, scope, docs; reproduced
+  protoc output byte-identically; ran scoped vet/test itself.
+- P4: branch commits `e7695e7` (feat) + `efec6a7` (task records) pushed; PR #13 opened
+  (https://github.com/killbus/budva/pull/13). CI `ci-test.yml` run `42083282095` on
+  `efec6a7`: completed **success** (go vet + go test). Owner approved merge; PR #13
+  squash-merged as `0bfb9fb03fecc1c2d77887e6cf6dfed40a72ffc8` (2026-11-05).
+  Release: not overwriting `v0.5.0`; recommended new patch release `v0.5.1` (additive,
+  backward compatible) pending owner go-ahead.
 - Owner input (2026-11-05): screenshots prove the bottom menu is a reply keyboard
   (`input_field_placeholder = "Choose a menu…"`); bot message `181538914304` carries it;
   `GetInlineMenu` returns empty rows today.
