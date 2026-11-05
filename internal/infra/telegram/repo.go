@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -264,6 +265,10 @@ func (r *Repo) sendMessageAndWaitOnce(ctx context.Context, req *client.SendMessa
 
 	tmp, err := r.SendMessage(req)
 	if err != nil {
+		var floodWait *FloodWaitError
+		if errors.As(err, &floodWait) {
+			return nil, floodWait.Delay, err
+		}
 		if wait := parseFloodWait(err.Error()); wait > 0 {
 			return nil, wait, err
 		}

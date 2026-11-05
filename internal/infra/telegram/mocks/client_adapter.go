@@ -346,6 +346,68 @@ func (_c *ClientAdapter_DeleteMessages_Call) RunAndReturn(run func(deleteMessage
 	return _c
 }
 
+// SearchPublicChat provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) SearchPublicChat(searchPublicChatRequest *client.SearchPublicChatRequest) (*client.Chat, error) {
+	ret := _mock.Called(searchPublicChatRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SearchPublicChat")
+	}
+
+	var r0 *client.Chat
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.SearchPublicChatRequest) (*client.Chat, error)); ok {
+		return returnFunc(searchPublicChatRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.SearchPublicChatRequest) *client.Chat); ok {
+		r0 = returnFunc(searchPublicChatRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.Chat)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.SearchPublicChatRequest) error); ok {
+		r1 = returnFunc(searchPublicChatRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_SearchPublicChat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SearchPublicChat'
+type ClientAdapter_SearchPublicChat_Call struct {
+	*mock.Call
+}
+
+// SearchPublicChat is a helper method to define mock.On call
+//   - searchPublicChatRequest *client.SearchPublicChatRequest
+func (_e *ClientAdapter_Expecter) SearchPublicChat(searchPublicChatRequest interface{}) *ClientAdapter_SearchPublicChat_Call {
+	return &ClientAdapter_SearchPublicChat_Call{Call: _e.mock.On("SearchPublicChat", searchPublicChatRequest)}
+}
+
+func (_c *ClientAdapter_SearchPublicChat_Call) Run(run func(searchPublicChatRequest *client.SearchPublicChatRequest)) *ClientAdapter_SearchPublicChat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.SearchPublicChatRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.SearchPublicChatRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_SearchPublicChat_Call) Return(chat *client.Chat, err error) *ClientAdapter_SearchPublicChat_Call {
+	_c.Call.Return(chat, err)
+	return _c
+}
+
+func (_c *ClientAdapter_SearchPublicChat_Call) RunAndReturn(run func(searchPublicChatRequest *client.SearchPublicChatRequest) (*client.Chat, error)) *ClientAdapter_SearchPublicChat_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EditMessageCaption provides a mock function for the type ClientAdapter
 func (_mock *ClientAdapter) EditMessageCaption(editMessageCaptionRequest *client.EditMessageCaptionRequest) (*client.Message, error) {
 	ret := _mock.Called(editMessageCaptionRequest)
@@ -815,6 +877,130 @@ func (_c *ClientAdapter_GetMe_Call) Return(user *client.User, err error) *Client
 }
 
 func (_c *ClientAdapter_GetMe_Call) RunAndReturn(run func() (*client.User, error)) *ClientAdapter_GetMe_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUser provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) GetUser(getUserRequest *client.GetUserRequest) (*client.User, error) {
+	ret := _mock.Called(getUserRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUser")
+	}
+
+	var r0 *client.User
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.GetUserRequest) (*client.User, error)); ok {
+		return returnFunc(getUserRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.GetUserRequest) *client.User); ok {
+		r0 = returnFunc(getUserRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.User)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.GetUserRequest) error); ok {
+		r1 = returnFunc(getUserRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_GetUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUser'
+type ClientAdapter_GetUser_Call struct {
+	*mock.Call
+}
+
+// GetUser is a helper method to define mock.On call
+//   - getUserRequest *client.GetUserRequest
+func (_e *ClientAdapter_Expecter) GetUser(getUserRequest interface{}) *ClientAdapter_GetUser_Call {
+	return &ClientAdapter_GetUser_Call{Call: _e.mock.On("GetUser", getUserRequest)}
+}
+
+func (_c *ClientAdapter_GetUser_Call) Run(run func(getUserRequest *client.GetUserRequest)) *ClientAdapter_GetUser_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.GetUserRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.GetUserRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_GetUser_Call) Return(user *client.User, err error) *ClientAdapter_GetUser_Call {
+	_c.Call.Return(user, err)
+	return _c
+}
+
+func (_c *ClientAdapter_GetUser_Call) RunAndReturn(run func(getUserRequest *client.GetUserRequest) (*client.User, error)) *ClientAdapter_GetUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUserFullInfo provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) GetUserFullInfo(getUserFullInfoRequest *client.GetUserFullInfoRequest) (*client.UserFullInfo, error) {
+	ret := _mock.Called(getUserFullInfoRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserFullInfo")
+	}
+
+	var r0 *client.UserFullInfo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.GetUserFullInfoRequest) (*client.UserFullInfo, error)); ok {
+		return returnFunc(getUserFullInfoRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.GetUserFullInfoRequest) *client.UserFullInfo); ok {
+		r0 = returnFunc(getUserFullInfoRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.UserFullInfo)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.GetUserFullInfoRequest) error); ok {
+		r1 = returnFunc(getUserFullInfoRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_GetUserFullInfo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserFullInfo'
+type ClientAdapter_GetUserFullInfo_Call struct {
+	*mock.Call
+}
+
+// GetUserFullInfo is a helper method to define mock.On call
+//   - getUserFullInfoRequest *client.GetUserFullInfoRequest
+func (_e *ClientAdapter_Expecter) GetUserFullInfo(getUserFullInfoRequest interface{}) *ClientAdapter_GetUserFullInfo_Call {
+	return &ClientAdapter_GetUserFullInfo_Call{Call: _e.mock.On("GetUserFullInfo", getUserFullInfoRequest)}
+}
+
+func (_c *ClientAdapter_GetUserFullInfo_Call) Run(run func(getUserFullInfoRequest *client.GetUserFullInfoRequest)) *ClientAdapter_GetUserFullInfo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.GetUserFullInfoRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.GetUserFullInfoRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_GetUserFullInfo_Call) Return(userFullInfo *client.UserFullInfo, err error) *ClientAdapter_GetUserFullInfo_Call {
+	_c.Call.Return(userFullInfo, err)
+	return _c
+}
+
+func (_c *ClientAdapter_GetUserFullInfo_Call) RunAndReturn(run func(getUserFullInfoRequest *client.GetUserFullInfoRequest) (*client.UserFullInfo, error)) *ClientAdapter_GetUserFullInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1366,6 +1552,68 @@ func (_c *ClientAdapter_SendMessageAlbum_Call) Return(messages *client.Messages,
 }
 
 func (_c *ClientAdapter_SendMessageAlbum_Call) RunAndReturn(run func(sendMessageAlbumRequest *client.SendMessageAlbumRequest) (*client.Messages, error)) *ClientAdapter_SendMessageAlbum_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendBotStartMessage provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) SendBotStartMessage(sendBotStartMessageRequest *client.SendBotStartMessageRequest) (*client.Message, error) {
+	ret := _mock.Called(sendBotStartMessageRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendBotStartMessage")
+	}
+
+	var r0 *client.Message
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.SendBotStartMessageRequest) (*client.Message, error)); ok {
+		return returnFunc(sendBotStartMessageRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.SendBotStartMessageRequest) *client.Message); ok {
+		r0 = returnFunc(sendBotStartMessageRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.Message)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.SendBotStartMessageRequest) error); ok {
+		r1 = returnFunc(sendBotStartMessageRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_SendBotStartMessage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendBotStartMessage'
+type ClientAdapter_SendBotStartMessage_Call struct {
+	*mock.Call
+}
+
+// SendBotStartMessage is a helper method to define mock.On call
+//   - sendBotStartMessageRequest *client.SendBotStartMessageRequest
+func (_e *ClientAdapter_Expecter) SendBotStartMessage(sendBotStartMessageRequest interface{}) *ClientAdapter_SendBotStartMessage_Call {
+	return &ClientAdapter_SendBotStartMessage_Call{Call: _e.mock.On("SendBotStartMessage", sendBotStartMessageRequest)}
+}
+
+func (_c *ClientAdapter_SendBotStartMessage_Call) Run(run func(sendBotStartMessageRequest *client.SendBotStartMessageRequest)) *ClientAdapter_SendBotStartMessage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.SendBotStartMessageRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.SendBotStartMessageRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_SendBotStartMessage_Call) Return(message *client.Message, err error) *ClientAdapter_SendBotStartMessage_Call {
+	_c.Call.Return(message, err)
+	return _c
+}
+
+func (_c *ClientAdapter_SendBotStartMessage_Call) RunAndReturn(run func(sendBotStartMessageRequest *client.SendBotStartMessageRequest) (*client.Message, error)) *ClientAdapter_SendBotStartMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }

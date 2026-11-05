@@ -1084,7 +1084,13 @@ func TestAllWrappers_NonMatchingErrorsPassthrough(t *testing.T) {
 				// Assert
 				require.Error(t, err)
 				assert.Nil(t, msg)
-				assert.ErrorIs(t, err, tt.err)
+				if tt.name == "code_429" {
+					var flood *FloodWaitError
+					require.ErrorAs(t, err, &flood)
+					assert.Equal(t, 5*time.Second+500*time.Millisecond, flood.Delay)
+				} else {
+					assert.ErrorIs(t, err, tt.err)
+				}
 				assert.Equal(t, 1, calls)
 			})
 		})

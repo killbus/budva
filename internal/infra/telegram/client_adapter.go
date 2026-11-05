@@ -25,6 +25,7 @@ type clientAdapter interface {
 	EditMessageText(*client.EditMessageTextRequest) (*client.Message, error)
 	EditMessageCaption(*client.EditMessageCaptionRequest) (*client.Message, error)
 	DeleteMessages(*client.DeleteMessagesRequest) (*client.Ok, error)
+	SendBotStartMessage(*client.SendBotStartMessageRequest) (*client.Message, error)
 
 	// Операции со ссылками.
 	GetMessageLink(*client.GetMessageLinkRequest) (*client.MessageLink, error)
@@ -38,6 +39,8 @@ type clientAdapter interface {
 	LoadChats(*client.LoadChatsRequest) (*client.Ok, error)
 	GetChatHistory(*client.GetChatHistoryRequest) (*client.Messages, error)
 	GetChat(*client.GetChatRequest) (*client.Chat, error)
+
+	SearchPublicChat(*client.SearchPublicChatRequest) (*client.Chat, error)
 	// Open-state для правил (задача 10-30, Problem-1). 1-в-1 с go-tdlib v0.7.6
 	// (OpenChat/CloseChat, client/function.go). Потребитель — SourceOpener:
 	// Budva владеет границей аквизиции источников (open-once-keep).
@@ -51,6 +54,8 @@ type clientAdapter interface {
 	DeleteChat(*client.DeleteChatRequest) (*client.Ok, error)
 
 	// Системные операции и авторизация.
+	GetUser(*client.GetUserRequest) (*client.User, error)
+	GetUserFullInfo(*client.GetUserFullInfoRequest) (*client.UserFullInfo, error)
 	GetMe() (*client.User, error)
 	LogOut() (*client.Ok, error)
 	GetListener() *client.Listener
@@ -89,7 +94,7 @@ func (r *Repo) SendMessage(req *client.SendMessageRequest) (*client.Message, err
 		return e
 	})
 	if err != nil {
-		return nil, err
+		return nil, FloodWaitFromError(err)
 	}
 	return msg, nil
 }
@@ -134,7 +139,7 @@ func (r *Repo) GetMessage(req *client.GetMessageRequest) (*client.Message, error
 		return e
 	})
 	if err != nil {
-		return nil, err
+		return nil, FloodWaitFromError(err)
 	}
 	return msg, nil
 }
@@ -231,7 +236,11 @@ func (r *Repo) TranslateText(req *client.TranslateTextRequest) (*client.Formatte
 func (r *Repo) GetCallbackQueryAnswer(req *client.GetCallbackQueryAnswerRequest) (*client.CallbackQueryAnswer, error) {
 	answer, err := r.clientAdapter.GetCallbackQueryAnswer(req)
 	if err != nil {
-		return nil, fmt.Errorf("get callback query answer: %w", err)
+		floodErr := FloodWaitFromError(err)
+		if isFloodWait(floodErr) {
+			return nil, fmt.Errorf("get callback query answer: %w", floodErr)
+		}
+		return nil, fmt.Errorf("get callback query answer: %w", NewCallbackAnswerError(floodErr))
 	}
 	return answer, nil
 }
@@ -257,9 +266,23 @@ func (r *Repo) GetChatHistory(req *client.GetChatHistoryRequest) (*client.Messag
 		return e
 	})
 	if err != nil {
-		return nil, err
+		return nil, FloodWaitFromError(err)
 	}
 	return msgs, nil
+}
+
+// SearchPublicChat ищет публичный чат по username.
+func (r *Repo) SearchPublicChat(req *client.SearchPublicChatRequest) (*client.Chat, error) {
+	chat, err := r.clientAdapter.SearchPublicChat(req)
+	if err != nil {
+		converted := FloodWaitFromError(err)
+		if responseError, ok := converted.(client.ResponseError); ok && responseError.Err != nil &&
+			responseError.Err.Code == 400 && responseError.Err.Message == "Username not found" {
+			return nil, fmt.Errorf("search public chat: %w", &BotNotFoundError{Username: req.Username})
+		}
+		return nil, fmt.Errorf("search public chat: %w", converted)
+	}
+	return chat, nil
 }
 
 // GetChat возвращает информацию о чате.
@@ -347,6 +370,39 @@ func (r *Repo) GetMe() (*client.User, error) {
 		return nil, fmt.Errorf("get me: %w", err)
 	}
 	return user, nil
+}
+
+// GetUser возвращает информацию о пользователе.
+func (r *Repo) GetUser(req *client.GetUserRequest) (*client.User, error) {
+	user, err := r.clientAdapter.GetUser(req)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", FloodWaitFromError(err))
+	}
+	return user, nil
+}
+
+// GetUserFullInfo возвращает подробную информацию о пользователе.
+func (r *Repo) GetUserFullInfo(req *client.GetUserFullInfoRequest) (*client.UserFullInfo, error) {
+	fullInfo, err := r.clientAdapter.GetUserFullInfo(req)
+	if err != nil {
+		return nil, fmt.Errorf("get user full info: %w", FloodWaitFromError(err))
+	}
+	return fullInfo, nil
+}
+
+// SendBotStartMessage отправляет /start боту (с deep-link параметром).
+// На холодной БД — wait-for-ready (см. warmup.go).
+func (r *Repo) SendBotStartMessage(req *client.SendBotStartMessageRequest) (*client.Message, error) {
+	var msg *client.Message
+	err := r.withChatReady(req.ChatId, "send bot start message", func() error {
+		var e error
+		msg, e = r.clientAdapter.SendBotStartMessage(req)
+		return e
+	})
+	if err != nil {
+		return nil, FloodWaitFromError(err)
+	}
+	return msg, nil
 }
 
 // LogOut завершает сессию TDLib (тонкая обёртка; полный composite — в repo.go).

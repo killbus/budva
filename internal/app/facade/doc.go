@@ -14,4 +14,7 @@
 //     — plain text.
 //   - Возвращаемые типы — raw TDLib (`*client.Message`, `*client.MessageLinkInfo`);
 //     конвертация в proto/GraphQL DTO живёт в transport-слое.
+//   - ResolveBot/GetBotInfo/GetInlineMenu/SendBotCommand — пользовательские
+//     bot-menu операции; ответов бота RPC не ждёт. ClickCallbackButton ждёт
+//     только синхронный callback-ответ, не последующие сообщения в чате.
 package facade

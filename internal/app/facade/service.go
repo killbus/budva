@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	"github.com/zelenin/go-tdlib/client"
@@ -27,6 +28,11 @@ type telegramRepo interface {
 	GetMessageLinkInfo(*client.GetMessageLinkInfoRequest) (*client.MessageLinkInfo, error)
 	GetMe() (*client.User, error)
 	GetOption(*client.GetOptionRequest) (client.OptionValue, error)
+	SearchPublicChat(*client.SearchPublicChatRequest) (*client.Chat, error)
+	GetUser(*client.GetUserRequest) (*client.User, error)
+	GetUserFullInfo(*client.GetUserFullInfoRequest) (*client.UserFullInfo, error)
+	GetCallbackQueryAnswer(*client.GetCallbackQueryAnswerRequest) (*client.CallbackQueryAnswer, error)
+	SendBotStartMessage(*client.SendBotStartMessageRequest) (*client.Message, error)
 }
 
 // Service реализует фасад для внешнего доступа к Telegram.
@@ -167,6 +173,84 @@ func (s *Service) GetStatus(_ context.Context) (*dto.GraphQLStatusResponse, erro
 		TDLibVersion:   version,
 		UserID:         user.Id,
 	}, nil
+}
+
+// GetBotInfo returns raw TDLib bot profile information.
+func (s *Service) GetBotInfo(_ context.Context, botUserID int64) (*client.UserFullInfo, error) {
+	fullInfo, err := s.telegramRepo.GetUserFullInfo(&client.GetUserFullInfoRequest{UserId: botUserID})
+	if err != nil {
+		return nil, err
+	}
+	if fullInfo == nil || fullInfo.BotInfo == nil {
+		return nil, NewTargetNotBotError(strconv.FormatInt(botUserID, 10))
+	}
+	return fullInfo, nil
+}
+
+// GetInlineMenu returns a raw message; inline keyboard mapping stays in transport.
+func (s *Service) GetInlineMenu(ctx context.Context, chatID, messageID int64) (*client.Message, error) {
+	if messageID == 0 {
+		messages, err := s.telegramRepo.GetChatHistory(&client.GetChatHistoryRequest{
+			ChatId: chatID,
+			Limit:  1,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(messages.Messages) == 0 {
+			return nil, NewMessageNotFoundError(chatID, 0)
+		}
+		return messages.Messages[0], nil
+	}
+	return s.GetMessage(ctx, chatID, messageID)
+}
+
+// ClickCallbackButton sends callback button data and returns the bot answer.
+func (s *Service) ClickCallbackButton(_ context.Context, chatID, messageID int64, callbackData []byte) (*client.CallbackQueryAnswer, error) {
+	return s.telegramRepo.GetCallbackQueryAnswer(&client.GetCallbackQueryAnswerRequest{
+		ChatId:    chatID,
+		MessageId: messageID,
+		Payload:   &client.CallbackQueryPayloadData{Data: callbackData},
+	})
+}
+
+// SendBotCommand sends a slash command; /start uses TDLib's deep-link method.
+func (s *Service) SendBotCommand(_ context.Context, chatID int64, command string, botUserID int64, parameter string) error {
+	if command == "/start" && parameter != "" {
+		_, err := s.telegramRepo.SendBotStartMessage(&client.SendBotStartMessageRequest{
+			BotUserId: botUserID,
+			ChatId:    chatID,
+			Parameter: parameter,
+		})
+		return err
+	}
+	_, err := s.telegramRepo.SendMessage(&client.SendMessageRequest{
+		ChatId: chatID,
+		InputMessageContent: &client.InputMessageText{
+			Text: &client.FormattedText{Text: command},
+		},
+	})
+	return err
+}
+
+// ResolveBot resolves a bot username to its private chat and user IDs.
+func (s *Service) ResolveBot(_ context.Context, username string) (*client.Chat, *client.User, error) {
+	chat, err := s.telegramRepo.SearchPublicChat(&client.SearchPublicChatRequest{Username: username})
+	if err != nil {
+		return nil, nil, err
+	}
+	privateChat, ok := chat.Type.(*client.ChatTypePrivate)
+	if !ok {
+		return nil, nil, NewTargetNotBotError(username)
+	}
+	user, err := s.telegramRepo.GetUser(&client.GetUserRequest{UserId: privateChat.UserId})
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, ok := user.Type.(*client.UserTypeBot); !ok {
+		return nil, nil, NewTargetNotBotError(username)
+	}
+	return chat, user, nil
 }
 
 func releaseVersion() string {

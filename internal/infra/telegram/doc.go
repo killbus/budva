@@ -58,6 +58,9 @@
 //   - GetOption — метод *Repo, обёртка над client.GetOption; доступен до авторизации.
 //   - CreateNewSupergroupChat/CreateNewBasicGroupChat/SetSupergroupUsername/DeleteChat — методы для cmd/stand.
 //   - SendMessageAndWait блокирует до получения permanent ID (таймаут 60 сек), подписывается через pendingSends; поддерживает retry при FLOOD_WAIT.
+//   - SearchPublicChat/GetUser/GetUserFullInfo/GetMessage/GetChatHistory/
+//     SendMessage/SendBotStartMessage/GetCallbackQueryAnswer
+//     используются bot-menu RPC; их ошибки могут быть FloodWaitError/CallbackAnswerError.
 //   - Обёртки pull-вызовов (см. client_adapter.go) на холодной БД входят в
 //     wait-for-ready: при «400 Chat not found» ждут материализации chat в
 //     ограниченном окне (см. warmup.go); по истечении окна — ChatNotReadyError

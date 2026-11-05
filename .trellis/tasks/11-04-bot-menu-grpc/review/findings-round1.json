@@ -1,0 +1,129 @@
+{
+  "verdict": "FAIL",
+  "round": 1,
+  "system_context": "Independent P3 review in /home/agent/.paseo/worktrees/3i5ks3q2/bot-menu-grpc, branch feat/bot-menu-grpc, HEAD 609f181 with the implementation still uncommitted (tracked modifications plus untracked errors.go/test files). design.md sha256 matches approval.md. The referenced ../level85/AGENTS.md is not present under this worktree parent, so the review used the locked task documents and .trellis/spec. The exact scoped environment from implementer-prompt.md was exported: go test -p 2 -count=1 -tags libtdjson ./internal/transport/grpc/ ./internal/app/facade/ ./internal/infra/telegram/ is green and go vet -p 2 -tags libtdjson on the same packages is green. Green tests are not treated as architecture proof.",
+  "spec_conformance_summary": {
+    "criteria": {
+      "C1_additivity_and_compatibility": "met: facade.proto only gains the five approved RPCs and new messages; existing field numbers, names, request/response types, and the existing 10-RPC test files are unchanged. Generated descriptor index movement is internal to the generated file.",
+      "C2_non_goals_honored": "met: no reply polling/stream, Web App execution, Bot API client/token, generic Execute RPC, second TDLib session, new module, required env, or ruleset change.",
+      "C3_no_new_runtime_dependency_env_config": "met: go.mod/go.sum and ruleset files are unchanged; Taskfile proto is dev tooling only.",
+      "C4_reuse_no_reinvention": "partially_met: TDLib calls use go-tdlib and parseFloodWait is reused, but FloodWaitFromError is not applied to every production call path reachable from the five new RPCs.",
+      "C5_layering": "met: TDLib remains in internal/infra/telegram; app/facade performs only request construction/business validation; transport sees raw facade values and typed errors. transport -> app/facade adds no cycle (app/facade does not import transport).",
+      "C6_error_mapping": "not_met: username-not-found is not mapped to NotFound; flood wait is not converted on the GetInlineMenu and SendBotCommand production paths; the callback 10s deadline is not enforced; GetBotInfo silently returns OK for a non-bot id.",
+      "C7_test_assertions": "not_met: tests are green, but the key negative/integration paths above are unpinned. The flood and deadline tests inject typed/context errors directly and therefore cannot detect the missing production wiring.",
+      "C8_scope": "met: changed files are within brief.md section 8 (including the explicitly allowed facade typed-error file)."
+    },
+    "observations": {
+      "O1": "confirmed: callbackAnswerTimeout is now referenced in transport.go:295, but the deadline is not enforced. facade.Service.ClickCallbackButton ignores its context (service.go:201), telegram.Repo.GetCallbackQueryAnswer has no context (client_adapter.go:236), and go-tdlib client.Send waits on its own context.Background catch timeout (60s). The gRPC request can therefore outlive the 10s server deadline. The test at transport_bot_test.go:148 only asserts that ctx.Done() is non-nil and then returns context.DeadlineExceeded itself.",
+      "O2": "dismissed as contract-compliant: design.md:155 and design.md:160-162 explicitly define flood detection from TDLib error text and require reuse of parseFloodWait. The string fallback lives in infra, as required. It is permissive, but no contradictory production path was found; the mechanical helper test alone does not prove call-site coverage, which is covered by B2.",
+      "O3": "dismissed as a non-contract fallthrough: section 7 specifies TDLib 502 and callback 4xx mappings; a non-ResponseError callback failure remains Internal, matching the stated 'other errors remain Internal' baseline. No production path was found where a real TDLib callback error reaches this branch as an unstructured error.",
+      "O4": "dismissed: no spec or import-graph rule forbids transport -> app/facade, and brief.md:72 explicitly permits an app/facade typed-error file. There is no cycle: app/facade does not import transport.",
+      "O5": "dismissed as caller-trusted under the locked contract: section 5 documents the command format and section 7 only mandates empty-command validation. No slash-normalization requirement is specified.",
+      "O6": "dismissed: design.md:47-51 requires a private chat and section 7 maps a failed UserTypeBot check to FailedPrecondition. A supergroup/channel is not the required private bot chat, so TargetNotBotError/FailedPrecondition is consistent.",
+      "O7": "confirmed: TDLib returns UserFullInfo with BotInfo == nil for a non-bot (go-tdlib v0.7.6 type.go:9571-9573 documents 'may be null if the user isn't a bot'). botInfoToProto maps nil to an empty OK response (transport.go:350-353), so GetBotInfo(non_bot_id) silently succeeds instead of returning FailedPrecondition.",
+      "O8": "dismissed/agreed: an empty callback_data is InvalidArgument, and the no-inline-keyboard empty-rows rule applies to the read path.",
+      "O9": "dismissed as a non-blocking API hardening follow-up: design.md:64-68 and section 5 describe bot_user_id only as needed for /start with a parameter, and section 7 does not require validation. Sending bot_user_id 0 should still be considered for a future InvalidArgument guard, but it is not a locked-contract violation.",
+      "O10": "partially confirmed as a non-blocking documentation issue: internal/app/facade/doc.go:17-18 says the bot-menu RPCs do not wait for bot answers, while ClickCallbackButton intentionally waits for the callback answer. internal/infra/telegram/doc.go:61-62 also says SendBotStartMessage can return FloodWaitError, which is not true for the current production path (B2)."
+    }
+  },
+  "test_assertion_review": [
+    {
+      "area": "Existing 10 RPC coverage",
+      "result": "pass",
+      "evidence": "git diff 609f181 shows no changes to internal/transport/grpc/transport_test.go or internal/app/facade/service_test.go. The scoped test and vet commands are green."
+    },
+    {
+      "area": "Infra flood helper",
+      "result": "partial",
+      "evidence": "errors_test.go:16-41 proves retry-after parsing and the 7.5s + 500ms result, but it calls FloodWaitFromError directly. It does not prove that Repo.GetMessage, Repo.GetChatHistory, Repo.SendMessage, or Repo.SendBotStartMessage invoke the helper."
+    },
+    {
+      "area": "gRPC flood mapping",
+      "result": "partial",
+      "evidence": "transport_bot_test.go:219-232 injects a telegram.FloodWaitError directly into mapFacadeError and asserts ResourceExhausted plus RetryInfo. This proves the mapper only, not that a TDLib 429 on the GetInlineMenu or SendBotCommand paths becomes a FloodWaitError."
+    },
+    {
+      "area": "Callback server deadline",
+      "result": "fail",
+      "evidence": "transport_bot_test.go:148-165 asserts that the context has a Done channel and then returns a wrapped context.DeadlineExceeded from the mock. Any non-nil context passes the assertion, and the mock manufactures the error; the test cannot fail if the deadline is not enforced by the production call chain."
+    },
+    {
+      "area": "Raw-to-proto mappings",
+      "result": "pass for the positive cases",
+      "evidence": "TestInlineMenuToProto covers callback/url/web-app/other_type and ordering; TestGetBotInfo_Success covers commands/descriptions/menu button; TestClickCallbackButton_Success covers text/show_alert/url."
+    },
+    {
+      "area": "Negative error mappings",
+      "result": "fail",
+      "evidence": "There is no test for a SearchPublicChat username-not-found error through ResolveBot, and no test for UserFullInfo{BotInfo:nil} through GetBotInfo. The mapping table test constructs facade/telegram typed errors directly at transport_bot_test.go:198-217."
+    }
+  ],
+  "blocking_findings": [
+    {
+      "id": "B1",
+      "severity": "blocking",
+      "criterion": "brief.md criterion 6; design.md section 7",
+      "title": "ResolveBot username-not-found is never mapped to NotFound",
+      "evidence": [
+        "design.md:150 requires username not found -> gRPC NotFound.",
+        "facade.Service.ResolveBot returns the raw SearchPublicChat error at internal/app/facade/service.go:230-233.",
+        "telegram.Repo.SearchPublicChat only wraps the error with FloodWaitFromError at internal/infra/telegram/client_adapter.go:275-280; it has no username-not-found typed error.",
+        "mapFacadeError at internal/transport/grpc/transport.go:39-80 has no TDLib ResponseError/username-not-found branch. A real TDLib SearchPublicChat error therefore falls through to codes.Internal, not codes.NotFound.",
+        "The only NotFound test constructs facade.MessageNotFoundError directly (transport_bot_test.go:206), so it does not cover this path."
+      ],
+      "required_fix": "Convert the TDLib username-not-found failure on the SearchPublicChat path into a semantic typed error in the appropriate layer and map it to codes.NotFound. Add a test that drives ResolveBot with the real TDLib error value through the production facade/infra path."
+    },
+    {
+      "id": "B2",
+      "severity": "blocking",
+      "criterion": "brief.md criteria 6 and 7; design.md sections 6, 7, and 8",
+      "title": "Flood-wait mapping is missing on the GetInlineMenu and SendBotCommand production paths",
+      "evidence": [
+        "design.md:158-162 requires each of the five new RPCs' TDLib call return sites to invoke FloodWaitFromError.",
+        "GetInlineMenu reaches Repo.GetChatHistory (service.go:185-188) or Repo.GetMessage (service.go:197). Repo.GetMessage at client_adapter.go:134-145 and Repo.GetChatHistory at client_adapter.go:261-272 return raw errors unchanged.",
+        "SendBotCommand reaches Repo.SendBotStartMessage (service.go:212-216) or Repo.SendMessage (service.go:219-224). Repo.SendMessage at client_adapter.go:89-100 returns raw errors, and Repo.SendBotStartMessage at client_adapter.go:390-401 also returns raw errors without FloodWaitFromError.",
+        "Only SearchPublicChat, GetUser, GetUserFullInfo, and GetCallbackQueryAnswer call FloodWaitFromError. A TDLib 429 on the other new RPC paths therefore maps to codes.Internal rather than ResourceExhausted + RetryInfo.",
+        "The green flood tests inject FloodWaitError directly into mapFacadeError and call the helper directly; they do not exercise these missing call sites."
+      ],
+      "required_fix": "Apply the infra flood conversion to every TDLib call site reachable from the five new RPCs while preserving the design's existing-path constraints, then add production-path tests (or strict integration-level repository tests) proving a retry-after error becomes ResourceExhausted + RetryInfo for all five RPCs."
+    },
+    {
+      "id": "B3",
+      "severity": "blocking",
+      "criterion": "brief.md criteria 6 and 7; design.md section 7 callback deadline",
+      "title": "ClickCallbackButton's 10s server deadline is not enforceable",
+      "evidence": [
+        "transport.go:295-297 creates a 10s context and passes it to facadeService.ClickCallbackButton.",
+        "facade.Service.ClickCallbackButton ignores the context parameter at internal/app/facade/service.go:201-207.",
+        "telegram.Repo.GetCallbackQueryAnswer at internal/infra/telegram/client_adapter.go:236-245 takes no context and calls go-tdlib directly.",
+        "go-tdlib client.Send in v0.7.6 waits with context.WithTimeout(context.Background(), client.catchTimeout), where catchTimeout defaults to 60s, so the gRPC deadline cannot cancel the in-flight TDLib call.",
+        "The test at transport_bot_test.go:148-165 only checks ctx.Done() != nil and returns context.DeadlineExceeded from the mock, so it passes even though production cannot honor the deadline."
+      ],
+      "required_fix": "Enforce the callback deadline at a layer that can observe it and return a DeadlineExceeded status at 10s. Bind the test to the elapsed deadline behavior (for example with a blocking fake and virtual time), not to a mock-supplied context error."
+    },
+    {
+      "id": "B4",
+      "severity": "blocking",
+      "criterion": "brief.md criterion 6; design.md section 7 non-bot mapping",
+      "title": "GetBotInfo returns OK for a non-bot id instead of FailedPrecondition",
+      "evidence": [
+        "design.md:151 requires a non-bot target -> FailedPrecondition.",
+        "go-tdlib v0.7.6 documents UserFullInfo.BotInfo as null if the user is not a bot (type.go:9571-9573), so TDLib does not necessarily return an error for this case.",
+        "transport.botInfoToProto returns an empty BotInfoResponse with OK when fullInfo or fullInfo.BotInfo is nil (transport.go:350-353).",
+        "There is no GetBotInfo validation test for UserFullInfo{BotInfo:nil}; facade TestService_GetBotInfo only covers a populated bot."
+      ],
+      "required_fix": "Detect the non-bot result (nil BotInfo) on the GetBotInfo path and return the semantic non-bot error so mapFacadeError yields codes.FailedPrecondition. Add a negative test."
+    }
+  ],
+  "resolved_previous": [],
+  "withdrawn": [],
+  "follow_ups": [
+    "O2 hardening: consider restricting the string fallback in FloodWaitFromError to wrapped TDLib errors if future evidence shows the permissive text match can mask another failure type. The locked design currently permits the text-based behavior.",
+    "O3 hardening: consider representing non-ResponseError callback failures explicitly if a production path starts producing them, rather than relying on the code-0/Internal fallthrough.",
+    "O5/O9 interface hardening: consider rejecting commands without a leading slash and rejecting /start-with-parameter when bot_user_id is zero as InvalidArgument. These are not required by the locked design.",
+    "O10 documentation: clarify that 'no reply waiting' excludes the synchronous callback answer, and correct the infra doc claim that SendBotStartMessage can currently return FloodWaitError.",
+    "Additivity check: mapFacadeError now maps context.DeadlineExceeded globally and Repo.GetCallbackQueryAnswer's error identity changed for the existing transform consumer; no current user-visible behavior change was proven, but the main session should track this as a regression risk."
+  ],
+  "discarded_count": 0,
+  "escalation_reason": ""
+}

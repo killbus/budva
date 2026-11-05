@@ -1,0 +1,30 @@
+{
+  "id": "bot-menu-grpc",
+  "name": "bot-menu-grpc",
+  "title": "Bot menu operations over gRPC",
+  "description": "Owner-confirmed semantics (2026-11-04): a USER account interacts with a bot's menu inside that bot's private chat (option A2) — NOT bot-account menu CRUD. Deliverable now: research report (done) + a thin, no-new-dependency design that reuses go-tdlib on the existing user session (resolve bot chat, read bot command menu, read/click inline callback buttons, send /command). WebApp menus out of scope. Research is the dominant phase; implementation requires owner go-ahead.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "LOOP P2 implementation. Owner semantics: a USER account interacts with a bot's menu inside the bot's private chat (option A2), NOT bot-account menu CRUD. No bot token, no second session, no new dependency, no ruleset change; reuse go-tdlib on the existing user session. Agreed v1: 5 additive FacadeGRPC RPCs — ResolveBot, GetBotInfo, GetInlineMenu, ClickCallbackButton, SendBotCommand; no reply fetching/polling/stream; WebApp menus out of scope. Design gate PASSED round 2 (D1-D8 met, design_sha256 ad40f183…); implementer at work. Merge/publish gated on explicit owner approval.",
+  "package": null,
+  "priority": "P2",
+  "creator": "killbus",
+  "assignee": "killbus",
+  "createdAt": "2026-11-04",
+  "completedAt": null,
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "selected_option": "A2",
+    "design_ready": "true",
+    "v1_scope": "full A2: ResolveBot/GetBotInfo/GetInlineMenu + ClickCallbackButton/SendBotCommand; NO reply polling/stream (owner 2026-11-04); WebApp menus out of scope"
+  }
+}

@@ -235,6 +235,7 @@
 | ID | Тестовый файл | Покрытие | Статус |
 |----|---------------|----------|--------|
 | GRPC-U-001 | `transport_test.go` | 37 tests: RPC wrappers, success/error paths, nil handling, proto conversion for supported TDLib content | ✅ |
+| GRPC-U-002 | `transport_bot_test.go` | Bot menu mapping, request validation and semantic gRPC error mapping for the 5 new RPCs | ✅ |
 
 ---
 
@@ -386,6 +387,17 @@
 | SMOKE-002 | `SmokeSuite.TestHealth` | ✅ |
 | SMOKE-003 | `SmokeSuite.TestLive` | ✅ |
 | SMOKE-004 | `SmokeSuite.TestReady` | ✅ |
+
+## Ручная live-проверка bot menu (`internal/transport/grpc`)
+
+Требует авторизованную пользовательскую сессию и доверенный/собственный bot с inline
+клавиатурой. Не использовать сторонние боты для массовых кликов.
+
+| ID | Шаги | Ожидание |
+|----|------|----------|
+| LIVE-BOT-001 | `ResolveBot("username")` → `GetBotInfo(bot_user_id)` → `GetInlineMenu(chat_id, message_id=0)` | возвращаются chat/user ID, команды/menu button и актуальные inline rows с `callback_data`/url/web_app/other_type |
+| LIVE-BOT-002 | `ClickCallbackButton(chat_id, message_id, callback_data)` на доверенном bot | возвращается text/alert/url ответа; bot получает нажатие; старый data после редактирования сообщения даёт FailedPrecondition |
+| LIVE-BOT-003 | `SendBotCommand(chat_id, "/start", bot_user_id, parameter)` и обычная команда | бот получает `/start` deep-link или текстовую команду; RPC возвращает EmptyResponse |
 
 ---
 

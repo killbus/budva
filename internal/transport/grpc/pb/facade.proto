@@ -16,6 +16,11 @@ service FacadeGRPC {
   rpc DeleteMessages (DeleteMessagesRequest) returns (EmptyResponse);
   rpc GetMessageLink (GetMessageLinkRequest) returns (MessageLinkResponse);
   rpc GetMessageLinkInfo (GetMessageLinkInfoRequest) returns (MessageResponse);
+  rpc ResolveBot (ResolveBotRequest) returns (ResolveBotResponse);
+  rpc GetBotInfo (GetBotInfoRequest) returns (BotInfoResponse);
+  rpc GetInlineMenu (GetInlineMenuRequest) returns (InlineMenuResponse);
+  rpc ClickCallbackButton (ClickCallbackButtonRequest) returns (CallbackAnswerResponse);
+  rpc SendBotCommand (SendBotCommandRequest) returns (EmptyResponse);
 }
 
 message Message {
@@ -91,6 +96,85 @@ message MessageResponse {
 
 message MessageLinkResponse {
   string link = 1;
+}
+
+message ResolveBotRequest {
+  string username = 1;
+}
+
+message ResolveBotResponse {
+  int64 chat_id = 1;
+  int64 bot_user_id = 2;
+}
+
+message BotCommand {
+  string command = 1;
+  string description = 2;
+}
+
+message BotMenuButtonInfo {
+  string text = 1;
+  string url = 2;
+}
+
+message GetBotInfoRequest {
+  int64 bot_user_id = 1;
+}
+
+message BotInfoResponse {
+  int64 bot_user_id = 1;
+  repeated BotCommand commands = 2;
+  BotMenuButtonInfo menu_button = 3;
+  string description = 4;
+  string short_description = 5;
+}
+
+message GetInlineMenuRequest {
+  int64 chat_id = 1;
+  int64 message_id = 2;
+}
+
+message WebAppButtonInfo {
+  string text = 1;
+  string url = 2;
+}
+
+message InlineButton {
+  string text = 1;
+  oneof action {
+    bytes callback_data = 2;
+    string url = 3;
+    WebAppButtonInfo web_app = 4;
+    string other_type = 5;
+  }
+}
+
+message InlineButtonRow {
+  repeated InlineButton buttons = 1;
+}
+
+message InlineMenuResponse {
+  int64 message_id = 1;
+  repeated InlineButtonRow rows = 2;
+}
+
+message ClickCallbackButtonRequest {
+  int64 chat_id = 1;
+  int64 message_id = 2;
+  bytes callback_data = 3;
+}
+
+message CallbackAnswerResponse {
+  string text = 1;
+  bool show_alert = 2;
+  string url = 3;
+}
+
+message SendBotCommandRequest {
+  int64 chat_id = 1;
+  string command = 2;
+  int64 bot_user_id = 3;
+  string parameter = 4;
 }
 
 message EmptyResponse {}
