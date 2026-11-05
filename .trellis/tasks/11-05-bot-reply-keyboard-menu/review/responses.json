@@ -1,0 +1,48 @@
+{
+  "round": 1,
+  "finding_responses": [],
+  "scope_summary": "Implemented design sections 4-8, 10, and 11 only: additive reply-keyboard fields for GetInlineMenu, authoritative chat reply-markup pointer resolution, transport menu-kind dispatch, generated protobuf, and manual test matrix updates.",
+  "changes": [
+    {
+      "file": "internal/transport/grpc/pb/facade.proto",
+      "intent": "Add MenuKind, ReplyButton, ReplyButtonRow and InlineMenuResponse fields 3-8 without changing existing fields or RPCs.",
+      "design_clause": "5"
+    },
+    {
+      "file": "internal/transport/grpc/pb/facade.pb.go",
+      "intent": "Regenerate protobuf bindings from the additive facade.proto changes and verify reproducibility.",
+      "design_clause": "5 and 11.1"
+    },
+    {
+      "file": "internal/app/facade/service.go",
+      "intent": "Add GetChat to the partial repo interface and resolve message_id=0 through chat.reply_markup_message_id before retaining GetChatHistory(limit=1) fallback.",
+      "design_clause": "4 and 6"
+    },
+    {
+      "file": "internal/app/facade/mocks/telegram_repo.go",
+      "intent": "Add the GetChat mock in the existing generated mockery style without regeneration.",
+      "design_clause": "6 and 11.2"
+    },
+    {
+      "file": "internal/transport/grpc/transport.go",
+      "intent": "Dispatch on message reply markup: inline, reply keyboard, or NONE; map reply rows, button types, web app URLs, and keyboard attributes while preserving order and skipping nil buttons.",
+      "design_clause": "4, 5, 6, and 10"
+    },
+    {
+      "file": "internal/app/facade/service_bot_test.go",
+      "intent": "Cover explicit-id GetChat avoidance, reply-markup pointer 777, empty-pointer history fallback, empty history error, and GetChat error propagation with strict mocks.",
+      "design_clause": "8"
+    },
+    {
+      "file": "internal/transport/grpc/transport_bot_test.go",
+      "intent": "Cover reply keyboard mapping including message_id backfill, rows, types, web app URL, attributes, nil-button skip, inline kind additions, and NONE for remove/force markup.",
+      "design_clause": "8"
+    },
+    {
+      "file": "docs/TEST-MATRIX.md",
+      "intent": "Update GRPC-U-002 and manual live bot entries to cover inline, reply, and no-menu results.",
+      "design_clause": "11.4"
+    }
+  ],
+  "test_notes": "Scoped commands run with -p 2: go build for grpc/facade/cmd, go vet and go test for grpc/facade/telegram, and gofmt on changed Go files; all returned successfully. Protoc regeneration was idempotent. A temporary controlled removal of the reply-mapping branch made the reply tests fail; production files were restored and verified."
+}

@@ -1,0 +1,15 @@
+{
+  "done": true,
+  "verdict": "PASS",
+  "round": 1,
+  "criteria": {"D1": "met", "D2": "met", "D3": "met", "D4": "met", "D5": "met", "D6": "met", "D7": "met", "D8": "met"},
+  "blocking_findings": [],
+  "assumptions_for_human_review": [
+    "design.md §5 [ASSUMPTION] MenuKind enum: type name, MENU_KIND_UNSPECIFIED=0 and placement follow proto3 additive convention; the values MENU_KIND_NONE/INLINE/REPLY themselves are named in prd.md A1/A4/A5, so this is a light marker.",
+    "design.md §5 [ASSUMPTION] ReplyButton field set {text, type, web_app_url}: the set is forced by prd.md R1/A2; the separate-message shape and field numbers 1-3 (and new InlineMenuResponse numbers 3-8, forced by A9) are convention, not PRD-stated.",
+    "design.md §7 [ASSUMPTION]: flood-wait on GetChat maps to Internal because Repo.GetChat (client_adapter.go:290-301) does not apply FloodWaitFromError and the wrapper is deliberately left unchanged to preserve transform/source_opener semantics. Known limitation; downstream GetMessage still maps 429 correctly.",
+    "design.md §10 [ASSUMPTION]: if the message pointed to by chat.reply_markup_message_id has no markup (TTL strip/deletion), respond MENU_KIND_NONE without falling back to another message; consistent with TDLib MessagesManager TTL semantics in research/reply-keyboard-tdlib.md §2.",
+    "Minor (non-blocking): design.md §8 lists 'reply keyboard 用例逐项断言 (A1-A3)' without enumerating A1's message_id 回填 assertion; it is implied by the existing baseline assertion pattern (transport_bot_test.go TestGetInlineMenu_NoKeyboardIsEmpty) and the implementer should add it explicitly."
+  ],
+  "escalation_reason": ""
+}
