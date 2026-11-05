@@ -281,7 +281,7 @@ func (t *Transport) GetBotInfo(ctx context.Context, req *pb.GetBotInfoRequest) (
 	return botInfoToProto(req.GetBotUserId(), fullInfo), nil
 }
 
-// GetInlineMenu returns the inline keyboard of a message.
+// GetInlineMenu returns the inline or reply keyboard of a message.
 func (t *Transport) GetInlineMenu(ctx context.Context, req *pb.GetInlineMenuRequest) (*pb.InlineMenuResponse, error) {
 	msg, err := t.facadeService.GetInlineMenu(ctx, req.GetChatId(), req.GetMessageId())
 	if err != nil {
@@ -409,16 +409,43 @@ func botInfoToProto(botUserID int64, fullInfo *client.UserFullInfo) *pb.BotInfoR
 	return response
 }
 
-// inlineMenuToProto maps a raw message's inline keyboard, preserving row and button order.
+// inlineMenuToProto maps a raw message's inline or reply keyboard, preserving row and button order.
 func inlineMenuToProto(msg *client.Message) *pb.InlineMenuResponse {
 	if msg == nil {
 		return &pb.InlineMenuResponse{}
 	}
-	response := &pb.InlineMenuResponse{MessageId: msg.Id}
+	response := &pb.InlineMenuResponse{MessageId: msg.Id, MenuKind: pb.MenuKind_MENU_KIND_NONE}
 	keyboard, ok := msg.ReplyMarkup.(*client.ReplyMarkupInlineKeyboard)
 	if !ok {
+		if showKeyboard, ok := msg.ReplyMarkup.(*client.ReplyMarkupShowKeyboard); ok {
+			response.MenuKind = pb.MenuKind_MENU_KIND_REPLY
+			response.ReplyRows = make([]*pb.ReplyButtonRow, 0, len(showKeyboard.Rows))
+			for _, row := range showKeyboard.Rows {
+				protoRow := &pb.ReplyButtonRow{Buttons: make([]*pb.ReplyButton, 0, len(row))}
+				for _, button := range row {
+					if button == nil {
+						continue
+					}
+					protoButton := &pb.ReplyButton{Text: button.Text}
+					if button.Type != nil {
+						protoButton.Type = button.Type.KeyboardButtonTypeType()
+						if webAppType, ok := button.Type.(*client.KeyboardButtonTypeWebApp); ok {
+							protoButton.WebAppUrl = webAppType.Url
+						}
+					}
+					protoRow.Buttons = append(protoRow.Buttons, protoButton)
+				}
+				response.ReplyRows = append(response.ReplyRows, protoRow)
+			}
+			response.IsPersistent = showKeyboard.IsPersistent
+			response.ResizeKeyboard = showKeyboard.ResizeKeyboard
+			response.OneTime = showKeyboard.OneTime
+			response.InputFieldPlaceholder = showKeyboard.InputFieldPlaceholder
+			return response
+		}
 		return response
 	}
+	response.MenuKind = pb.MenuKind_MENU_KIND_INLINE
 	response.Rows = make([]*pb.InlineButtonRow, 0, len(keyboard.Rows))
 	for _, row := range keyboard.Rows {
 		protoRow := &pb.InlineButtonRow{Buttons: make([]*pb.InlineButton, 0, len(row))}

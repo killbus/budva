@@ -21,6 +21,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type MenuKind int32
+
+const (
+	MenuKind_MENU_KIND_UNSPECIFIED MenuKind = 0
+	MenuKind_MENU_KIND_NONE        MenuKind = 1
+	MenuKind_MENU_KIND_INLINE      MenuKind = 2
+	MenuKind_MENU_KIND_REPLY       MenuKind = 3
+)
+
+// Enum value maps for MenuKind.
+var (
+	MenuKind_name = map[int32]string{
+		0: "MENU_KIND_UNSPECIFIED",
+		1: "MENU_KIND_NONE",
+		2: "MENU_KIND_INLINE",
+		3: "MENU_KIND_REPLY",
+	}
+	MenuKind_value = map[string]int32{
+		"MENU_KIND_UNSPECIFIED": 0,
+		"MENU_KIND_NONE":        1,
+		"MENU_KIND_INLINE":      2,
+		"MENU_KIND_REPLY":       3,
+	}
+)
+
+func (x MenuKind) Enum() *MenuKind {
+	p := new(MenuKind)
+	*p = x
+	return p
+}
+
+func (x MenuKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MenuKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_internal_transport_grpc_pb_facade_proto_enumTypes[0].Descriptor()
+}
+
+func (MenuKind) Type() protoreflect.EnumType {
+	return &file_internal_transport_grpc_pb_facade_proto_enumTypes[0]
+}
+
+func (x MenuKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MenuKind.Descriptor instead.
+func (MenuKind) EnumDescriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{0}
+}
+
 type Message struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1391,17 +1443,127 @@ func (x *InlineButtonRow) GetButtons() []*InlineButton {
 	return nil
 }
 
-type InlineMenuResponse struct {
+type ReplyButton struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	MessageId     int64                  `protobuf:"varint,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
-	Rows          []*InlineButtonRow     `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
+	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	WebAppUrl     string                 `protobuf:"bytes,3,opt,name=web_app_url,json=webAppUrl,proto3" json:"web_app_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
+func (x *ReplyButton) Reset() {
+	*x = ReplyButton{}
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplyButton) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplyButton) ProtoMessage() {}
+
+func (x *ReplyButton) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplyButton.ProtoReflect.Descriptor instead.
+func (*ReplyButton) Descriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ReplyButton) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *ReplyButton) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *ReplyButton) GetWebAppUrl() string {
+	if x != nil {
+		return x.WebAppUrl
+	}
+	return ""
+}
+
+type ReplyButtonRow struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Buttons       []*ReplyButton         `protobuf:"bytes,1,rep,name=buttons,proto3" json:"buttons,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplyButtonRow) Reset() {
+	*x = ReplyButtonRow{}
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplyButtonRow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplyButtonRow) ProtoMessage() {}
+
+func (x *ReplyButtonRow) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplyButtonRow.ProtoReflect.Descriptor instead.
+func (*ReplyButtonRow) Descriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ReplyButtonRow) GetButtons() []*ReplyButton {
+	if x != nil {
+		return x.Buttons
+	}
+	return nil
+}
+
+type InlineMenuResponse struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	MessageId             int64                  `protobuf:"varint,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	Rows                  []*InlineButtonRow     `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
+	MenuKind              MenuKind               `protobuf:"varint,3,opt,name=menu_kind,json=menuKind,proto3,enum=pb.MenuKind" json:"menu_kind,omitempty"`
+	ReplyRows             []*ReplyButtonRow      `protobuf:"bytes,4,rep,name=reply_rows,json=replyRows,proto3" json:"reply_rows,omitempty"`
+	IsPersistent          bool                   `protobuf:"varint,5,opt,name=is_persistent,json=isPersistent,proto3" json:"is_persistent,omitempty"`
+	ResizeKeyboard        bool                   `protobuf:"varint,6,opt,name=resize_keyboard,json=resizeKeyboard,proto3" json:"resize_keyboard,omitempty"`
+	OneTime               bool                   `protobuf:"varint,7,opt,name=one_time,json=oneTime,proto3" json:"one_time,omitempty"`
+	InputFieldPlaceholder string                 `protobuf:"bytes,8,opt,name=input_field_placeholder,json=inputFieldPlaceholder,proto3" json:"input_field_placeholder,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
 func (x *InlineMenuResponse) Reset() {
 	*x = InlineMenuResponse{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[25]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1413,7 +1575,7 @@ func (x *InlineMenuResponse) String() string {
 func (*InlineMenuResponse) ProtoMessage() {}
 
 func (x *InlineMenuResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[25]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1426,7 +1588,7 @@ func (x *InlineMenuResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InlineMenuResponse.ProtoReflect.Descriptor instead.
 func (*InlineMenuResponse) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{25}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *InlineMenuResponse) GetMessageId() int64 {
@@ -1443,6 +1605,48 @@ func (x *InlineMenuResponse) GetRows() []*InlineButtonRow {
 	return nil
 }
 
+func (x *InlineMenuResponse) GetMenuKind() MenuKind {
+	if x != nil {
+		return x.MenuKind
+	}
+	return MenuKind_MENU_KIND_UNSPECIFIED
+}
+
+func (x *InlineMenuResponse) GetReplyRows() []*ReplyButtonRow {
+	if x != nil {
+		return x.ReplyRows
+	}
+	return nil
+}
+
+func (x *InlineMenuResponse) GetIsPersistent() bool {
+	if x != nil {
+		return x.IsPersistent
+	}
+	return false
+}
+
+func (x *InlineMenuResponse) GetResizeKeyboard() bool {
+	if x != nil {
+		return x.ResizeKeyboard
+	}
+	return false
+}
+
+func (x *InlineMenuResponse) GetOneTime() bool {
+	if x != nil {
+		return x.OneTime
+	}
+	return false
+}
+
+func (x *InlineMenuResponse) GetInputFieldPlaceholder() string {
+	if x != nil {
+		return x.InputFieldPlaceholder
+	}
+	return ""
+}
+
 type ClickCallbackButtonRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ChatId        int64                  `protobuf:"varint,1,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
@@ -1454,7 +1658,7 @@ type ClickCallbackButtonRequest struct {
 
 func (x *ClickCallbackButtonRequest) Reset() {
 	*x = ClickCallbackButtonRequest{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[26]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1466,7 +1670,7 @@ func (x *ClickCallbackButtonRequest) String() string {
 func (*ClickCallbackButtonRequest) ProtoMessage() {}
 
 func (x *ClickCallbackButtonRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[26]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1479,7 +1683,7 @@ func (x *ClickCallbackButtonRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClickCallbackButtonRequest.ProtoReflect.Descriptor instead.
 func (*ClickCallbackButtonRequest) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{26}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ClickCallbackButtonRequest) GetChatId() int64 {
@@ -1514,7 +1718,7 @@ type CallbackAnswerResponse struct {
 
 func (x *CallbackAnswerResponse) Reset() {
 	*x = CallbackAnswerResponse{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[27]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1526,7 +1730,7 @@ func (x *CallbackAnswerResponse) String() string {
 func (*CallbackAnswerResponse) ProtoMessage() {}
 
 func (x *CallbackAnswerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[27]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1539,7 +1743,7 @@ func (x *CallbackAnswerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallbackAnswerResponse.ProtoReflect.Descriptor instead.
 func (*CallbackAnswerResponse) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{27}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CallbackAnswerResponse) GetText() string {
@@ -1575,7 +1779,7 @@ type SendBotCommandRequest struct {
 
 func (x *SendBotCommandRequest) Reset() {
 	*x = SendBotCommandRequest{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[28]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1587,7 +1791,7 @@ func (x *SendBotCommandRequest) String() string {
 func (*SendBotCommandRequest) ProtoMessage() {}
 
 func (x *SendBotCommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[28]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1600,7 +1804,7 @@ func (x *SendBotCommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendBotCommandRequest.ProtoReflect.Descriptor instead.
 func (*SendBotCommandRequest) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{28}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SendBotCommandRequest) GetChatId() int64 {
@@ -1639,7 +1843,7 @@ type EmptyResponse struct {
 
 func (x *EmptyResponse) Reset() {
 	*x = EmptyResponse{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[29]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1651,7 +1855,7 @@ func (x *EmptyResponse) String() string {
 func (*EmptyResponse) ProtoMessage() {}
 
 func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[29]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1664,7 +1868,7 @@ func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmptyResponse.ProtoReflect.Descriptor instead.
 func (*EmptyResponse) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{29}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{31}
 }
 
 var File_internal_transport_grpc_pb_facade_proto protoreflect.FileDescriptor
@@ -1760,11 +1964,24 @@ const file_internal_transport_grpc_pb_facade_proto_rawDesc = "" +
 	"other_type\x18\x05 \x01(\tH\x00R\totherTypeB\b\n" +
 	"\x06action\"=\n" +
 	"\x0fInlineButtonRow\x12*\n" +
-	"\abuttons\x18\x01 \x03(\v2\x10.pb.InlineButtonR\abuttons\"\\\n" +
+	"\abuttons\x18\x01 \x03(\v2\x10.pb.InlineButtonR\abuttons\"U\n" +
+	"\vReplyButton\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x1e\n" +
+	"\vweb_app_url\x18\x03 \x01(\tR\twebAppUrl\";\n" +
+	"\x0eReplyButtonRow\x12)\n" +
+	"\abuttons\x18\x01 \x03(\v2\x0f.pb.ReplyButtonR\abuttons\"\xdb\x02\n" +
 	"\x12InlineMenuResponse\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\x03R\tmessageId\x12'\n" +
-	"\x04rows\x18\x02 \x03(\v2\x13.pb.InlineButtonRowR\x04rows\"y\n" +
+	"\x04rows\x18\x02 \x03(\v2\x13.pb.InlineButtonRowR\x04rows\x12)\n" +
+	"\tmenu_kind\x18\x03 \x01(\x0e2\f.pb.MenuKindR\bmenuKind\x121\n" +
+	"\n" +
+	"reply_rows\x18\x04 \x03(\v2\x12.pb.ReplyButtonRowR\treplyRows\x12#\n" +
+	"\ris_persistent\x18\x05 \x01(\bR\fisPersistent\x12'\n" +
+	"\x0fresize_keyboard\x18\x06 \x01(\bR\x0eresizeKeyboard\x12\x19\n" +
+	"\bone_time\x18\a \x01(\bR\aoneTime\x126\n" +
+	"\x17input_field_placeholder\x18\b \x01(\tR\x15inputFieldPlaceholder\"y\n" +
 	"\x1aClickCallbackButtonRequest\x12\x17\n" +
 	"\achat_id\x18\x01 \x01(\x03R\x06chatId\x12\x1d\n" +
 	"\n" +
@@ -1780,7 +1997,12 @@ const file_internal_transport_grpc_pb_facade_proto_rawDesc = "" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12\x1e\n" +
 	"\vbot_user_id\x18\x03 \x01(\x03R\tbotUserId\x12\x1c\n" +
 	"\tparameter\x18\x04 \x01(\tR\tparameter\"\x0f\n" +
-	"\rEmptyResponse2\xdf\a\n" +
+	"\rEmptyResponse*d\n" +
+	"\bMenuKind\x12\x19\n" +
+	"\x15MENU_KIND_UNSPECIFIED\x10\x00\x12\x12\n" +
+	"\x0eMENU_KIND_NONE\x10\x01\x12\x14\n" +
+	"\x10MENU_KIND_INLINE\x10\x02\x12\x13\n" +
+	"\x0fMENU_KIND_REPLY\x10\x032\xdf\a\n" +
 	"\n" +
 	"FacadeGRPC\x12;\n" +
 	"\vGetMessages\x12\x16.pb.GetMessagesRequest\x1a\x14.pb.MessagesResponse\x12A\n" +
@@ -1814,85 +2036,92 @@ func file_internal_transport_grpc_pb_facade_proto_rawDescGZIP() []byte {
 	return file_internal_transport_grpc_pb_facade_proto_rawDescData
 }
 
-var file_internal_transport_grpc_pb_facade_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_internal_transport_grpc_pb_facade_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_internal_transport_grpc_pb_facade_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_internal_transport_grpc_pb_facade_proto_goTypes = []any{
-	(*Message)(nil),                    // 0: pb.Message
-	(*NewMessage)(nil),                 // 1: pb.NewMessage
-	(*GetMessagesRequest)(nil),         // 2: pb.GetMessagesRequest
-	(*GetChatHistoryRequest)(nil),      // 3: pb.GetChatHistoryRequest
-	(*SendMessageRequest)(nil),         // 4: pb.SendMessageRequest
-	(*SendMessageAlbumRequest)(nil),    // 5: pb.SendMessageAlbumRequest
-	(*ForwardMessageRequest)(nil),      // 6: pb.ForwardMessageRequest
-	(*GetMessageRequest)(nil),          // 7: pb.GetMessageRequest
-	(*UpdateMessageRequest)(nil),       // 8: pb.UpdateMessageRequest
-	(*DeleteMessagesRequest)(nil),      // 9: pb.DeleteMessagesRequest
-	(*GetMessageLinkRequest)(nil),      // 10: pb.GetMessageLinkRequest
-	(*GetMessageLinkInfoRequest)(nil),  // 11: pb.GetMessageLinkInfoRequest
-	(*MessagesResponse)(nil),           // 12: pb.MessagesResponse
-	(*MessageResponse)(nil),            // 13: pb.MessageResponse
-	(*MessageLinkResponse)(nil),        // 14: pb.MessageLinkResponse
-	(*ResolveBotRequest)(nil),          // 15: pb.ResolveBotRequest
-	(*ResolveBotResponse)(nil),         // 16: pb.ResolveBotResponse
-	(*BotCommand)(nil),                 // 17: pb.BotCommand
-	(*BotMenuButtonInfo)(nil),          // 18: pb.BotMenuButtonInfo
-	(*GetBotInfoRequest)(nil),          // 19: pb.GetBotInfoRequest
-	(*BotInfoResponse)(nil),            // 20: pb.BotInfoResponse
-	(*GetInlineMenuRequest)(nil),       // 21: pb.GetInlineMenuRequest
-	(*WebAppButtonInfo)(nil),           // 22: pb.WebAppButtonInfo
-	(*InlineButton)(nil),               // 23: pb.InlineButton
-	(*InlineButtonRow)(nil),            // 24: pb.InlineButtonRow
-	(*InlineMenuResponse)(nil),         // 25: pb.InlineMenuResponse
-	(*ClickCallbackButtonRequest)(nil), // 26: pb.ClickCallbackButtonRequest
-	(*CallbackAnswerResponse)(nil),     // 27: pb.CallbackAnswerResponse
-	(*SendBotCommandRequest)(nil),      // 28: pb.SendBotCommandRequest
-	(*EmptyResponse)(nil),              // 29: pb.EmptyResponse
+	(MenuKind)(0),                      // 0: pb.MenuKind
+	(*Message)(nil),                    // 1: pb.Message
+	(*NewMessage)(nil),                 // 2: pb.NewMessage
+	(*GetMessagesRequest)(nil),         // 3: pb.GetMessagesRequest
+	(*GetChatHistoryRequest)(nil),      // 4: pb.GetChatHistoryRequest
+	(*SendMessageRequest)(nil),         // 5: pb.SendMessageRequest
+	(*SendMessageAlbumRequest)(nil),    // 6: pb.SendMessageAlbumRequest
+	(*ForwardMessageRequest)(nil),      // 7: pb.ForwardMessageRequest
+	(*GetMessageRequest)(nil),          // 8: pb.GetMessageRequest
+	(*UpdateMessageRequest)(nil),       // 9: pb.UpdateMessageRequest
+	(*DeleteMessagesRequest)(nil),      // 10: pb.DeleteMessagesRequest
+	(*GetMessageLinkRequest)(nil),      // 11: pb.GetMessageLinkRequest
+	(*GetMessageLinkInfoRequest)(nil),  // 12: pb.GetMessageLinkInfoRequest
+	(*MessagesResponse)(nil),           // 13: pb.MessagesResponse
+	(*MessageResponse)(nil),            // 14: pb.MessageResponse
+	(*MessageLinkResponse)(nil),        // 15: pb.MessageLinkResponse
+	(*ResolveBotRequest)(nil),          // 16: pb.ResolveBotRequest
+	(*ResolveBotResponse)(nil),         // 17: pb.ResolveBotResponse
+	(*BotCommand)(nil),                 // 18: pb.BotCommand
+	(*BotMenuButtonInfo)(nil),          // 19: pb.BotMenuButtonInfo
+	(*GetBotInfoRequest)(nil),          // 20: pb.GetBotInfoRequest
+	(*BotInfoResponse)(nil),            // 21: pb.BotInfoResponse
+	(*GetInlineMenuRequest)(nil),       // 22: pb.GetInlineMenuRequest
+	(*WebAppButtonInfo)(nil),           // 23: pb.WebAppButtonInfo
+	(*InlineButton)(nil),               // 24: pb.InlineButton
+	(*InlineButtonRow)(nil),            // 25: pb.InlineButtonRow
+	(*ReplyButton)(nil),                // 26: pb.ReplyButton
+	(*ReplyButtonRow)(nil),             // 27: pb.ReplyButtonRow
+	(*InlineMenuResponse)(nil),         // 28: pb.InlineMenuResponse
+	(*ClickCallbackButtonRequest)(nil), // 29: pb.ClickCallbackButtonRequest
+	(*CallbackAnswerResponse)(nil),     // 30: pb.CallbackAnswerResponse
+	(*SendBotCommandRequest)(nil),      // 31: pb.SendBotCommandRequest
+	(*EmptyResponse)(nil),              // 32: pb.EmptyResponse
 }
 var file_internal_transport_grpc_pb_facade_proto_depIdxs = []int32{
-	1,  // 0: pb.SendMessageRequest.message:type_name -> pb.NewMessage
-	1,  // 1: pb.SendMessageAlbumRequest.messages:type_name -> pb.NewMessage
-	0,  // 2: pb.UpdateMessageRequest.message:type_name -> pb.Message
-	0,  // 3: pb.MessagesResponse.messages:type_name -> pb.Message
-	0,  // 4: pb.MessageResponse.message:type_name -> pb.Message
-	17, // 5: pb.BotInfoResponse.commands:type_name -> pb.BotCommand
-	18, // 6: pb.BotInfoResponse.menu_button:type_name -> pb.BotMenuButtonInfo
-	22, // 7: pb.InlineButton.web_app:type_name -> pb.WebAppButtonInfo
-	23, // 8: pb.InlineButtonRow.buttons:type_name -> pb.InlineButton
-	24, // 9: pb.InlineMenuResponse.rows:type_name -> pb.InlineButtonRow
-	2,  // 10: pb.FacadeGRPC.GetMessages:input_type -> pb.GetMessagesRequest
-	3,  // 11: pb.FacadeGRPC.GetChatHistory:input_type -> pb.GetChatHistoryRequest
-	4,  // 12: pb.FacadeGRPC.SendMessage:input_type -> pb.SendMessageRequest
-	5,  // 13: pb.FacadeGRPC.SendMessageAlbum:input_type -> pb.SendMessageAlbumRequest
-	6,  // 14: pb.FacadeGRPC.ForwardMessage:input_type -> pb.ForwardMessageRequest
-	7,  // 15: pb.FacadeGRPC.GetMessage:input_type -> pb.GetMessageRequest
-	8,  // 16: pb.FacadeGRPC.UpdateMessage:input_type -> pb.UpdateMessageRequest
-	9,  // 17: pb.FacadeGRPC.DeleteMessages:input_type -> pb.DeleteMessagesRequest
-	10, // 18: pb.FacadeGRPC.GetMessageLink:input_type -> pb.GetMessageLinkRequest
-	11, // 19: pb.FacadeGRPC.GetMessageLinkInfo:input_type -> pb.GetMessageLinkInfoRequest
-	15, // 20: pb.FacadeGRPC.ResolveBot:input_type -> pb.ResolveBotRequest
-	19, // 21: pb.FacadeGRPC.GetBotInfo:input_type -> pb.GetBotInfoRequest
-	21, // 22: pb.FacadeGRPC.GetInlineMenu:input_type -> pb.GetInlineMenuRequest
-	26, // 23: pb.FacadeGRPC.ClickCallbackButton:input_type -> pb.ClickCallbackButtonRequest
-	28, // 24: pb.FacadeGRPC.SendBotCommand:input_type -> pb.SendBotCommandRequest
-	12, // 25: pb.FacadeGRPC.GetMessages:output_type -> pb.MessagesResponse
-	12, // 26: pb.FacadeGRPC.GetChatHistory:output_type -> pb.MessagesResponse
-	29, // 27: pb.FacadeGRPC.SendMessage:output_type -> pb.EmptyResponse
-	29, // 28: pb.FacadeGRPC.SendMessageAlbum:output_type -> pb.EmptyResponse
-	29, // 29: pb.FacadeGRPC.ForwardMessage:output_type -> pb.EmptyResponse
-	13, // 30: pb.FacadeGRPC.GetMessage:output_type -> pb.MessageResponse
-	29, // 31: pb.FacadeGRPC.UpdateMessage:output_type -> pb.EmptyResponse
-	29, // 32: pb.FacadeGRPC.DeleteMessages:output_type -> pb.EmptyResponse
-	14, // 33: pb.FacadeGRPC.GetMessageLink:output_type -> pb.MessageLinkResponse
-	13, // 34: pb.FacadeGRPC.GetMessageLinkInfo:output_type -> pb.MessageResponse
-	16, // 35: pb.FacadeGRPC.ResolveBot:output_type -> pb.ResolveBotResponse
-	20, // 36: pb.FacadeGRPC.GetBotInfo:output_type -> pb.BotInfoResponse
-	25, // 37: pb.FacadeGRPC.GetInlineMenu:output_type -> pb.InlineMenuResponse
-	27, // 38: pb.FacadeGRPC.ClickCallbackButton:output_type -> pb.CallbackAnswerResponse
-	29, // 39: pb.FacadeGRPC.SendBotCommand:output_type -> pb.EmptyResponse
-	25, // [25:40] is the sub-list for method output_type
-	10, // [10:25] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	2,  // 0: pb.SendMessageRequest.message:type_name -> pb.NewMessage
+	2,  // 1: pb.SendMessageAlbumRequest.messages:type_name -> pb.NewMessage
+	1,  // 2: pb.UpdateMessageRequest.message:type_name -> pb.Message
+	1,  // 3: pb.MessagesResponse.messages:type_name -> pb.Message
+	1,  // 4: pb.MessageResponse.message:type_name -> pb.Message
+	18, // 5: pb.BotInfoResponse.commands:type_name -> pb.BotCommand
+	19, // 6: pb.BotInfoResponse.menu_button:type_name -> pb.BotMenuButtonInfo
+	23, // 7: pb.InlineButton.web_app:type_name -> pb.WebAppButtonInfo
+	24, // 8: pb.InlineButtonRow.buttons:type_name -> pb.InlineButton
+	26, // 9: pb.ReplyButtonRow.buttons:type_name -> pb.ReplyButton
+	25, // 10: pb.InlineMenuResponse.rows:type_name -> pb.InlineButtonRow
+	0,  // 11: pb.InlineMenuResponse.menu_kind:type_name -> pb.MenuKind
+	27, // 12: pb.InlineMenuResponse.reply_rows:type_name -> pb.ReplyButtonRow
+	3,  // 13: pb.FacadeGRPC.GetMessages:input_type -> pb.GetMessagesRequest
+	4,  // 14: pb.FacadeGRPC.GetChatHistory:input_type -> pb.GetChatHistoryRequest
+	5,  // 15: pb.FacadeGRPC.SendMessage:input_type -> pb.SendMessageRequest
+	6,  // 16: pb.FacadeGRPC.SendMessageAlbum:input_type -> pb.SendMessageAlbumRequest
+	7,  // 17: pb.FacadeGRPC.ForwardMessage:input_type -> pb.ForwardMessageRequest
+	8,  // 18: pb.FacadeGRPC.GetMessage:input_type -> pb.GetMessageRequest
+	9,  // 19: pb.FacadeGRPC.UpdateMessage:input_type -> pb.UpdateMessageRequest
+	10, // 20: pb.FacadeGRPC.DeleteMessages:input_type -> pb.DeleteMessagesRequest
+	11, // 21: pb.FacadeGRPC.GetMessageLink:input_type -> pb.GetMessageLinkRequest
+	12, // 22: pb.FacadeGRPC.GetMessageLinkInfo:input_type -> pb.GetMessageLinkInfoRequest
+	16, // 23: pb.FacadeGRPC.ResolveBot:input_type -> pb.ResolveBotRequest
+	20, // 24: pb.FacadeGRPC.GetBotInfo:input_type -> pb.GetBotInfoRequest
+	22, // 25: pb.FacadeGRPC.GetInlineMenu:input_type -> pb.GetInlineMenuRequest
+	29, // 26: pb.FacadeGRPC.ClickCallbackButton:input_type -> pb.ClickCallbackButtonRequest
+	31, // 27: pb.FacadeGRPC.SendBotCommand:input_type -> pb.SendBotCommandRequest
+	13, // 28: pb.FacadeGRPC.GetMessages:output_type -> pb.MessagesResponse
+	13, // 29: pb.FacadeGRPC.GetChatHistory:output_type -> pb.MessagesResponse
+	32, // 30: pb.FacadeGRPC.SendMessage:output_type -> pb.EmptyResponse
+	32, // 31: pb.FacadeGRPC.SendMessageAlbum:output_type -> pb.EmptyResponse
+	32, // 32: pb.FacadeGRPC.ForwardMessage:output_type -> pb.EmptyResponse
+	14, // 33: pb.FacadeGRPC.GetMessage:output_type -> pb.MessageResponse
+	32, // 34: pb.FacadeGRPC.UpdateMessage:output_type -> pb.EmptyResponse
+	32, // 35: pb.FacadeGRPC.DeleteMessages:output_type -> pb.EmptyResponse
+	15, // 36: pb.FacadeGRPC.GetMessageLink:output_type -> pb.MessageLinkResponse
+	14, // 37: pb.FacadeGRPC.GetMessageLinkInfo:output_type -> pb.MessageResponse
+	17, // 38: pb.FacadeGRPC.ResolveBot:output_type -> pb.ResolveBotResponse
+	21, // 39: pb.FacadeGRPC.GetBotInfo:output_type -> pb.BotInfoResponse
+	28, // 40: pb.FacadeGRPC.GetInlineMenu:output_type -> pb.InlineMenuResponse
+	30, // 41: pb.FacadeGRPC.ClickCallbackButton:output_type -> pb.CallbackAnswerResponse
+	32, // 42: pb.FacadeGRPC.SendBotCommand:output_type -> pb.EmptyResponse
+	28, // [28:43] is the sub-list for method output_type
+	13, // [13:28] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_internal_transport_grpc_pb_facade_proto_init() }
@@ -1911,13 +2140,14 @@ func file_internal_transport_grpc_pb_facade_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_transport_grpc_pb_facade_proto_rawDesc), len(file_internal_transport_grpc_pb_facade_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   30,
+			NumEnums:      1,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_internal_transport_grpc_pb_facade_proto_goTypes,
 		DependencyIndexes: file_internal_transport_grpc_pb_facade_proto_depIdxs,
+		EnumInfos:         file_internal_transport_grpc_pb_facade_proto_enumTypes,
 		MessageInfos:      file_internal_transport_grpc_pb_facade_proto_msgTypes,
 	}.Build()
 	File_internal_transport_grpc_pb_facade_proto = out.File

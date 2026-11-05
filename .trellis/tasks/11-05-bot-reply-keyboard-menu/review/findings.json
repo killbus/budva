@@ -1,0 +1,36 @@
+{
+  "done": true,
+  "verdict": "PASS",
+  "round": 1,
+  "system_context": {
+    "production_entries": [
+      "cmd/facade/main.go:94 — facadeService := facade.New(telegramRepo) (real *telegram.Repo wired as app/facade telegramRepo)",
+      "cmd/facade/main.go:110-111 — grpcTransport := tgrpc.New(facadeService); pb.RegisterFacadeGRPCServer(s, grpcTransport) (no unary interceptor / no auth; verified in cmd/facade/main.go:108-112)"
+    ],
+    "upstream_callers": [
+      "internal/transport/grpc/transport.go:285 — Transport.GetInlineMenu, the only RPC path that reaches the changed mapping (GetInlineMenuRequest{chat_id,message_id} -> facadeService.GetInlineMenu)",
+      "internal/app/facade/service.go:192 — Service.GetInlineMenu is called by transport.go:286 with req.GetChatId()/req.GetMessageId()",
+      "internal/transport/grpc/transport.go:413 — inlineMenuToProto is called only from transport.go:291 with the message returned by the service"
+    ],
+    "downstream_dependencies": [
+      "internal/app/facade/service.go:20 — telegramRepo interface now declares GetChat(*client.GetChatRequest) (*client.Chat, error)",
+      "internal/app/facade/service.go:194 — GetChat on the message_id==0 path; service.go:50 Service.GetMessage -> telegramRepo.GetMessage",
+      "internal/infra/telegram/client_adapter.go:290 — Repo.GetChat (withChatReady wrapper, no FloodWaitFromError; unchanged by this diff)",
+      "internal/infra/telegram/client_adapter.go:261 Repo.GetChatHistory and :134 Repo.GetMessage feed the selection contract",
+      "internal/app/facade/mocks/telegram_repo.go:1024 — TelegramRepo.GetChat mock used by the app-layer tests"
+    ],
+    "module_and_spec_responsibility": "Per design.md §6 and .trellis/spec/backend/telegram-tdlib-guidelines.md: internal/infra/telegram owns the TDLib adapter and cold-DB wait-for-ready wrappers; internal/app/facade owns request construction and message selection over the partial telegramRepo interface; internal/transport/grpc owns raw-TDLib -> proto mapping only. Dependency direction must stay transport/grpc -> app/facade -> infra/telegram, with no reverse dependency and no test-only branch in production code. This change adds reply-keyboard proto fields, selection via chat.reply_markup_message_id in app/facade, and the reply/inline/none dispatch in transport/grpc, without touching infra."
+  },
+  "spec_conformance_summary": "All 8 brief criteria hold, verified against design.md (sha256 06ae508531c0af182ecca4c8e9b1da9c9a706f60147294c06a75a6eaa3fb4b2, matches approval.md). (1) Additivity: facade.proto diff is additions only — enum MenuKind, messages ReplyButton/ReplyButtonRow, and InlineMenuResponse fields 3-8; the 15 RPCs and all pre-existing fields/numbers/names are untouched; regeneration with the documented protoc line in a scratch copy reproduces both facade.pb.go and facade_grpc.pb.go byte-identically. (2) Non-goals: no new RPC/service, no Web App execution, no click RPC, no reply_markup on the Message DTO, no polling/stream, no new module/env, no second TDLib session. (3) Layering: transport.go maps raw client.* values to proto only; service.go performs selection/request construction; `git diff --name-only ab172b7` touches nothing under internal/infra/telegram/**; no reverse import added (transport.go import block unchanged); no production test hook. (4) Selection: message_id!=0 skips GetChat and calls GetMessage only (service.go:200); message_id==0 calls GetChat then uses ReplyMarkupMessageId when non-zero, else keeps GetChatHistory{Limit:1} and its empty-history MessageNotFoundError. (5) Mapping: inline -> MENU_KIND_INLINE with unchanged rows; showKeyboard -> MENU_KIND_REPLY + reply_rows + is_persistent/resize_keyboard/one_time/input_field_placeholder; nil/remove/force/other -> MENU_KIND_NONE with empty rows (response initialized to MENU_KIND_NONE at transport.go:416); ReplyButton.type = KeyboardButtonTypeType(); web_app_url only for *client.KeyboardButtonTypeWebApp; nil buttons skipped; order preserved. (6) Tests bind A1-A8 and no existing assertion was deleted or weakened. (7) Scope limited to the design §11 file set. (8) docs/TEST-MATRIX.md GRPC-U-002 plus new LIVE-BOT-004/005 entries describe inline/reply/none. Independent runs with -p 2: `go test -count=1 -tags libtdjson` on grpc/facade/telegram = ok/ok/ok; `go vet -tags libtdjson` clean; gofmt -l empty; `go build -tags libtdjson ./cmd/facade/ ./internal/app/facade/ ./internal/transport/grpc/` exit 0 (RAM-capped).",
+  "test_assertion_review": "Test files changed: internal/app/facade/service_bot_test.go, internal/transport/grpc/transport_bot_test.go. No existing assertion was deleted or relaxed — the only removed lines are two t.Run label strings (\"explicit message\" -> \"explicit message skips GetChat\", \"latest message\" -> \"empty markup pointer falls back to latest\"); all pre-existing inline row assertions are retained and the inline case gains an additive MENU_KIND_INLINE assertion. New binding assertions: A8 — \"explicit message skips GetChat\" declares only GetMessage; mockery strict mock (mocks.NewTelegramRepo(t)) fails on the unexpected GetChat call, so the \"no GetChat when id given\" fact is bound by the mock itself, not by a redundant assert. A6 — \"reply markup pointer is authoritative\" pins GetChat{100} -> ReplyMarkupMessageId 777 and requires GetMessage{ChatId:100,MessageId:777}; the undeclared GetChatHistory expectation makes any history fallback a hard failure (binds \"not the latest history message\"). A7 — \"empty markup pointer falls back to latest\" asserts ReplyMarkupMessageId==0 -> GetChatHistory{FromMessageId:0,Limit:1}, and the pre-existing empty-history case still requires MessageNotFoundError. New coverage for GetChat error propagation. A1-A3/A5 — TestGetInlineMenu_ReplyKeyboard asserts message_id backfill (42), MENU_KIND_REPLY, row/button counts, per-button text/type/web_app_url (incl. empty URL for non-web-app), all four keyboard attributes and empty inline rows, with a nil button embedded in row 0 to bind the skip; TestGetInlineMenu_NoneKinds asserts MENU_KIND_NONE + both row sets empty for removeKeyboard and forceReply, and TestGetInlineMenu_NoKeyboardIsEmpty covers nil markup. A4 — the inline mapping test retains its rows/JSON assertions and adds MENU_KIND_INLINE. Red path: the implementer recorded a controlled removal of the reply-mapping branch that turned the reply tests red, and the comment at transport_bot_test.go:150 states the binding; strict-mock reasoning supplies the red path for the selection tests. Assertions are countable/falsifiable (equality on distinct kind values, exact counts, exact URLs); no assert.Zero-on-mock or call-counter-gated success patterns.",
+  "blocking_findings": [],
+  "resolved_previous": [],
+  "withdrawn": [],
+  "follow_ups": [],
+  "discarded_count": {
+    "unreachable": 1,
+    "out_of_scope": 0,
+    "no_clause": 0
+  },
+  "escalation_reason": ""
+}

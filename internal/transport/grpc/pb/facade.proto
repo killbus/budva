@@ -153,9 +153,32 @@ message InlineButtonRow {
   repeated InlineButton buttons = 1;
 }
 
+enum MenuKind {
+  MENU_KIND_UNSPECIFIED = 0;
+  MENU_KIND_NONE = 1;
+  MENU_KIND_INLINE = 2;
+  MENU_KIND_REPLY = 3;
+}
+
+message ReplyButton {
+  string text = 1;
+  string type = 2;
+  string web_app_url = 3;
+}
+
+message ReplyButtonRow {
+  repeated ReplyButton buttons = 1;
+}
+
 message InlineMenuResponse {
   int64 message_id = 1;
   repeated InlineButtonRow rows = 2;
+  MenuKind menu_kind = 3;
+  repeated ReplyButtonRow reply_rows = 4;
+  bool is_persistent = 5;
+  bool resize_keyboard = 6;
+  bool one_time = 7;
+  string input_field_placeholder = 8;
 }
 
 message ClickCallbackButtonRequest {

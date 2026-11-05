@@ -17,6 +17,7 @@ import (
 // Обёртки clientAdapter с raw-TDLib сигнатурами.
 type telegramRepo interface {
 	GetMessage(*client.GetMessageRequest) (*client.Message, error)
+	GetChat(*client.GetChatRequest) (*client.Chat, error)
 	GetChatHistory(*client.GetChatHistoryRequest) (*client.Messages, error)
 	SendMessage(*client.SendMessageRequest) (*client.Message, error)
 	SendMessageAlbum(*client.SendMessageAlbumRequest) (*client.Messages, error)
@@ -187,22 +188,32 @@ func (s *Service) GetBotInfo(_ context.Context, botUserID int64) (*client.UserFu
 	return fullInfo, nil
 }
 
-// GetInlineMenu returns a raw message; inline keyboard mapping stays in transport.
+// GetInlineMenu returns a raw message; keyboard mapping stays in transport.
 func (s *Service) GetInlineMenu(ctx context.Context, chatID, messageID int64) (*client.Message, error) {
 	if messageID == 0 {
-		messages, err := s.telegramRepo.GetChatHistory(&client.GetChatHistoryRequest{
-			ChatId: chatID,
-			Limit:  1,
-		})
+		chat, err := s.telegramRepo.GetChat(&client.GetChatRequest{ChatId: chatID})
 		if err != nil {
 			return nil, err
 		}
-		if len(messages.Messages) == 0 {
-			return nil, NewMessageNotFoundError(chatID, 0)
+		if chat.ReplyMarkupMessageId != 0 {
+			messageID = chat.ReplyMarkupMessageId
 		}
-		return messages.Messages[0], nil
 	}
-	return s.GetMessage(ctx, chatID, messageID)
+	if messageID != 0 {
+		return s.GetMessage(ctx, chatID, messageID)
+	}
+
+	messages, err := s.telegramRepo.GetChatHistory(&client.GetChatHistoryRequest{
+		ChatId: chatID,
+		Limit:  1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(messages.Messages) == 0 {
+		return nil, NewMessageNotFoundError(chatID, 0)
+	}
+	return messages.Messages[0], nil
 }
 
 // ClickCallbackButton sends callback button data and returns the bot answer.

@@ -106,6 +106,7 @@ func TestInlineMenuToProto(t *testing.T) {
 	require.Len(t, resp.GetRows()[0].GetButtons(), 4)
 	buttons := resp.GetRows()[0].GetButtons()
 	assert.Equal(t, int64(42), resp.GetMessageId())
+	assert.Equal(t, pb.MenuKind_MENU_KIND_INLINE, resp.GetMenuKind())
 	assert.Equal(t, []byte("do-it"), buttons[0].GetCallbackData())
 	assert.Equal(t, "https://example.test", buttons[1].GetUrl())
 	assert.Equal(t, "https://app.example.test", buttons[2].GetWebApp().GetUrl())
@@ -124,7 +125,9 @@ func TestGetInlineMenu_NoKeyboardIsEmpty(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(42), resp.GetMessageId())
+	assert.Equal(t, pb.MenuKind_MENU_KIND_NONE, resp.GetMenuKind())
 	assert.Empty(t, resp.GetRows())
+	assert.Empty(t, resp.GetReplyRows())
 }
 
 func TestGetInlineMenu_LatestRequestPassesZero(t *testing.T) {
@@ -139,6 +142,77 @@ func TestGetInlineMenu_LatestRequestPassesZero(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(77), resp.GetMessageId())
+	assert.Equal(t, pb.MenuKind_MENU_KIND_INLINE, resp.GetMenuKind())
+}
+
+func TestGetInlineMenu_ReplyKeyboard(t *testing.T) {
+	t.Parallel()
+
+	// Deleting this mapping must fail the kind, row, button, URL and attribute assertions below.
+	msg := inlineMessage(100, 42, &client.ReplyMarkupShowKeyboard{
+		Rows: [][]*client.KeyboardButton{
+			{
+				{Text: "Check-in", Type: &client.KeyboardButtonTypeText{}},
+				nil,
+				{Text: "Open", Type: &client.KeyboardButtonTypeWebApp{Url: "https://app.example.test"}},
+			},
+			{{Text: "Phone", Type: &client.KeyboardButtonTypeRequestPhoneNumber{}}},
+		},
+		IsPersistent:          true,
+		ResizeKeyboard:        true,
+		OneTime:               true,
+		InputFieldPlaceholder: "Choose a menu...",
+	})
+	facadeMock := mocks.NewFacadeService(t)
+	facadeMock.EXPECT().GetInlineMenu(mock.Anything, int64(100), int64(0)).Return(msg, nil)
+	tr := New(facadeMock)
+
+	resp, err := tr.GetInlineMenu(context.Background(), &pb.GetInlineMenuRequest{ChatId: 100})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(42), resp.GetMessageId())
+	assert.Equal(t, pb.MenuKind_MENU_KIND_REPLY, resp.GetMenuKind())
+	require.Len(t, resp.GetReplyRows(), 2)
+	require.Len(t, resp.GetReplyRows()[0].GetButtons(), 2)
+	require.Len(t, resp.GetReplyRows()[1].GetButtons(), 1)
+	first := resp.GetReplyRows()[0].GetButtons()
+	assert.Equal(t, "Check-in", first[0].GetText())
+	assert.Equal(t, "keyboardButtonTypeText", first[0].GetType())
+	assert.Empty(t, first[0].GetWebAppUrl())
+	assert.Equal(t, "Open", first[1].GetText())
+	assert.Equal(t, "keyboardButtonTypeWebApp", first[1].GetType())
+	assert.Equal(t, "https://app.example.test", first[1].GetWebAppUrl())
+	second := resp.GetReplyRows()[1].GetButtons()
+	assert.Equal(t, "Phone", second[0].GetText())
+	assert.Equal(t, "keyboardButtonTypeRequestPhoneNumber", second[0].GetType())
+	assert.Empty(t, second[0].GetWebAppUrl())
+	assert.True(t, resp.GetIsPersistent())
+	assert.True(t, resp.GetResizeKeyboard())
+	assert.True(t, resp.GetOneTime())
+	assert.Equal(t, "Choose a menu...", resp.GetInputFieldPlaceholder())
+	assert.Empty(t, resp.GetRows())
+}
+
+func TestGetInlineMenu_NoneKinds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		markup client.ReplyMarkup
+	}{
+		{name: "remove keyboard", markup: &client.ReplyMarkupRemoveKeyboard{}},
+		{name: "force reply", markup: &client.ReplyMarkupForceReply{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			resp := inlineMenuToProto(inlineMessage(100, 42, tt.markup))
+			assert.Equal(t, int64(42), resp.GetMessageId())
+			assert.Equal(t, pb.MenuKind_MENU_KIND_NONE, resp.GetMenuKind())
+			assert.Empty(t, resp.GetRows())
+			assert.Empty(t, resp.GetReplyRows())
+		})
+	}
 }
 
 func TestClickCallbackButton_Success(t *testing.T) {
