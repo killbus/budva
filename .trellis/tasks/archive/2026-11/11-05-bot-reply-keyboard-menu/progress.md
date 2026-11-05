@@ -84,3 +84,11 @@
 - Owner input (2026-11-05): screenshots prove the bottom menu is a reply keyboard
   (`input_field_placeholder = "Choose a menu…"`); bot message `181538914304` carries it;
   `GetInlineMenu` returns empty rows today.
+- P5: owner approved `v0.5.1` (new release, not overwriting `v0.5.0`). Closeout PR #14
+  squash-merged as `5dcb75bab7ebe7317e6d0f927a743359b05974be`; annotated tag `v0.5.1`
+  pushed on that commit. `docker-publish` run
+  https://github.com/killbus/budva/actions/runs/42084752924 completed **success**
+  (amd64 build, arm64 build, merge). Published `ghcr.io/killbus/budva:v0.5.1` and
+  `:latest`, same index digest
+  `sha256:a0d00c1cc54f174cc8c975da32fdad05787a5d589247b6c5827f9aff01065c92`
+  (amd64 `sha256:d49dfbdc…`, arm64 `sha256:dd107fca…`). Task closed.

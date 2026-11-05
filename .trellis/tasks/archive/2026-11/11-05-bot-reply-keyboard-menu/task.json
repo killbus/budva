@@ -28,6 +28,13 @@
   "archived": ".trellis/tasks/archive/2026-11/11-05-bot-reply-keyboard-menu",
   "release": {
     "version": "v0.5.1",
-    "status": "planned-not-overwriting-v0.5.0"
+    "status": "published",
+    "publishedAt": "2026-11-05",
+    "tag_commit": "5dcb75bab7ebe7317e6d0f927a743359b05974be",
+    "publish_run": "https://github.com/killbus/budva/actions/runs/42084752924",
+    "image": "ghcr.io/killbus/budva:v0.5.1",
+    "image_digest": "sha256:a0d00c1cc54f174cc8c975da32fdad05787a5d589247b6c5827f9aff01065c92",
+    "latest_digest": "sha256:a0d00c1cc54f174cc8c975da32fdad05787a5d589247b6c5827f9aff01065c92",
+    "supersedes": "v0.5.0"
   }
 }
