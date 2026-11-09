@@ -6,12 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIsChannelOrSupergroup — классификатор open-state-политики (10-30,
-// Problem-1). Единственный дискриминатор — МОДУЛЬ id: |id|>1e12 →
-// канал/супергруппа (нужен OpenChat); |id|<=1e12 → базовая группа / приватный
-// чат (глобальный поток). Сохранённый ключ источника ВСЕГДА отрицателен
-// (лоадер инвертирует: ruleset/repo.go transform `newSources[-id]`), поэтому
-// знак не несёт типа.
+// TestIsChannelOrSupergroup checks runtime TDLib IDs after ruleset loading.
 func TestIsChannelOrSupergroup(t *testing.T) {
 	t.Parallel()
 
@@ -33,11 +28,10 @@ func TestIsChannelOrSupergroup(t *testing.T) {
 		{name: "basic_group_not_opened", id: -999999999, want: false},
 		{name: "small_basic_group_not_opened", id: -12345, want: false},
 
-		// Знак не несёт типа (классификатор по модулю): гипотетический
-		// положительный канал-модуль всё равно «открыть» (безопасное
-		// направление: extra-open = безобидный footprint).
-		{name: "positive_channel_magnitude_opens", id: 1002641439846, want: true},
-		{name: "positive_basic_magnitude_not_opened", id: 12345, want: false},
+		// RED: magnitude-only classification mistakes large private IDs for channels.
+		{name: "large_private_id_not_opened", id: 1002641439846, want: false},
+		{name: "private_chat_not_opened", id: 12345, want: false},
+		{name: "bot_private_chat_not_opened", id: 7131987336, want: false},
 
 		{name: "zero_not_channel", id: 0, want: false},
 	}

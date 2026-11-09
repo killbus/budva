@@ -115,6 +115,43 @@ docker compose attach engine   # первичная авторизация Teleg
 
 Редактируйте `ruleset.yml` — перезагрузка происходит без перезапуска сервиса. Схема конфига: `sources`, `destinations`, `forwardRules`.
 
+### Chat IDs and bot private chats
+
+Use `chatIdFormat: tdlib` for native Telegram chat IDs throughout the ruleset:
+private chats (including bots) use positive IDs, basic groups use negative IDs,
+and channels/supergroups use their full negative `-100…` chat IDs. Use the chat
+ID returned by the API; do not negate it or use a bare channel/supergroup ID.
+
+```yaml
+chatIdFormat: tdlib
+sources:
+  7131987336: {}        # Private chat with a bot
+  -1002641439846: {}    # Channel/supergroup
+pushTargets:
+  events:
+    url: https://example.com/telegram-events
+forwardRules:
+  bot:
+    from: 7131987336
+    pushTo: [events]
+  channel:
+    from: -1002641439846
+    pushTo: [events]
+```
+
+`sources` configures source options; a matching `forwardRules` entry with
+`pushTo` is required for webhook delivery. For messages sent by a bot **in a
+group**, use the group's chat ID as `from`.
+
+Existing files without `chatIdFormat` retain the legacy convention: positive
+group/channel IDs in YAML are negated when loaded. `chatIdFormat: legacy`
+explicitly selects that behavior. To migrate, set `chatIdFormat: tdlib` and
+convert **all** group/channel references to their negative Telegram IDs:
+`sources` and `destinations` keys, `from`, `to`, `check`, `other`, and the `for`
+lists under `translate`, `sign`, `link`, `prev`, and `next`. Private/bot chat
+IDs stay positive. Omitted `check`/`other` remain disabled. Unknown formats
+are rejected. The format is re-read on ruleset hot reload.
+
 ## Тесты
 
 ```bash

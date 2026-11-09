@@ -1,4 +1,6 @@
 # Минимальный конфиг для запуска (пустой, без правил пересылки)
+# Native Telegram chat IDs: private/bot positive, groups/channels negative.
+chatIdFormat: tdlib
 sources: {}
 destinations: {}
 # Push URLs, headers and HMAC keys are sensitive: keep real values out of git.

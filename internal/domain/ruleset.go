@@ -9,8 +9,16 @@ import (
 // other than the supported 1 (v1) and 2 (v2).
 var ErrInvalidSchemaVersion = errors.New("invalid schemaVersion: only 1 (v1) or 2 (v2) are supported")
 
+const (
+	ChatIDFormatLegacy = "legacy"
+	ChatIDFormatTDLib  = "tdlib"
+)
+
 // RuleSet описывает полную конфигурацию правил пересылки.
 type RuleSet struct {
+	// ChatIDFormat selects YAML chat IDs: tdlib preserves native signed IDs;
+	// legacy (also the empty default) negates IDs for older group/channel configs.
+	ChatIDFormat string `yaml:"chatIdFormat"`
 	// Sources — настройки источников по идентификатору чата.
 	Sources map[ChatID]*Source `yaml:"sources"`
 	// Destinations — настройки получателей по идентификатору чата.

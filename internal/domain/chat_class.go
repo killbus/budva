@@ -6,7 +6,7 @@ package domain
 
 // channelIDMagnitude — граница модуля идентификатора канала/супергруппы.
 // ID чатов-каналов/супергрупп в TDLib по модулю БОЛЬШЕ этой величины (метка
-// PeerChannel, префикс «-100...»); ID базовых групп и приватных чатов — МЕНЬШЕ.
+// PeerChannel, префикс «-100...»); ID базовых групп по модулю — МЕНЬШЕ.
 // Источник: Telethon v1.42.0 resolve_id (`if marked_id > 1000000000000:
 // PeerChannel`) и фикстура 1002641439846 = 1e12 + 2641439846 в
 // internal/infra/ruleset/repo_test.go. Граница включена в «не канал»:
@@ -17,23 +17,12 @@ const channelIDMagnitude = 1_000_000_000_000
 // чтобы TDLib доставлял ему апдейты. Открытое состояние (open_count) гейтит
 // getChannelDifference-поллинг и пассивные апдейты ТОЛЬКО для каналов/
 // супергрупп (pinned TDlib: open-dialog-гейт, gap-recovery :7206, re-arm
-// open_count>0 :37423). По модулю > 1e12 — канал/супергруппа (нужен OpenChat);
-// по модулю <= 1e12 — базовая группа или приватный чат (глобальный поток,
-// OpenChat не нужен — официальный клиент их не «открывает»).
+// open_count>0 :37423). ID < -1e12 — канал/супергруппа (нужен OpenChat).
+// Базовые группы и приватные чаты используют глобальный поток обновлений.
 //
-// Классификатор чистый (только int64) и определяется ПО МОДУЛЮ, без обращения
-// к знаку. Сохранённый ключ источника ВСЕГДА отрицателен (лоадер инвертирует
-// каждый ключ: internal/infra/ruleset/repo.go transform `newSources[-id]`),
-// поэтому знак сохранённого ключа не несёт типа — дискриминатор один, модуль.
-// (Старая «defensive» строка «id >= 0 → приватный» была недостоверной: и
-// приватные, и базовые группы хранятся отрицательными, так что знак — не
-// индикатор типа; модуль единственный надёжный признак. И для гипотетического
-// положительного id большого модуля открыть — безопасное направление:
-// extra-open = безобидный footprint, missed-open = возврат исходного бага.)
+// Runtime IDs use TDLib's signed representation after ruleset loading:
+// private chats (including bots) are positive, groups/channels negative.
+// A positive ID must never be classified as a channel by magnitude alone.
 func IsChannelOrSupergroup(id ChatID) bool {
-	m := id
-	if m < 0 {
-		m = -m
-	}
-	return m > channelIDMagnitude
+	return id < -channelIDMagnitude
 }

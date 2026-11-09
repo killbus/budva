@@ -16,6 +16,8 @@
 //   - Load() читает и валидирует файл, возвращает domain.RuleSet.
 //   - WatchContext() запускает fsnotify-наблюдатель за файлом.
 //   - Close() останавливает наблюдатель.
-//   - Идентификаторы чатов в YAML записываются положительными, transform
-//     инвертирует их (Telegram использует отрицательные ID для групп и каналов).
+//   - chatIdFormat: tdlib uses native signed IDs in every chat reference:
+//     positive for private/bot chats, negative for groups and channels.
+//   - Missing chatIdFormat or explicit legacy keeps the historical convention:
+//     positive group/channel IDs in YAML are negated at load time.
 package ruleset

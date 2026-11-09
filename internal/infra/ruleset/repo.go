@@ -129,6 +129,12 @@ func initialize(rs *domain.RuleSet) {
 }
 
 func validate(rs *domain.RuleSet) error {
+	switch rs.ChatIDFormat {
+	case "", domain.ChatIDFormatLegacy, domain.ChatIDFormatTDLib:
+	default:
+		return fmt.Errorf("chatIdFormat must be %q or %q", domain.ChatIDFormatLegacy, domain.ChatIDFormatTDLib)
+	}
+
 	for name, target := range rs.PushTargets {
 		if target == nil || target.URL == "" {
 			return fmt.Errorf("push target %q: URL is required", name)
@@ -155,11 +161,11 @@ func validate(rs *domain.RuleSet) error {
 		if invalidID.MatchString(id) {
 			return fmt.Errorf("forward rule id %q contains invalid characters ',' or ':'", id)
 		}
-		if rule.From < 0 {
+		if rs.ChatIDFormat != domain.ChatIDFormatTDLib && rule.From < 0 {
 			return fmt.Errorf("forward rule %q: From must be positive, got %d", id, rule.From)
 		}
 		for i, dst := range rule.To {
-			if dst < 0 {
+			if rs.ChatIDFormat != domain.ChatIDFormatTDLib && dst < 0 {
 				return fmt.Errorf("forward rule %q: To[%d] must be positive, got %d", id, i, dst)
 			}
 			if rule.From == dst {
@@ -213,6 +219,12 @@ func utf16Len(s string) int {
 }
 
 func transform(rs *domain.RuleSet) {
+	// Native IDs already match TDLib updates and requests, including positive
+	// private/bot chats. Keep the legacy conversion at the YAML boundary only.
+	if rs.ChatIDFormat == domain.ChatIDFormatTDLib {
+		return
+	}
+
 	// Инвертируем ключи Sources
 	newSources := make(map[domain.ChatID]*domain.Source, len(rs.Sources))
 	for id, src := range rs.Sources {
