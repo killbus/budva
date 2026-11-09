@@ -152,6 +152,19 @@ lists under `translate`, `sign`, `link`, `prev`, and `next`. Private/bot chat
 IDs stay positive. Omitted `check`/`other` remain disabled. Unknown formats
 are rejected. The format is re-read on ruleset hot reload.
 
+### Sending bot commands
+
+Facade and engine use separate TDLib sessions. For a bot the facade has never
+resolved, call `ResolveBot` with its username and use the returned `chat_id`
+and `bot_user_id` in `SendBotCommand`. A ruleset entry only configures the engine.
+
+For `/start` with a nonempty `parameter`, Budva uses TDLib's native deep-link
+request. It first calls TDLib `getUser(bot_user_id)` to load the bot information,
+then sends the start request with the original chat ID and parameter. TDLib
+handles its own user cache/database; no bot-error matching or send retry is
+added. If the user cannot be loaded, nothing is sent. An unknown numeric ID
+alone cannot discover an arbitrary bot: resolve its username first.
+
 ## Тесты
 
 ```bash

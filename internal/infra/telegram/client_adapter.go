@@ -393,6 +393,11 @@ func (r *Repo) GetUserFullInfo(req *client.GetUserFullInfoRequest) (*client.User
 // SendBotStartMessage отправляет /start боту (с deep-link параметром).
 // На холодной БД — wait-for-ready (см. warmup.go).
 func (r *Repo) SendBotStartMessage(req *client.SendBotStartMessageRequest) (*client.Message, error) {
+	// Load the bot through TDLib before sending: sendBotStartMessage reads
+	// in-memory bot data, while getUser can load a known user from its database.
+	if _, err := r.GetUser(&client.GetUserRequest{UserId: req.BotUserId}); err != nil {
+		return nil, fmt.Errorf("send bot start message: %w", err)
+	}
 	var msg *client.Message
 	err := r.withChatReady(req.ChatId, "send bot start message", func() error {
 		var e error
