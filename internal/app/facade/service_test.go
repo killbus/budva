@@ -67,6 +67,227 @@ func TestService_GetMessage(t *testing.T) {
 	})
 }
 
+func TestService_GetMessageFile_MediaTypes(t *testing.T) {
+	t.Parallel()
+
+	const fileID int32 = 42
+	tests := []struct {
+		name     string
+		content  client.MessageContent
+		wantMime string
+	}{
+		{
+			// RED: the largest variant is in the middle, so taking the first
+			// size would download file id 1 instead of the expected id 42.
+			name: "photo",
+			content: &client.MessagePhoto{Photo: &client.Photo{Sizes: []*client.PhotoSize{
+				{Type: "small", Photo: &client.File{Id: 1, Size: 100}},
+				{Type: "large", Photo: &client.File{Id: fileID, Size: 300}},
+				{Type: "medium", Photo: &client.File{Id: 2, Size: 200}},
+			}}},
+			wantMime: "image/jpeg",
+		},
+		{
+			name:     "video",
+			content:  &client.MessageVideo{Video: &client.Video{Video: &client.File{Id: fileID}, MimeType: "video/mp4"}},
+			wantMime: "video/mp4",
+		},
+		{
+			name:     "document",
+			content:  &client.MessageDocument{Document: &client.Document{Document: &client.File{Id: fileID}, MimeType: "application/pdf"}},
+			wantMime: "application/pdf",
+		},
+		{
+			name:     "audio",
+			content:  &client.MessageAudio{Audio: &client.Audio{Audio: &client.File{Id: fileID}, MimeType: "audio/mpeg"}},
+			wantMime: "audio/mpeg",
+		},
+		{
+			name:     "animation",
+			content:  &client.MessageAnimation{Animation: &client.Animation{Animation: &client.File{Id: fileID}, MimeType: "video/quicktime"}},
+			wantMime: "video/quicktime",
+		},
+		{
+			name:     "voice",
+			content:  &client.MessageVoiceNote{VoiceNote: &client.VoiceNote{Voice: &client.File{Id: fileID}, MimeType: "audio/ogg"}},
+			wantMime: "audio/ogg",
+		},
+		{name: "video note", content: &client.MessageVideoNote{VideoNote: &client.VideoNote{Video: &client.File{Id: fileID}}}, wantMime: ""},
+		{name: "sticker", content: &client.MessageSticker{Sticker: &client.Sticker{Sticker: &client.File{Id: fileID}}}, wantMime: ""},
+		{
+			name:     "empty content mime",
+			content:  &client.MessageDocument{Document: &client.Document{Document: &client.File{Id: fileID}, MimeType: ""}},
+			wantMime: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			gw := mocks.NewTelegramRepo(t)
+			svc := New(gw)
+			gw.EXPECT().GetMessage(mock.MatchedBy(func(req *client.GetMessageRequest) bool {
+				return req.ChatId == 100 && req.MessageId == 7
+			})).Return(&client.Message{Id: 7, Content: tt.content}, nil)
+			gw.EXPECT().DownloadFile(mock.MatchedBy(func(req *client.DownloadFileRequest) bool {
+				return req.FileId == fileID && req.Priority == 16 && req.Synchronous
+			})).Return(&client.File{
+				Id:    fileID,
+				Size:  1024,
+				Local: &client.LocalFile{IsDownloadingCompleted: true, Path: "/x/y.bin"},
+			}, nil)
+			// Act
+			got, mimeType, err := svc.GetMessageFile(context.Background(), 100, 7)
+
+			// Assert
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, "/x/y.bin", got.Local.Path)
+			assert.Equal(t, int64(1024), got.Size)
+			assert.Equal(t, tt.wantMime, mimeType)
+		})
+	}
+}
+
+func TestService_GetMessageFile_MessageFileNotFound(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content client.MessageContent
+	}{
+		{name: "text message", content: &client.MessageText{Text: &client.FormattedText{Text: "hello"}}},
+		{name: "photo without sizes", content: &client.MessagePhoto{Photo: &client.Photo{Sizes: nil}}},
+		{name: "photo with nil file", content: &client.MessagePhoto{Photo: &client.Photo{Sizes: []*client.PhotoSize{{Type: "large"}}}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			gw := mocks.NewTelegramRepo(t)
+			svc := New(gw)
+			gw.EXPECT().GetMessage(mock.Anything).Return(&client.Message{Content: tt.content}, nil)
+
+			// Act
+			got, mimeType, err := svc.GetMessageFile(context.Background(), 100, 7)
+
+			// Assert
+			require.Error(t, err)
+			assert.Nil(t, got)
+			assert.Empty(t, mimeType)
+			var notFound *MessageFileNotFoundError
+			require.ErrorAs(t, err, &notFound)
+			assert.Equal(t, int64(100), notFound.ChatID)
+			assert.Equal(t, int64(7), notFound.MessageID)
+		})
+	}
+}
+
+func TestService_GetMessageFile_DownloadFailure(t *testing.T) {
+	t.Parallel()
+
+	t.Run("incomplete local copy", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange
+		gw := mocks.NewTelegramRepo(t)
+		svc := New(gw)
+		gw.EXPECT().GetMessage(mock.Anything).Return(&client.Message{
+			Content: &client.MessageDocument{Document: &client.Document{Document: &client.File{Id: 42}}},
+		}, nil)
+		gw.EXPECT().DownloadFile(mock.Anything).Return(&client.File{
+			Id:    42,
+			Local: &client.LocalFile{IsDownloadingCompleted: false, Path: "/partial.bin"},
+		}, nil)
+
+		// Act
+		got, _, err := svc.GetMessageFile(context.Background(), 100, 7)
+
+		// Assert
+		require.Error(t, err)
+		assert.Nil(t, got)
+		var failed *FileDownloadFailedError
+		require.ErrorAs(t, err, &failed)
+		assert.Equal(t, int32(42), failed.FileID)
+	})
+
+	t.Run("repo error", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange
+		gw := mocks.NewTelegramRepo(t)
+		svc := New(gw)
+		wantErr := errors.New("download failed")
+		gw.EXPECT().GetMessage(mock.Anything).Return(&client.Message{
+			Content: &client.MessageDocument{Document: &client.Document{Document: &client.File{Id: 42}}},
+		}, nil)
+		gw.EXPECT().DownloadFile(mock.Anything).Return(nil, wantErr)
+
+		// Act
+		got, _, err := svc.GetMessageFile(context.Background(), 100, 7)
+
+		// Assert
+		require.Error(t, err)
+		assert.Nil(t, got)
+		require.ErrorIs(t, err, wantErr)
+		var failed *FileDownloadFailedError
+		require.ErrorAs(t, err, &failed)
+		assert.Equal(t, int32(42), failed.FileID)
+	})
+}
+
+func TestService_DownloadFile(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange
+		gw := mocks.NewTelegramRepo(t)
+		svc := New(gw)
+		gw.EXPECT().DownloadFile(mock.MatchedBy(func(req *client.DownloadFileRequest) bool {
+			return req.FileId == 42 && req.Priority == 16 && req.Synchronous
+		})).Return(&client.File{
+			Id:    42,
+			Size:  2048,
+			Local: &client.LocalFile{IsDownloadingCompleted: true, Path: "/x/full.bin"},
+		}, nil)
+
+		// Act
+		got, err := svc.DownloadFile(context.Background(), 42)
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		assert.Equal(t, "/x/full.bin", got.Local.Path)
+		assert.Equal(t, int64(2048), got.Size)
+	})
+
+	t.Run("incomplete local copy", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange
+		gw := mocks.NewTelegramRepo(t)
+		svc := New(gw)
+		gw.EXPECT().DownloadFile(mock.Anything).Return(&client.File{
+			Id:    42,
+			Local: &client.LocalFile{IsDownloadingCompleted: false},
+		}, nil)
+
+		// Act
+		got, err := svc.DownloadFile(context.Background(), 42)
+
+		// Assert
+		require.Error(t, err)
+		assert.Nil(t, got)
+		var failed *FileDownloadFailedError
+		require.ErrorAs(t, err, &failed)
+		assert.Equal(t, int32(42), failed.FileID)
+	})
+}
+
 func TestService_SendMessage(t *testing.T) {
 	t.Parallel()
 

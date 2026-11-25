@@ -850,3 +850,28 @@ func TestSendMessageAndWaitOnce_NonFloodErrorReturnsZeroWait(t *testing.T) {
 	assert.Nil(t, msg)
 	assert.Equal(t, time.Duration(0), wait)
 }
+
+func TestFileOpsAreChatLessWrappers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("download file wraps flood wait", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange
+		floodErr := client.ResponseError{Err: &client.Error{Code: 429, Message: "Too Many Requests: retry after 7"}}
+		m := mocks.NewClientAdapter(t)
+		m.EXPECT().DownloadFile(&client.DownloadFileRequest{FileId: 42, Priority: 16, Synchronous: true}).
+			Return(nil, floodErr).Once()
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
+		r.clientAdapter = m
+
+		// Act
+		got, err := r.DownloadFile(&client.DownloadFileRequest{FileId: 42, Priority: 16, Synchronous: true})
+
+		// Assert
+		assert.Nil(t, got)
+		var flood *FloodWaitError
+		require.ErrorAs(t, err, &flood)
+		assert.Equal(t, 7*time.Second+500*time.Millisecond, flood.Delay)
+	})
+}

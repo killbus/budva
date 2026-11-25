@@ -34,6 +34,8 @@ const (
 	FacadeGRPC_GetInlineMenu_FullMethodName       = "/pb.FacadeGRPC/GetInlineMenu"
 	FacadeGRPC_ClickCallbackButton_FullMethodName = "/pb.FacadeGRPC/ClickCallbackButton"
 	FacadeGRPC_SendBotCommand_FullMethodName      = "/pb.FacadeGRPC/SendBotCommand"
+	FacadeGRPC_GetMessageFile_FullMethodName      = "/pb.FacadeGRPC/GetMessageFile"
+	FacadeGRPC_DownloadFile_FullMethodName        = "/pb.FacadeGRPC/DownloadFile"
 )
 
 // FacadeGRPCClient is the client API for FacadeGRPC service.
@@ -57,6 +59,8 @@ type FacadeGRPCClient interface {
 	GetInlineMenu(ctx context.Context, in *GetInlineMenuRequest, opts ...grpc.CallOption) (*InlineMenuResponse, error)
 	ClickCallbackButton(ctx context.Context, in *ClickCallbackButtonRequest, opts ...grpc.CallOption) (*CallbackAnswerResponse, error)
 	SendBotCommand(ctx context.Context, in *SendBotCommandRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	GetMessageFile(ctx context.Context, in *GetMessageFileRequest, opts ...grpc.CallOption) (*MessageFileResponse, error)
+	DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*FileResponse, error)
 }
 
 type facadeGRPCClient struct {
@@ -217,6 +221,26 @@ func (c *facadeGRPCClient) SendBotCommand(ctx context.Context, in *SendBotComman
 	return out, nil
 }
 
+func (c *facadeGRPCClient) GetMessageFile(ctx context.Context, in *GetMessageFileRequest, opts ...grpc.CallOption) (*MessageFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MessageFileResponse)
+	err := c.cc.Invoke(ctx, FacadeGRPC_GetMessageFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *facadeGRPCClient) DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*FileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FileResponse)
+	err := c.cc.Invoke(ctx, FacadeGRPC_DownloadFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FacadeGRPCServer is the server API for FacadeGRPC service.
 // All implementations must embed UnimplementedFacadeGRPCServer
 // for forward compatibility.
@@ -238,6 +262,8 @@ type FacadeGRPCServer interface {
 	GetInlineMenu(context.Context, *GetInlineMenuRequest) (*InlineMenuResponse, error)
 	ClickCallbackButton(context.Context, *ClickCallbackButtonRequest) (*CallbackAnswerResponse, error)
 	SendBotCommand(context.Context, *SendBotCommandRequest) (*EmptyResponse, error)
+	GetMessageFile(context.Context, *GetMessageFileRequest) (*MessageFileResponse, error)
+	DownloadFile(context.Context, *DownloadFileRequest) (*FileResponse, error)
 	mustEmbedUnimplementedFacadeGRPCServer()
 }
 
@@ -292,6 +318,12 @@ func (UnimplementedFacadeGRPCServer) ClickCallbackButton(context.Context, *Click
 }
 func (UnimplementedFacadeGRPCServer) SendBotCommand(context.Context, *SendBotCommandRequest) (*EmptyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendBotCommand not implemented")
+}
+func (UnimplementedFacadeGRPCServer) GetMessageFile(context.Context, *GetMessageFileRequest) (*MessageFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMessageFile not implemented")
+}
+func (UnimplementedFacadeGRPCServer) DownloadFile(context.Context, *DownloadFileRequest) (*FileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DownloadFile not implemented")
 }
 func (UnimplementedFacadeGRPCServer) mustEmbedUnimplementedFacadeGRPCServer() {}
 func (UnimplementedFacadeGRPCServer) testEmbeddedByValue()                    {}
@@ -584,6 +616,42 @@ func _FacadeGRPC_SendBotCommand_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FacadeGRPC_GetMessageFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMessageFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FacadeGRPCServer).GetMessageFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FacadeGRPC_GetMessageFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FacadeGRPCServer).GetMessageFile(ctx, req.(*GetMessageFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FacadeGRPC_DownloadFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DownloadFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FacadeGRPCServer).DownloadFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FacadeGRPC_DownloadFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FacadeGRPCServer).DownloadFile(ctx, req.(*DownloadFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FacadeGRPC_ServiceDesc is the grpc.ServiceDesc for FacadeGRPC service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -650,6 +718,14 @@ var FacadeGRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendBotCommand",
 			Handler:    _FacadeGRPC_SendBotCommand_Handler,
+		},
+		{
+			MethodName: "GetMessageFile",
+			Handler:    _FacadeGRPC_GetMessageFile_Handler,
+		},
+		{
+			MethodName: "DownloadFile",
+			Handler:    _FacadeGRPC_DownloadFile_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

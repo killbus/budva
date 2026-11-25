@@ -325,6 +325,86 @@ func (_c *FacadeService_GetMessage_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
+// GetMessageFile provides a mock function for the type FacadeService
+func (_mock *FacadeService) GetMessageFile(ctx context.Context, chatID int64, messageID int64) (*client.File, string, error) {
+	ret := _mock.Called(ctx, chatID, messageID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMessageFile")
+	}
+
+	var r0 *client.File
+	var r1 string
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, int64) (*client.File, string, error)); ok {
+		return returnFunc(ctx, chatID, messageID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, int64) *client.File); ok {
+		r0 = returnFunc(ctx, chatID, messageID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.File)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, int64) string); ok {
+		r1 = returnFunc(ctx, chatID, messageID)
+	} else {
+		r1 = ret.String(1)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, int64, int64) error); ok {
+		r2 = returnFunc(ctx, chatID, messageID)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// FacadeService_GetMessageFile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMessageFile'
+type FacadeService_GetMessageFile_Call struct {
+	*mock.Call
+}
+
+// GetMessageFile is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chatID int64
+//   - messageID int64
+func (_e *FacadeService_Expecter) GetMessageFile(ctx interface{}, chatID interface{}, messageID interface{}) *FacadeService_GetMessageFile_Call {
+	return &FacadeService_GetMessageFile_Call{Call: _e.mock.On("GetMessageFile", ctx, chatID, messageID)}
+}
+
+func (_c *FacadeService_GetMessageFile_Call) Run(run func(ctx context.Context, chatID int64, messageID int64)) *FacadeService_GetMessageFile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *FacadeService_GetMessageFile_Call) Return(file *client.File, mimeType string, err error) *FacadeService_GetMessageFile_Call {
+	_c.Call.Return(file, mimeType, err)
+	return _c
+}
+
+func (_c *FacadeService_GetMessageFile_Call) RunAndReturn(run func(ctx context.Context, chatID int64, messageID int64) (*client.File, string, error)) *FacadeService_GetMessageFile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetMessageLink provides a mock function for the type FacadeService
 func (_mock *FacadeService) GetMessageLink(ctx context.Context, chatID int64, messageID int64) (string, error) {
 	ret := _mock.Called(ctx, chatID, messageID)
@@ -393,6 +473,74 @@ func (_c *FacadeService_GetMessageLink_Call) Return(s string, err error) *Facade
 }
 
 func (_c *FacadeService_GetMessageLink_Call) RunAndReturn(run func(ctx context.Context, chatID int64, messageID int64) (string, error)) *FacadeService_GetMessageLink_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DownloadFile provides a mock function for the type FacadeService
+func (_mock *FacadeService) DownloadFile(ctx context.Context, fileID int32) (*client.File, error) {
+	ret := _mock.Called(ctx, fileID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DownloadFile")
+	}
+
+	var r0 *client.File
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int32) (*client.File, error)); ok {
+		return returnFunc(ctx, fileID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int32) *client.File); ok {
+		r0 = returnFunc(ctx, fileID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.File)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int32) error); ok {
+		r1 = returnFunc(ctx, fileID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// FacadeService_DownloadFile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DownloadFile'
+type FacadeService_DownloadFile_Call struct {
+	*mock.Call
+}
+
+// DownloadFile is a helper method to define mock.On call
+//   - ctx context.Context
+//   - fileID int32
+func (_e *FacadeService_Expecter) DownloadFile(ctx interface{}, fileID interface{}) *FacadeService_DownloadFile_Call {
+	return &FacadeService_DownloadFile_Call{Call: _e.mock.On("DownloadFile", ctx, fileID)}
+}
+
+func (_c *FacadeService_DownloadFile_Call) Run(run func(ctx context.Context, fileID int32)) *FacadeService_DownloadFile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int32
+		if args[1] != nil {
+			arg1 = args[1].(int32)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *FacadeService_DownloadFile_Call) Return(file *client.File, err error) *FacadeService_DownloadFile_Call {
+	_c.Call.Return(file, err)
+	return _c
+}
+
+func (_c *FacadeService_DownloadFile_Call) RunAndReturn(run func(ctx context.Context, fileID int32) (*client.File, error)) *FacadeService_DownloadFile_Call {
 	_c.Call.Return(run)
 	return _c
 }

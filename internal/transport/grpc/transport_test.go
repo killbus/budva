@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/pure-golang/budva-claude/internal/app/facade"
 	"github.com/pure-golang/budva-claude/internal/domain"
 	"github.com/pure-golang/budva-claude/internal/infra/telegram"
 	"github.com/pure-golang/budva-claude/internal/transport/grpc/mocks"
@@ -192,6 +193,157 @@ func TestGetMessage_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "result", resp.GetMessage().GetText())
 	assert.Equal(t, int64(100), resp.GetMessage().GetChatId())
+}
+
+func TestGetMessageFile_Success(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	facadeMock := mocks.NewFacadeService(t)
+	facadeMock.EXPECT().GetMessageFile(mock.Anything, int64(100), int64(1)).
+		Return(&client.File{
+			Id:    42,
+			Size:  1024,
+			Local: &client.LocalFile{IsDownloadingCompleted: true, Path: "/x/y.bin"},
+		}, "application/octet-stream", nil)
+	tr := New(facadeMock)
+
+	// Act
+	resp, err := tr.GetMessageFile(context.Background(), &pb.GetMessageFileRequest{ChatId: 100, MessageId: 1})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, "/x/y.bin", resp.GetFilePath())
+	assert.Equal(t, int64(1024), resp.GetSize())
+	assert.Equal(t, int64(42), resp.GetFileId())
+	assert.Equal(t, "application/octet-stream", resp.GetMimeType())
+}
+
+func TestGetMessageFile_ErrorMapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		code codes.Code
+	}{
+		{
+			name: "message file not found",
+			err:  &facade.MessageFileNotFoundError{ChatID: 100, MessageID: 1},
+			code: codes.NotFound,
+		},
+		{
+			name: "download failed",
+			err:  &facade.FileDownloadFailedError{FileID: 42, Err: errors.New("boom")},
+			code: codes.Internal,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			facadeMock := mocks.NewFacadeService(t)
+			facadeMock.EXPECT().GetMessageFile(mock.Anything, int64(100), int64(1)).Return(nil, "", tt.err)
+			tr := New(facadeMock)
+
+			// Act
+			_, err := tr.GetMessageFile(context.Background(), &pb.GetMessageFileRequest{ChatId: 100, MessageId: 1})
+
+			// Assert
+			require.Error(t, err)
+			assert.Equal(t, tt.code, status.Code(err))
+		})
+	}
+}
+
+func TestDownloadFile_Success(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	facadeMock := mocks.NewFacadeService(t)
+	facadeMock.EXPECT().DownloadFile(mock.Anything, int32(42)).
+		Return(&client.File{
+			Id:    42,
+			Size:  2048,
+			Local: &client.LocalFile{IsDownloadingCompleted: true, Path: "/x/full.bin"},
+		}, nil)
+	tr := New(facadeMock)
+
+	// Act
+	resp, err := tr.DownloadFile(context.Background(), &pb.DownloadFileRequest{FileId: 42})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, "/x/full.bin", resp.GetFilePath())
+	assert.Equal(t, int64(2048), resp.GetSize())
+}
+
+func TestDownloadFile_InvalidFileID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		fileID int64
+	}{
+		{name: "zero", fileID: 0},
+		{name: "above max int32", fileID: 2147483648},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange: strict mock has no DownloadFile expectation, so any
+			// service call fails the test.
+			tr := New(mocks.NewFacadeService(t))
+
+			// Act
+			_, err := tr.DownloadFile(context.Background(), &pb.DownloadFileRequest{FileId: tt.fileID})
+
+			// Assert
+			require.Error(t, err)
+			assert.Equal(t, codes.InvalidArgument, status.Code(err))
+		})
+	}
+}
+
+func TestDownloadFile_ErrorMapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		code codes.Code
+	}{
+		{
+			name: "message file not found",
+			err:  &facade.MessageFileNotFoundError{ChatID: 100, MessageID: 1},
+			code: codes.NotFound,
+		},
+		{
+			name: "download failed",
+			err:  &facade.FileDownloadFailedError{FileID: 42, Err: errors.New("boom")},
+			code: codes.Internal,
+		},
+		{name: "plain error", err: errors.New("boom"), code: codes.Internal},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			facadeMock := mocks.NewFacadeService(t)
+			facadeMock.EXPECT().DownloadFile(mock.Anything, int32(42)).Return(nil, tt.err)
+			tr := New(facadeMock)
+
+			// Act
+			_, err := tr.DownloadFile(context.Background(), &pb.DownloadFileRequest{FileId: 42})
+
+			// Assert
+			require.Error(t, err)
+			assert.Equal(t, tt.code, status.Code(err))
+		})
+	}
 }
 
 func TestUpdateMessage_Success(t *testing.T) {

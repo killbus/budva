@@ -35,17 +35,17 @@
 | `internal/infra/queue` | 14 | — | — |
 | `internal/infra/ruleset` | 21 | — | — |
 | `internal/infra/state` | 25 | — | — |
-| `internal/infra/telegram` | 23 | 443 scenario instances | — |
+| `internal/infra/telegram` | 26 | 443 scenario instances | — |
 | `internal/infra/term` | 6 | — | — |
 | `internal/service/album` | 22 | 40 scenario instances | — |
 | `internal/app/auth` | 20 | — | — |
 | `internal/service/dedup` | 10 | 1 scenario instance | — |
-| `internal/app/facade` | 14 | — | — |
+| `internal/app/facade` | 18 | — | — |
 | `internal/service/filters` | 8 | 161 scenario instances | — |
 | `internal/service/limiter` | 14 | 1 scenario instance | — |
 | `internal/service/message` | 40 | — | — |
 | `internal/service/transform` | 51 | 105 scenario instances | — |
-| `internal/transport/grpc` | 37 | — | — |
+| `internal/transport/grpc` | 45 | — | — |
 | `internal/transport/http` | 14 | — | — |
 | `internal/transport/http/resolvers` | 2 | — | — |
 | `internal/transport/term` | 23 | — | — |
@@ -132,7 +132,7 @@
 
 | ID | Тестовый файл | Покрытие | Статус |
 |----|---------------|----------|--------|
-| REPO-U-005 | `repo_test.go` | 23 tests: flood wait parsing, auth state mapping, `Submit*`, pending sends, `SendMessageAndWait`, update dispatch | ✅ |
+| REPO-U-005 | `repo_test.go` | 26 tests: flood wait parsing, auth state mapping, `Submit*`, pending sends, `SendMessageAndWait`, update dispatch, download wrapper | ✅ |
 
 ---
 
@@ -182,7 +182,7 @@
 
 | ID | Тестовый файл | Покрытие | Статус |
 |----|---------------|----------|--------|
-| SVC-U-004 | `service_test.go` | 14 tests: facade proxy methods, album/file routing, status, build version helper | ✅ |
+| SVC-U-004 | `service_test.go` | 18 tests: facade proxy methods, album/file routing, status, build version helper, message file resolution, MIME source, and download oracle | ✅ |
 
 ---
 
@@ -234,7 +234,7 @@
 
 | ID | Тестовый файл | Покрытие | Статус |
 |----|---------------|----------|--------|
-| GRPC-U-001 | `transport_test.go` | 37 tests: RPC wrappers, success/error paths, nil handling, proto conversion for supported TDLib content | ✅ |
+| GRPC-U-001 | `transport_test.go` | 45 tests: RPC wrappers, success/error paths, nil handling, proto conversion for supported TDLib content, file download validation and mapping | ✅ |
 | GRPC-U-002 | `transport_bot_test.go` | Bot menu mapping (inline/reply/none), request validation and semantic gRPC error mapping for the 5 new RPCs | ✅ |
 
 ---
@@ -414,21 +414,21 @@ reply keyboard. Не использовать сторонние боты для
 | `internal/infra/queue` | 14 | — | — |
 | `internal/infra/ruleset` | 21 | — | — |
 | `internal/infra/state` | 25 | — | — |
-| `internal/infra/telegram` | 23 | 443 | — |
+| `internal/infra/telegram` | 26 | 443 | — |
 | `internal/infra/term` | 6 | — | — |
 | `internal/service/album` | 22 | 40 | — |
 | `internal/app/auth` | 20 | — | — |
 | `internal/service/dedup` | 10 | 1 | — |
-| `internal/app/facade` | 14 | — | — |
+| `internal/app/facade` | 18 | — | — |
 | `internal/service/filters` | 8 | 161 | — |
 | `internal/service/limiter` | 14 | 1 | — |
 | `internal/service/message` | 40 | — | — |
 | `internal/service/transform` | 51 | 105 | — |
-| `internal/transport/grpc` | 37 | — | — |
+| `internal/transport/grpc` | 45 | — | — |
 | `internal/transport/http` | 14 | — | — |
 | `internal/transport/http/resolvers` | 2 | — | — |
 | `internal/transport/term` | 23 | — | — |
-| **Итого** | **431** | **443** | **4** |
+| **Итого** | **446** | **443** | **4** |
 
 ---
 

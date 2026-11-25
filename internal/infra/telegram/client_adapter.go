@@ -54,6 +54,7 @@ type clientAdapter interface {
 	DeleteChat(*client.DeleteChatRequest) (*client.Ok, error)
 
 	// Системные операции и авторизация.
+	DownloadFile(*client.DownloadFileRequest) (*client.File, error)
 	GetUser(*client.GetUserRequest) (*client.User, error)
 	GetUserFullInfo(*client.GetUserFullInfoRequest) (*client.UserFullInfo, error)
 	GetMe() (*client.User, error)
@@ -362,6 +363,16 @@ func (r *Repo) DeleteChat(req *client.DeleteChatRequest) (*client.Ok, error) {
 }
 
 // --- Системные операции ---
+
+// DownloadFile загружает файл синхронно или асинхронно в зависимости
+// от запроса (не привязан к чату).
+func (r *Repo) DownloadFile(req *client.DownloadFileRequest) (*client.File, error) {
+	file, err := r.clientAdapter.DownloadFile(req)
+	if err != nil {
+		return nil, FloodWaitFromError(err)
+	}
+	return file, nil
+}
 
 // GetMe возвращает информацию о текущем пользователе.
 func (r *Repo) GetMe() (*client.User, error) {

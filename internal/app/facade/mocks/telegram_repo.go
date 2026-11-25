@@ -711,6 +711,68 @@ func (_c *TelegramRepo_SendMessage_Call) RunAndReturn(run func(sendMessageReques
 	return _c
 }
 
+// DownloadFile provides a mock function for the type TelegramRepo
+func (_mock *TelegramRepo) DownloadFile(downloadFileRequest *client.DownloadFileRequest) (*client.File, error) {
+	ret := _mock.Called(downloadFileRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DownloadFile")
+	}
+
+	var r0 *client.File
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.DownloadFileRequest) (*client.File, error)); ok {
+		return returnFunc(downloadFileRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.DownloadFileRequest) *client.File); ok {
+		r0 = returnFunc(downloadFileRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.File)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.DownloadFileRequest) error); ok {
+		r1 = returnFunc(downloadFileRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// TelegramRepo_DownloadFile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DownloadFile'
+type TelegramRepo_DownloadFile_Call struct {
+	*mock.Call
+}
+
+// DownloadFile is a helper method to define mock.On call
+//   - downloadFileRequest *client.DownloadFileRequest
+func (_e *TelegramRepo_Expecter) DownloadFile(downloadFileRequest interface{}) *TelegramRepo_DownloadFile_Call {
+	return &TelegramRepo_DownloadFile_Call{Call: _e.mock.On("DownloadFile", downloadFileRequest)}
+}
+
+func (_c *TelegramRepo_DownloadFile_Call) Run(run func(downloadFileRequest *client.DownloadFileRequest)) *TelegramRepo_DownloadFile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.DownloadFileRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.DownloadFileRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *TelegramRepo_DownloadFile_Call) Return(file *client.File, err error) *TelegramRepo_DownloadFile_Call {
+	_c.Call.Return(file, err)
+	return _c
+}
+
+func (_c *TelegramRepo_DownloadFile_Call) RunAndReturn(run func(downloadFileRequest *client.DownloadFileRequest) (*client.File, error)) *TelegramRepo_DownloadFile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendMessageAlbum provides a mock function for the type TelegramRepo
 func (_mock *TelegramRepo) SendMessageAlbum(sendMessageAlbumRequest *client.SendMessageAlbumRequest) (*client.Messages, error) {
 	ret := _mock.Called(sendMessageAlbumRequest)
