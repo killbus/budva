@@ -21,12 +21,12 @@
 # must not re-pay the 20-25 min cold build on the next run. The combined
 # action only saves in its post-step on green jobs.
 #
-# The cold-cache build is the Dockerfile's exact recipe: --parallel 2 —
+# The cold-cache build follows the Dockerfile recipe: --parallel 2 —
 # full-core builds OOM the 16GB runner ~87% into the compile (see
-# docker-ci-guidelines; that lesson is paid for). Two deviations the
-# Dockerfile never needs (container runs as root, runner does not):
-# `sudo` on the install target and on the tarball extract — /usr/local is
-# root-owned on a hosted runner.
+# docker-ci-guidelines; that lesson is paid for). Runner-only deviations
+# the Dockerfile never needs: the current hosted CMake policy override,
+# plus `sudo` on the install target and on the tarball extract —
+# /usr/local is root-owned on a hosted runner; the container runs as root.
 #
 # Test scope: ./internal/... only. test/bdd needs a live Telegram account
 # (LiveStack), test/smoke is a //go:build smoke compose stack, cmd/ holds
@@ -90,16 +90,16 @@ jobs:
           sudo ldconfig
 
       - name: Build TDLib (cold cache)
-        # Verbatim Dockerfile recipe (pin + --parallel 2), with the one
-        # runner-only deviation: sudo on the install target (writes into
-        # root-owned /usr/local). The build dir stays in /tmp — outside
-        # the workspace and outside the cache.
+        # Dockerfile recipe (pin + --parallel 2) with runner-only
+        # deviations: the current hosted CMake policy override, and sudo
+        # on the install target (writes into root-owned /usr/local). The
+        # build dir stays in /tmp — outside the workspace and cache.
         if: steps.tdlib.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/tdlib/td.git /tmp/td
           cd /tmp/td && git checkout 22d49d5
           mkdir build && cd build && \
-            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+            cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
             cmake --build . --parallel 2 --target prepare_cross_compiling && \
             cd .. && php SplitSource.php && cd build && \
             sudo cmake --build . --parallel 2 --target install

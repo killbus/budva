@@ -1,0 +1,38 @@
+{
+  "round": 1,
+  "scope": "Owner-approved narrow CI extension for PR #16: apply the saved CMake policy override to the existing pinned TDLib configure command and correct only the workflow comments that claimed the recipe was verbatim or listed the sudo uses as the only deviations.",
+  "changed_paths": [
+    ".github/workflows/ci-test.yml",
+    ".trellis/tasks/11-25-facade-file-download/review/ci-responses.json"
+  ],
+  "workflow_changes": [
+    {
+      "location": ".github/workflows/ci-test.yml:103",
+      "intent": "Added -DCMAKE_POLICY_VERSION_MINIMUM=3.5 to the existing TDLib configure command as suggested by the PR #16 CMake diagnostic, exactly as in the saved candidate patch."
+    },
+    {
+      "location": ".github/workflows/ci-test.yml file-header comment",
+      "intent": "Changed 'the Dockerfile's exact recipe' to 'follows the Dockerfile recipe' and updated the runner-only deviation list to include the current hosted CMake policy override alongside the two sudo uses."
+    },
+    {
+      "location": ".github/workflows/ci-test.yml Build TDLib (cold cache) step comment",
+      "intent": "Replaced 'Verbatim Dockerfile recipe ... with the one runner-only deviation: sudo on the install target' with recipe wording that lists the hosted CMake policy override and sudo as the runner-only deviations."
+    }
+  ],
+  "commands": [
+    "git diff -- .github/workflows/ci-test.yml",
+    "git diff --check -- .github/workflows/ci-test.yml",
+    "yq eval '.' .github/workflows/ci-test.yml",
+    "Select-String -Path .github/workflows/ci-test.yml -Pattern 'checkout 22d49d5', 'key: tdlib-22d49d5-amd64', '--parallel 2', '-DCMAKE_POLICY_VERSION_MINIMUM=3.5', 'go vet ./...', 'go test ./internal/...'"
+  ],
+  "validation": {
+    "whitespace": "git diff --check on the workflow produced no output and exit code 0.",
+    "yaml": "yq eval '.' parsed .github/workflows/ci-test.yml successfully (exit code 0). Python PyYAML was not available, so yq was used as the dependency-free YAML parser.",
+    "preserved_contracts": "Pin checkout 22d49d5: 1 hit; cache key tdlib-22d49d5-amd64: 2 hits (restore and save); --parallel 2: 4 hits; the policy flag is exactly 1 hit on the configure line; vet command go vet ./...: 1 hit; test command go test ./internal/...: 1 hit.",
+    "scope_check": "No Dockerfile, Go, proto, design, prd, or spec file was edited. Spec and task metadata remain owned by the orchestrator."
+  },
+  "limitations": [
+    "No local Go vet or Go test was run; go-tdlib requires Linux/Darwin cgo and is unbuildable on this Windows worktree.",
+    "No CI run was performed here; YAML parsing and diff inspection are static checks only. The authorized separate commit and push to PR #16 remain to trigger the authoritative Linux cold-cache TDLib build, install, vet, and test run."
+  ]
+}

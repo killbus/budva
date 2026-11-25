@@ -4,8 +4,15 @@
 
 The implementation is in the `feat/facade-file-download` worktree, based on
 `fbc22cc`. The owner confirmed the two local commit batches. Implementation
-commit: `d22b3072f4e1b96a8f62e4c5d61b3acff55feac7`. The branch has not been
-published or merged; Linux CI is pending.
+commit: `d22b3072f4e1b96a8f62e4c5d61b3acff55feac7`. The owner subsequently
+authorized publication. The branch was pushed to origin at
+`3ba0cd6f78b3881fdc0db00c850794d1900a2a2b` (task-record commit); no merge has
+occurred. PR https://github.com/killbus/budva/pull/16 is open against main.
+Linux ci-test failed at
+https://github.com/killbus/budva/actions/runs/45613676314 for that head:
+the pinned TDLib build's CMake configuration was rejected before Go
+checks could run. See `review/ci-evidence.md` for the failure and implemented
+CI compatibility patch; independent CI review passed, Linux rerun pending.
 
 - `GetMessageFile(chat_id, message_id)` resolves one of eight media types,
   downloads the file synchronously, and returns `file_path`, `size`,
@@ -29,6 +36,10 @@ published or merged; Linux CI is pending.
   `aa54f5bf-a47e-48ee-95b7-6ab0cdf91770`.
 - Local evidence: clean gofmt, generated protobuf byte identity, source
   field checks against go-tdlib v0.7.6, and `git diff --check`.
+- CI extension review: PASS, round 1, no blockers, recorded in
+  `review/ci-findings.json`. CI-N1's header comment clarification is applied;
+  CI-N2 notes the existing CRLF convention. YAML parsing and workflow/spec
+  whitespace checks passed; this does not establish Linux test success.
 - Task-record staging preserves CRLF/mixed line endings from the reviewed
   artifacts. Check these with `core.whitespace=cr-at-eol`; the locked
   `design.md` also retains its reviewed trailing blank line at EOF, so
@@ -36,7 +47,8 @@ published or merged; Linux CI is pending.
   changed. These formatting exceptions do not apply to implementation code.
 - Test coverage and red paths were inspected statically. No Go build, vet,
   test suite, executed mutation test, or live Telegram download was run in
-  this Windows environment. Linux `ci-test.yml` is still pending.
+  this Windows environment. Linux `ci-test.yml` ran but failed during TDLib
+  configuration; both go vet and go test were skipped.
 
 ### Non-blocking review follow-ups
 
@@ -51,12 +63,16 @@ published or merged; Linux CI is pending.
 
 ### Spec-sync assessment (workflow §3.3)
 
-No spec files change in this ticket. The existing
+The facade implementation required no spec changes. The existing
 `telegram-tdlib-guidelines.md` already requires an adapter limited to live
 consumers, preserves plain wrappers for operations outside chat warmup,
 and documents the Windows cgo limitation. `quality-guidelines.md` already
 requires strict mock expectations and a known red path. This implementation
 uses those rules without introducing a new cross-project pattern.
+
+The later owner-approved CI extension adds the observed CMake compatibility
+failure and runner-only policy override to `docker-ci-guidelines.md`. See
+`ci-scope-addendum.md`; the original facade design and review stay locked.
 
 Task-specific lessons are retained in the research/revision records:
 verify dependency fields in both production code and test fixtures against
@@ -102,15 +118,18 @@ Do not stage the main checkout, the proto symlink, or scratch worktrees.
 
 ## Remaining gates
 
-1. Publication requires owner authorization; commit approval by itself
-   does not authorize a push (workflow §3.4).
-2. Create a PR targeting `main` or dispatch `ci-test.yml` for the feature
-   branch. A feature-branch push alone does not trigger the workflow.
-   The last verified `gh` authentication state was unavailable; recheck
-   before deciding whether the owner must perform the GitHub action.
-3. Record a successful Linux CI run for the current PR head/dispatch SHA;
+Authentication is resolved: after disclosure of the initial auto-review
+rejection, the owner explicitly authorized GCM. Its GitHub credential was
+used only in the process environment to authenticate gh, without logging
+or saving the token. PR #16 was created and triggered ci-test.
+
+1. Publish the implemented and independently reviewed CI compatibility fix:
+   append the separate `fix(ci): support current CMake for pinned TDLib`
+   commit to PR #16. Scope/commit/push approval is recorded in
+   `ci-scope-addendum.md`; no additional confirmation is needed.
+2. Record a successful Linux CI run for the current PR head/dispatch SHA;
    repair any failures through the existing implement/review loop.
-4. Merge only with explicit owner approval, then archive/journal the task.
+3. Merge only with explicit owner approval, then archive/journal the task.
 
 Do not mark the task completed or claim the full suite passed before these
 gates are resolved.
