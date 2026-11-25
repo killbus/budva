@@ -1,0 +1,48 @@
+{
+  "id": "facade-file-download",
+  "name": "facade-file-download",
+  "title": "Facade gRPC file download (GetMessageFile + DownloadFile)",
+  "description": "Expose Telegram file download through the facade gRPC surface: additive GetMessageFile (message to downloaded local path) and DownloadFile (file_id to local path) RPCs, wired through app/facade and infra/telegram following the existing clientAdapter/Repo pattern. No byte streaming, no progress updates, no existing-RPC changes.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "facade gRPC surface + app/facade + infra/telegram passthrough; no engine/ruleset/GraphQL change",
+  "package": "internal/app/facade;internal/transport/grpc;internal/infra/telegram",
+  "priority": "P2",
+  "creator": "killbus",
+  "assignee": "killbus",
+  "createdAt": "2026-11-25",
+  "completedAt": null,
+  "branch": "feat/facade-file-download",
+  "base_branch": "main",
+  "worktree_path": "D:\\Users\\ying\\.paseo\\worktrees\\1fum0qdo\\feat-facade-file-download",
+  "commit": "d22b3072f4e1b96a8f62e4c5d61b3acff55feac7",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "internal/transport/grpc/pb/facade.proto",
+    "internal/app/facade/service.go",
+    "internal/app/facade/errors.go",
+    "internal/infra/telegram/client_adapter.go",
+    "internal/transport/grpc/transport.go"
+  ],
+  "notes": "Verification channel: Windows cannot compile go-tdlib (cgo linux/darwin only); GitHub Actions ci-test.yml (Linux, real TDLib static libs) is the authoritative vet/test gate per docs in .github/workflows/ci-test.yml. debian Linux host unreachable from this box (192.168.216.3:22 timeout, 2026-11-25). Loop runs per 11-05 convention: P1 Design Reviewer gate -> approval.md (design_sha256) -> P2 Implementer (profile) -> P3 independent Reviewer (profile) -> P4 closeout (owner gate for push/PR/merge).",
+  "meta": {
+    "paseo_workspace_id": "wks_f2273f16466b0ea3",
+    "design_gate": {"verdict": "PASS", "round": 4},
+    "implementation_round": 2,
+    "code_review": {
+      "verdict": "PASS",
+      "round": 1,
+      "agent_id": "aa54f5bf-a47e-48ee-95b7-6ab0cdf91770",
+      "findings": "review/findings.json"
+    },
+    "closeout": "review/closeout.md",
+    "ci_status": "not_run",
+    "commit_status": "local_committed",
+    "commit_approval": "Owner confirmed the two local commit batches; publication was not included.",
+    "task_record_commit_subject": "chore(task): record facade file download review (11-25)",
+    "publication_status": "not_pushed"
+  }
+}

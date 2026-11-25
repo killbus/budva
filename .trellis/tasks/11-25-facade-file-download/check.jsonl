@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "adapter layering + error model compliance for new passthroughs"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "test quality bar: red-path proof, no weakened assertions, mock discipline"}
+{"file": ".trellis/tasks/11-25-facade-file-download/research/tdlib-file-download-api.md", "reason": "API facts to verify against the implementation"}
