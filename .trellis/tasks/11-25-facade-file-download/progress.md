@@ -326,3 +326,53 @@
   to associate root ownership only with sudo. CI-N2 is informational:
   existing task metadata CRLF is preserved. The approved separate commit
   is ready for publication; Linux cold-build/vet/test results remain open.
+- CI repair published: 518bfcc3b167512f089403d1709fb5bd38a6c2e0,
+  `fix(ci): support current CMake for pinned TDLib`, nine explicit paths.
+  PR #16 head verified; REST body update used existing repo permissions.
+  Run 45630679946 entered the TDLib cold build at 2026-11-25T14:08:09Z;
+  vet/tests pending. A bounded read-only heartbeat (e9c14965, max 15 runs,
+  45 minutes) monitors only this run after a broader automation proposal
+  was rejected. No merge or successful Linux validation is claimed.
+- Linux CI PASS: run 45630679946 completed at 2026-11-25T14:30:49Z on
+  exact head 518bfcc. TDLib cold build/cache, go vet and go test all passed.
+  Read-only heartbeat deleted after completion; final records updated when
+  the owner's subsequent image-publication request resumed execution.
+- Acceptance image authorized and dispatched: docker-publish run
+  45640542028 (#22), source 518bfcc, expected dev-run22-518bfcc; publishes
+  ghcr.io/killbus/budva:dispatch-test only after both architecture smokes.
+  review/acceptance.md explains server-local paths, image/version checks,
+  RPC calls and file retrieval. Image build and live acceptance pending.
+- Owner stopped publication and questioned the path-only contract. Run
+  45640542028 cancelled (both builds and merge); push steps skipped and
+  dispatch-test not updated. Explain server-streaming support before any
+  further implementation/publication. Original CI PASS tests path-only
+  behavior; client-byte delivery remains unimplemented.
+- Owner explicitly rejected waiting for the complete TDLib download before
+  gRPC streaming. PRD now requires actual payload before upstream completion,
+  safe incremental reads, bounded memory/backpressure and cancellation
+  ownership. Historical PRD/design/approval/reviews retained in
+  review/path-only; former hash lock superseded. Design gate reopened under
+  review/streaming-scope.md, revision baseline 518bfcc. No source changes yet.
+- Design Reviser profile dispatched as a98b44dc-f2e8-49cc-af9e-84ae855617c9
+  (codex/remote-magpie/auto/glm-5.3-flash, auto-review, high) to rewrite only
+  design.md and streaming revision notes against corrected PRD. Independent
+  native facts recorded in research/progressive-download-facts.md and sent
+  to the running reviser. Design review and implementation remain pending.
+- Design Reviser stopped with max_output_tokens before writing any files.
+  Resumed the same agent with a bounded artifact-first instruction; retain
+  completed research and choose a simple callback-based read/send loop.
+  Prepared review/streaming-review-brief.md for the independent fresh gate.
+- The resumed Design Reviser again exhausted max_output_tokens without
+  artifacts. Orchestrator replaced design.md and wrote
+  review/streaming-revision-notes.md, using the already-verified SDK/native
+  facts. New design specifies progressive callbacks, race-safe terminal
+  observation, explicit shared-cache cancellation policy, Linux mutation
+  evidence and a runnable cgo-free acceptance client. Independent design
+  gate pending; implementation and publication remain pending.
+- 2026-11-26: Independent streaming Design Reviewer returned PASS round 1,
+  D1-D8 met, no blockers, against design SHA256 ff408bb8ae45f9155468a271ac285ac2bf5578f53d08bf010d1010e2d475147d.
+  Locked review/approval.md, replaced obsolete implement.md, refreshed
+  context indexes and prepared review/streaming-code-brief.md. Establish
+  planning-only commit before implementation; source not yet changed.
+  Reuse configured Implementer in bounded phases (production chain, then
+  complete acceptance/validation artifacts) with the same locked design.

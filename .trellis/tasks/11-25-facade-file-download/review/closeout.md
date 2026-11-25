@@ -12,7 +12,14 @@ Linux ci-test failed at
 https://github.com/killbus/budva/actions/runs/45613676314 for that head:
 the pinned TDLib build's CMake configuration was rejected before Go
 checks could run. See `review/ci-evidence.md` for the failure and implemented
-CI compatibility patch; independent CI review passed, Linux rerun pending.
+CI compatibility patch. Independent CI review passed; repair commit
+`518bfcc3b167512f089403d1709fb5bd38a6c2e0` is published to PR #16.
+Run https://github.com/killbus/budva/actions/runs/45630679946 completed
+successfully for that head: cold TDLib build/cache, vet and tests passed.
+The owner subsequently requested an acceptance image. Docker publication
+run https://github.com/killbus/budva/actions/runs/45640542028 was cancelled
+when the owner questioned whether the path-only behavior met the intended
+download contract. Both push steps were skipped; no test image published.
 
 - `GetMessageFile(chat_id, message_id)` resolves one of eight media types,
   downloads the file synchronously, and returns `file_path`, `size`,
@@ -47,8 +54,9 @@ CI compatibility patch; independent CI review passed, Linux rerun pending.
   changed. These formatting exceptions do not apply to implementation code.
 - Test coverage and red paths were inspected statically. No Go build, vet,
   test suite, executed mutation test, or live Telegram download was run in
-  this Windows environment. Linux `ci-test.yml` ran but failed during TDLib
-  configuration; both go vet and go test were skipped.
+  this Windows environment. The first Linux run failed during TDLib
+  configuration; the second Linux run 45630679946 passed the cold build,
+  `go vet ./...` and `go test ./internal/...` on the published repair head.
 
 ### Non-blocking review follow-ups
 
@@ -123,13 +131,12 @@ rejection, the owner explicitly authorized GCM. Its GitHub credential was
 used only in the process environment to authenticate gh, without logging
 or saving the token. PR #16 was created and triggered ci-test.
 
-1. Publish the implemented and independently reviewed CI compatibility fix:
-   append the separate `fix(ci): support current CMake for pinned TDLib`
-   commit to PR #16. Scope/commit/push approval is recorded in
-   `ci-scope-addendum.md`; no additional confirmation is needed.
-2. Record a successful Linux CI run for the current PR head/dispatch SHA;
-   repair any failures through the existing implement/review loop.
-3. Merge only with explicit owner approval, then archive/journal the task.
+1. Resolve the contract mismatch: gRPC supports file-byte server streaming,
+   while this implementation returns only server-local paths. Publication
+   is stopped; the previous path-based acceptance guide is a retained draft.
+   Any streaming implementation needs revised requirements/design/review,
+   then CI and image acceptance before merge readiness can be reassessed.
+2. Merge only with explicit owner approval, then archive/journal the task.
 
 Do not mark the task completed or claim the full suite passed before these
 gates are resolved.

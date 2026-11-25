@@ -61,3 +61,64 @@ Authentication no longer blocks work: the owner explicitly authorized
 GCM after the prior auto-review denial. GCM authenticated gh successfully
 with a process-only token; PR creation and CI inspection completed without
 printing or saving credentials. No merge has occurred.
+
+## Published repair and second Linux run
+
+- Repair commit: `518bfcc3b167512f089403d1709fb5bd38a6c2e0`,
+  `fix(ci): support current CMake for pinned TDLib`.
+- Pushed to the existing PR #16; the PR head matches the repair commit.
+- Run: https://github.com/killbus/budva/actions/runs/45630679946
+- Job: https://github.com/killbus/budva/actions/runs/45630679946/job/139262701945
+- Status observed: `in_progress`; `Build TDLib (cold cache)` started at
+  `2026-11-25T14:08:09Z`. Cache unpack was skipped, so the cold path is
+  exercised. `go vet` and `go test` remain pending, with no success claim.
+- CI-N1 was corrected before commit; final YAML parse, explicit nine-file
+  staging manifest, CRLF-aware staged whitespace check, and design hash
+  validation all passed. Original code/design review records are intact.
+- `gh pr edit` requested organization fields beyond the token's scopes;
+  the PR body was successfully updated through the repository REST API
+  using existing permissions. No additional token scopes were requested.
+- A proposed repair-and-publication heartbeat was rejected by automatic
+  approval review as too broad. The accepted alternative `e9c14965` is
+  limited to read-only status checks for this run, every three minutes,
+  at most 15 times / 45 minutes. It cannot edit files, commit, push, edit
+  PRs, launch repairs, merge, or trigger workflows.
+
+## Final Linux result
+
+Run `45630679946`, exact head `518bfcc3b167512f089403d1709fb5bd38a6c2e0`,
+completed successfully at `2026-11-25T14:30:49Z`. Cold TDLib build succeeded
+at `14:29:35Z`, cache save at `14:29:36Z`, `go vet ./...` at `14:30:12Z`,
+and `go test ./internal/...` at `14:30:43Z`. Read-only monitoring was deleted
+after completion. The subsequent user request to publish an acceptance
+image resumes record maintenance; the monitor itself made no file edits.
+
+## Acceptance image publication
+
+The owner requested a dispatch-test-like image for live acceptance.
+Existing `docker-publish.yml` was dispatched on `feat/facade-file-download`
+after checking its remote head equals the successful CI source SHA.
+
+- Run: https://github.com/killbus/budva/actions/runs/45640542028
+- Run number: 22; source: `518bfcc3b167512f089403d1709fb5bd38a6c2e0`.
+- Expected binary version: `dev-run22-518bfcc`.
+- Destination tag: `ghcr.io/killbus/budva:dispatch-test` (mutable).
+- Current status: building; both native architectures must build and pass
+  smoke before the workflow updates the multi-architecture tag.
+- No workflow/source edits, release tag, latest-tag publication or merge.
+- Live acceptance procedure: `review/acceptance.md`. Downloaded files live
+  on the facade server/container; the RPC returns metadata, not bytes.
+
+### Publication stopped for requirement alignment
+
+The owner said "等等" and questioned whether downloading only to the
+facade container was the intended contract, asking whether gRPC supports
+streaming. gRPC does support server streaming; the path-only behavior was
+a design scope choice, not a protocol restriction. No streaming revision
+has been implemented or reviewed yet.
+
+Cancellation of run `45640542028` was confirmed: status `completed`,
+conclusion `cancelled`, both architecture jobs and merge job cancelled.
+Both push steps were skipped. This run did not update `dispatch-test`.
+The earlier CI PASS remains valid only for the existing path-only code;
+it is not evidence that client-side file download is implemented.

@@ -1,7 +1,8 @@
 {"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "go-tdlib adapter contracts: clientAdapter 1:1 passthrough rule, error model, cgo build constraint"}
 {"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "test red-path proof (F2), mock discipline (F1), assertion hygiene, R3 red-path comment rule"}
 {"file": ".trellis/spec/backend/docker-ci-guidelines.md", "reason": "ci-test workflow contract: what CI runs, TDLib cache, why local build is impossible on Windows"}
-{"file": ".trellis/tasks/11-25-facade-file-download/research/tdlib-file-download-api.md", "reason": "TDLib/go-tdlib v0.7.6 file-download API facts, message-content->file mapping table, success oracle shape"}
-{"file": "internal/transport/grpc/pb/facade.proto", "reason": "existing gRPC contract; additive-only rule anchor (16 existing RPCs, existing field numbers)"}
+{"file": ".trellis/tasks/11-25-facade-file-download/research/progressive-download-facts.md", "reason": "Pinned SDK and native safe-prefix/read/completion facts for streaming; supersedes path-only oracle"}
+{"file": ".trellis/tasks/11-25-facade-file-download/review/approval.md", "reason": "Independent streaming design lock and implementation baseline"}
+{"file": "internal/transport/grpc/pb/facade.proto", "reason": "Replace two unreleased methods with streams; preserve all 15 main-baseline RPCs and contracts"}
 {"file": "internal/app/facade/service.go", "reason": "partial telegramRepo interface + raw-TDLib service pattern to extend"}
 {"file": "internal/infra/telegram/client_adapter.go", "reason": "clientAdapter interface + Repo wrapper patterns (withChatReady vs bare passthrough)"}

@@ -1,65 +1,35 @@
-# Approval — design lock (11-25 facade-file-download)
+# Approval — progressive streaming design lock
 
 - task: `.trellis/tasks/11-25-facade-file-download`
-- base_commit: `fbc22cc`
+- revision_baseline: `518bfcc3b167512f089403d1709fb5bd38a6c2e0`
+- public_api_baseline: `fbc22cc`
 - design: `design.md`
-- design_sha256: `e6f3d19ff4edf88df1138e56fa0c86533281359670cf8775393311b3b4b90c75`
-- approved_round: 4
-- verdict: PASS (D1-D8 met, no blocking findings)
-- reviewer: Design Reviewer (paseo agent `36594bbf-03bb-4428-b10e-c5920fb60433`)
-- approved_at: 2026-11-25
-- supersedes: round-2 lock (design_sha256 `653f4a18122e3bd6acc95ddcad5119290cdb89de3d9ba2975942f14fc45c4d89`),
-  invalidated by the G2/G3 design revisions.
+- design_sha256: `ff408bb8ae45f9155468a271ac285ac2bf5578f53d08bf010d1010e2d475147d`
+- prd_sha256: `6d0055f5f8e05acbb7c3f3a8983940b1ac4381126bd791c3da4df4386de9a57d`
+- approved_round: 1 (fresh independent streaming gate)
+- verdict: PASS, done=true, D1-D8 met, blocking_findings empty
+- reviewer: configured Design Reviewer profile, agent
+  `36594bbf-03bb-4428-b10e-c5920fb60433`, server `srv_mJRvlG6BX3ck`
+- findings: `review/streaming-design-findings.json`
+- recorded_at: 2026-11-26
+- implementation_base: planning-only commit containing this lock, subject
+  `docs(task): lock progressive facade download design (11-25)`;
+  orchestrator supplies its resolved SHA to implementation/review dispatch.
 
-## Round history
+The reviewed design bytes are unchanged. Its opening proposed-status line
+describes the submission state; this signed-off gate record establishes the
+current implementation lock without modifying the reviewed artifact.
 
-- Round 1: FAIL — G1 (D6): prd R1's "optional variant selection" had no design
-  landing point. Orchestrator resolution: PRD is the intent source; the user
-  requirement was download capability only (variant selection = YAGNI).
-  `prd.md` revised (R1 narrowed to chat_id+message_id; variant selection moved
-  to Non-goals). Design Reviser (agent
-  `270e40fa-6155-48f2-92b7-32fb9e7ca129`) aligned `design.md` via option (b):
-  new non-goal N8 + §1/§3/§5/§6/§9/§11 wording alignment
-  (`review/revision-notes.md`).
-- Round 2: PASS — G1 verified resolved against the revised prd.md/design.md;
-  no new D1-D8 violations. (Lock superseded by the G2/G3 revisions.)
-- Round 3: FAIL — G2 (D4): design §6.5 used the nonexistent
-  `GetFileMimeTypeRequest{FileId}` (real struct carries only `FileName`,
-  function.go:6366-6369) and the `GetFile` passthrough has no live consumer;
-  plus G3: the §2 mapping table carried 6/8 wrong go-tdlib field names
-  (`MessageVoice` does not exist; it is `MessageVoiceNote`). Resolution
-  (Revisers `96d3ade5` — Revision 2, `c5aefa1b` — Revision 3): `mime_type`
-  derived from the resolved message content (§6.5 table); adapter growth
-  narrowed to `DownloadFile` only (§6/§8); §2 table corrected to the real
-  v0.7.6 fields with line anchors; prd.md R3 defers the wrapper set to
-  design §8. See `review/revision-notes.md`.
-- Round 4: PASS — G1/G2/G3 all verified resolved (table cells checked
-  cell-by-cell against the pinned go-tdlib v0.7.6 module cache); D1-D8 met;
-  no new violations; no regressions. **This is the lock.**
+This lock supersedes the rejected path-only design. Historical approval and
+reviews are retained in review/path-only; old green CI validates only the
+old implementation. This is a design gate, not runtime or owner acceptance.
 
-## Non-blocking assumption notes (from the gate)
+The reviewer verified pinned SDK signatures, native safe-prefix/EOF semantics,
+main compatibility and every A1-A8 verification landing point. Non-blocking
+implementation reminders: model actual Full-location remaining bytes in the
+unknown-size fake; enforce a unique CI mutation anchor; label all old CI as
+historical. See the report for the complete assumptions list.
 
-- [ASSUMPTION] §1 photo variant = max `PhotoSize.Photo.Size`, ties -> last in
-  slice order (mechanical definition; prd fixes only "largest variant").
-- [ASSUMPTION] §6.3 `DownloadFile` `Priority: 16` (mid of TDLib's 1-32).
-- [ASSUMPTION] §6.5 `mime_type` is best-effort, derived from the resolved
-  message content: photo -> `"image/jpeg"` (PhotoSize has no MIME field);
-  video/document/audio/animation/voiceNote -> their `MimeType` field;
-  sticker/videoNote -> `""`. `GetFileMimeType` is NOT part of the contract
-  (see §1 Revision 2 fact note).
-- [ASSUMPTION] §7 `FileDownloadFailedError` -> `codes.Internal` (no dedicated
-  gRPC code; PRD R4 defers the mapping to §7).
-- [ASSUMPTION] §8 `FloodWaitFromError` wrap on `Repo.DownloadFile` is
-  defensive only.
-- N8: no client-selectable photo variant selection in this ticket (largest
-  variant only); an additive proto field can be introduced later
-  (forward-compatible).
-
-## Note for P2 (implementer)
-
-The uncommitted worktree code predates this lock (it was written against the
-superseded round-2 design). It must be realigned to this lock: mime from
-message content fields, `GetFile`/`GetFileMimeType` passthroughs removed from
-`client_adapter.go` + mocks + tests, adapter growth = `DownloadFile` only.
-See `review/design-findings.json` (round 4, process note),
-`review/revision-notes.md` (Revisions 2-3), and `implement.md` steps 3/5.
+Implementer may not change PRD/design/plan/spec. If a real conflict is found,
+write review/spec-gap.md and stop the affected portion. Merge remains an owner
+gate; test image publication requires reviewed streaming code and Linux green.
