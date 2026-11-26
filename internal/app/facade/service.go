@@ -2,7 +2,6 @@ package facade
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
@@ -29,6 +28,9 @@ type telegramRepo interface {
 	GetMessages(*client.GetMessagesRequest) (*client.Messages, error)
 	GetMessageLinkInfo(*client.GetMessageLinkInfoRequest) (*client.MessageLinkInfo, error)
 	DownloadFile(*client.DownloadFileRequest) (*client.File, error)
+	GetFile(*client.GetFileRequest) (*client.File, error)
+	GetFileDownloadedPrefixSize(*client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error)
+	ReadFilePart(*client.ReadFilePartRequest) (*client.FilePart, error)
 	GetMe() (*client.User, error)
 	GetOption(*client.GetOptionRequest) (client.OptionValue, error)
 	SearchPublicChat(*client.SearchPublicChatRequest) (*client.Chat, error)
@@ -51,75 +53,6 @@ func New(telegramRepo telegramRepo) *Service {
 // GetMessage возвращает сообщение по ID.
 func (s *Service) GetMessage(_ context.Context, chatID int64, messageID int64) (*client.Message, error) {
 	return s.telegramRepo.GetMessage(&client.GetMessageRequest{ChatId: chatID, MessageId: messageID})
-}
-
-// GetMessageFile resolves message media, downloads it synchronously and returns the local file.
-func (s *Service) GetMessageFile(_ context.Context, chatID, messageID int64) (*client.File, string, error) {
-	msg, err := s.telegramRepo.GetMessage(&client.GetMessageRequest{ChatId: chatID, MessageId: messageID})
-	if err != nil {
-		return nil, "", err
-	}
-	var file *client.File
-	var mimeType string
-	switch content := msg.Content.(type) {
-	case *client.MessagePhoto:
-		mimeType = "image/jpeg"
-		if content.Photo != nil {
-			for _, size := range content.Photo.Sizes {
-				if size != nil && size.Photo != nil && (file == nil || size.Photo.Size >= file.Size) {
-					file = size.Photo
-				}
-			}
-		}
-	case *client.MessageVideo:
-		file = content.Video.Video
-		mimeType = content.Video.MimeType
-	case *client.MessageDocument:
-		file = content.Document.Document
-		mimeType = content.Document.MimeType
-	case *client.MessageAudio:
-		file = content.Audio.Audio
-		mimeType = content.Audio.MimeType
-	case *client.MessageVoiceNote:
-		file = content.VoiceNote.Voice
-		mimeType = content.VoiceNote.MimeType
-	case *client.MessageAnimation:
-		file = content.Animation.Animation
-		mimeType = content.Animation.MimeType
-	case *client.MessageVideoNote:
-		file = content.VideoNote.Video
-	case *client.MessageSticker:
-		file = content.Sticker.Sticker
-	}
-	if file == nil {
-		return nil, "", NewMessageFileNotFoundError(chatID, messageID)
-	}
-	file, err = s.downloadFile(file.Id)
-	if err != nil {
-		return nil, "", err
-	}
-	return file, mimeType, nil
-}
-
-// DownloadFile synchronously downloads a caller-supplied TDLib file ID.
-func (s *Service) DownloadFile(_ context.Context, fileID int32) (*client.File, error) {
-	return s.downloadFile(fileID)
-}
-
-func (s *Service) downloadFile(fileID int32) (*client.File, error) {
-	file, err := s.telegramRepo.DownloadFile(&client.DownloadFileRequest{
-		FileId:      fileID,
-		Priority:    16,
-		Synchronous: true,
-	})
-	if err != nil {
-		return nil, NewFileDownloadFailedError(fileID, err)
-	}
-	if file == nil || file.Local == nil || !file.Local.IsDownloadingCompleted || file.Local.Path == "" {
-		cause := errors.New("download did not produce a completed local copy")
-		return nil, NewFileDownloadFailedError(fileID, cause)
-	}
-	return file, nil
 }
 
 // SendMessage отправляет текстовое сообщение.

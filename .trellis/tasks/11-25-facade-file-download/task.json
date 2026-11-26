@@ -31,7 +31,7 @@
   "meta": {
     "paseo_workspace_id": "wks_f2273f16466b0ea3",
     "design_gate": {"verdict": "PASS", "round": 1, "phase": "progressive_streaming", "design_sha256": "ff408bb8ae45f9155468a271ac285ac2bf5578f53d08bf010d1010e2d475147d", "reviewer_agent": "36594bbf-03bb-4428-b10e-c5920fb60433", "findings": "review/streaming-design-findings.json", "approval": "review/approval.md", "history": "review/path-only/"},
-    "streaming_implementation": {"status": "ready_for_profile_implementer", "round": 1, "baseline_commit_subject": "docs(task): lock progressive facade download design (11-25)", "responses": "review/streaming-responses.json", "code_review": "pending", "findings": "review/streaming-findings.json", "linux_validation": "pending"},
+    "streaming_implementation": {"status": "static_review_pass_linux_pending", "round": 1, "baseline_commit": "8faac1bf45319b917936d2e1f923f5af28b0582c", "baseline_commit_subject": "docs(task): lock progressive facade download design (11-25)", "responses": "review/streaming-responses.json", "integration_fixes": "review/streaming-orchestrator-fixes.md", "client_validation": "passed_12_simulated_cases_windows_cgo_free", "client_evidence": "review/streaming-client-evidence.md", "code_review": "PASS_static_round_1", "reviewer_agent": "aa54f5bf-a47e-48ee-95b7-6ab0cdf91770", "findings": "review/streaming-findings.json", "nonblocking_followup": "review/streaming-review-followup.md", "linux_validation": "pending", "acceptance_guide": "review/streaming-acceptance.md", "acceptance_image": "pending_linux_validation", "live_telegram_acceptance": "pending"},
     "implementation_round": 2,
     "code_review": {
       "verdict": "PASS",

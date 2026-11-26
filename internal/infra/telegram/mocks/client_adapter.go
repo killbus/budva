@@ -160,6 +160,192 @@ func (_c *ClientAdapter_DownloadFile_Call) RunAndReturn(run func(downloadFileReq
 	return _c
 }
 
+// GetFile provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) GetFile(getFileRequest *client.GetFileRequest) (*client.File, error) {
+	ret := _mock.Called(getFileRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFile")
+	}
+
+	var r0 *client.File
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.GetFileRequest) (*client.File, error)); ok {
+		return returnFunc(getFileRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.GetFileRequest) *client.File); ok {
+		r0 = returnFunc(getFileRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.File)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.GetFileRequest) error); ok {
+		r1 = returnFunc(getFileRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_GetFile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFile'
+type ClientAdapter_GetFile_Call struct {
+	*mock.Call
+}
+
+// GetFile is a helper method to define mock.On call
+//   - getFileRequest *client.GetFileRequest
+func (_e *ClientAdapter_Expecter) GetFile(getFileRequest interface{}) *ClientAdapter_GetFile_Call {
+	return &ClientAdapter_GetFile_Call{Call: _e.mock.On("GetFile", getFileRequest)}
+}
+
+func (_c *ClientAdapter_GetFile_Call) Run(run func(getFileRequest *client.GetFileRequest)) *ClientAdapter_GetFile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.GetFileRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.GetFileRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_GetFile_Call) Return(file *client.File, err error) *ClientAdapter_GetFile_Call {
+	_c.Call.Return(file, err)
+	return _c
+}
+
+func (_c *ClientAdapter_GetFile_Call) RunAndReturn(run func(getFileRequest *client.GetFileRequest) (*client.File, error)) *ClientAdapter_GetFile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetFileDownloadedPrefixSize provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) GetFileDownloadedPrefixSize(getFileDownloadedPrefixSizeRequest *client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error) {
+	ret := _mock.Called(getFileDownloadedPrefixSizeRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFileDownloadedPrefixSize")
+	}
+
+	var r0 *client.FileDownloadedPrefixSize
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error)); ok {
+		return returnFunc(getFileDownloadedPrefixSizeRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.GetFileDownloadedPrefixSizeRequest) *client.FileDownloadedPrefixSize); ok {
+		r0 = returnFunc(getFileDownloadedPrefixSizeRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.FileDownloadedPrefixSize)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.GetFileDownloadedPrefixSizeRequest) error); ok {
+		r1 = returnFunc(getFileDownloadedPrefixSizeRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_GetFileDownloadedPrefixSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFileDownloadedPrefixSize'
+type ClientAdapter_GetFileDownloadedPrefixSize_Call struct {
+	*mock.Call
+}
+
+// GetFileDownloadedPrefixSize is a helper method to define mock.On call
+//   - getFileDownloadedPrefixSizeRequest *client.GetFileDownloadedPrefixSizeRequest
+func (_e *ClientAdapter_Expecter) GetFileDownloadedPrefixSize(getFileDownloadedPrefixSizeRequest interface{}) *ClientAdapter_GetFileDownloadedPrefixSize_Call {
+	return &ClientAdapter_GetFileDownloadedPrefixSize_Call{Call: _e.mock.On("GetFileDownloadedPrefixSize", getFileDownloadedPrefixSizeRequest)}
+}
+
+func (_c *ClientAdapter_GetFileDownloadedPrefixSize_Call) Run(run func(getFileDownloadedPrefixSizeRequest *client.GetFileDownloadedPrefixSizeRequest)) *ClientAdapter_GetFileDownloadedPrefixSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.GetFileDownloadedPrefixSizeRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.GetFileDownloadedPrefixSizeRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_GetFileDownloadedPrefixSize_Call) Return(fileDownloadedPrefixSize *client.FileDownloadedPrefixSize, err error) *ClientAdapter_GetFileDownloadedPrefixSize_Call {
+	_c.Call.Return(fileDownloadedPrefixSize, err)
+	return _c
+}
+
+func (_c *ClientAdapter_GetFileDownloadedPrefixSize_Call) RunAndReturn(run func(getFileDownloadedPrefixSizeRequest *client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error)) *ClientAdapter_GetFileDownloadedPrefixSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReadFilePart provides a mock function for the type ClientAdapter
+func (_mock *ClientAdapter) ReadFilePart(readFilePartRequest *client.ReadFilePartRequest) (*client.FilePart, error) {
+	ret := _mock.Called(readFilePartRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReadFilePart")
+	}
+
+	var r0 *client.FilePart
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.ReadFilePartRequest) (*client.FilePart, error)); ok {
+		return returnFunc(readFilePartRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.ReadFilePartRequest) *client.FilePart); ok {
+		r0 = returnFunc(readFilePartRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.FilePart)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.ReadFilePartRequest) error); ok {
+		r1 = returnFunc(readFilePartRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// ClientAdapter_ReadFilePart_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReadFilePart'
+type ClientAdapter_ReadFilePart_Call struct {
+	*mock.Call
+}
+
+// ReadFilePart is a helper method to define mock.On call
+//   - readFilePartRequest *client.ReadFilePartRequest
+func (_e *ClientAdapter_Expecter) ReadFilePart(readFilePartRequest interface{}) *ClientAdapter_ReadFilePart_Call {
+	return &ClientAdapter_ReadFilePart_Call{Call: _e.mock.On("ReadFilePart", readFilePartRequest)}
+}
+
+func (_c *ClientAdapter_ReadFilePart_Call) Run(run func(readFilePartRequest *client.ReadFilePartRequest)) *ClientAdapter_ReadFilePart_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.ReadFilePartRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.ReadFilePartRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *ClientAdapter_ReadFilePart_Call) Return(filePart *client.FilePart, err error) *ClientAdapter_ReadFilePart_Call {
+	_c.Call.Return(filePart, err)
+	return _c
+}
+
+func (_c *ClientAdapter_ReadFilePart_Call) RunAndReturn(run func(readFilePartRequest *client.ReadFilePartRequest) (*client.FilePart, error)) *ClientAdapter_ReadFilePart_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateNewBasicGroupChat provides a mock function for the type ClientAdapter
 func (_mock *ClientAdapter) CreateNewBasicGroupChat(createNewBasicGroupChatRequest *client.CreateNewBasicGroupChatRequest) (*client.CreatedBasicGroupChat, error) {
 	ret := _mock.Called(createNewBasicGroupChatRequest)

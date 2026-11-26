@@ -123,3 +123,6 @@ jobs:
 
       - name: go test
         run: go test ./internal/...
+
+      - name: Progressive download red-green proof
+        run: bash scripts/verify-facade-streaming.sh

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"math"
 	"strings"
 	"time"
 
@@ -111,8 +110,8 @@ type facadeService interface {
 	GetInlineMenu(ctx context.Context, chatID int64, messageID int64) (*client.Message, error)
 	ClickCallbackButton(ctx context.Context, chatID int64, messageID int64, callbackData []byte) (*client.CallbackQueryAnswer, error)
 	SendBotCommand(ctx context.Context, chatID int64, command string, botUserID int64, parameter string) error
-	GetMessageFile(ctx context.Context, chatID int64, messageID int64) (*client.File, string, error)
-	DownloadFile(ctx context.Context, fileID int32) (*client.File, error)
+	GetMessageFile(ctx context.Context, chatID int64, messageID int64, emit func(facade.FileDownloadEvent) error) error
+	DownloadFile(ctx context.Context, fileID int32, emit func(facade.FileDownloadEvent) error) error
 }
 
 // Transport реализует gRPC-сервер FacadeGRPC.
@@ -355,37 +354,6 @@ func (t *Transport) SendBotCommand(ctx context.Context, req *pb.SendBotCommandRe
 		return nil, mapFacadeError(err)
 	}
 	return &pb.EmptyResponse{}, nil
-}
-
-// GetMessageFile resolves a message's media file and returns its downloaded local path.
-func (t *Transport) GetMessageFile(ctx context.Context, req *pb.GetMessageFileRequest) (*pb.MessageFileResponse, error) {
-	file, mimeType, err := t.facadeService.GetMessageFile(ctx, req.GetChatId(), req.GetMessageId())
-	if err != nil {
-		alogger.FromContext(ctx).Error("Failed to get message file", slog.Any("err", err))
-		return nil, mapFacadeError(err)
-	}
-	return &pb.MessageFileResponse{
-		FilePath: file.Local.Path,
-		Size:     file.Size,
-		FileId:   int64(file.Id),
-		MimeType: mimeType,
-	}, nil
-}
-
-// DownloadFile downloads a file by TDLib ID and returns its local path.
-func (t *Transport) DownloadFile(ctx context.Context, req *pb.DownloadFileRequest) (*pb.FileResponse, error) {
-	if req.GetFileId() <= 0 || req.GetFileId() > math.MaxInt32 {
-		return nil, status.Error(codes.InvalidArgument, "file_id must be within [1, MaxInt32]")
-	}
-	file, err := t.facadeService.DownloadFile(ctx, int32(req.GetFileId()))
-	if err != nil {
-		alogger.FromContext(ctx).Error("Failed to download file", slog.Any("err", err))
-		return nil, mapFacadeError(err)
-	}
-	return &pb.FileResponse{
-		FilePath: file.Local.Path,
-		Size:     file.Size,
-	}, nil
 }
 
 // clientMessageToProto маппит *client.Message (raw TDLib) в pb.Message.

@@ -4,14 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/zelenin/go-tdlib/client"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -28,6 +33,48 @@ func textMessage(chatID, id int64, text string) *client.Message {
 		Id:      id,
 		Content: &client.MessageText{Text: &client.FormattedText{Text: text}},
 	}
+}
+
+type fakeEventStream struct {
+	emit func(*pb.FileDownloadEvent) error
+	ctx  context.Context
+}
+
+func (s fakeEventStream) Send(event *pb.FileDownloadEvent) error {
+	return s.emit(event)
+}
+
+func (fakeEventStream) SetHeader(metadata.MD) error { return nil }
+
+func (fakeEventStream) SendHeader(metadata.MD) error { return nil }
+
+func (fakeEventStream) SetTrailer(metadata.MD) {}
+
+func (s fakeEventStream) Context() context.Context {
+	if s.ctx == nil {
+		return context.Background()
+	}
+	return s.ctx
+}
+
+func (s fakeEventStream) SendMsg(m any) error {
+	if event, ok := m.(*pb.FileDownloadEvent); ok {
+		return s.Send(event)
+	}
+	return nil
+}
+
+func (fakeEventStream) RecvMsg(any) error { return io.EOF }
+
+var _ grpc.ServerStreamingServer[pb.FileDownloadEvent] = fakeEventStream{}
+
+func collectDownloadEvents(call func(emit func(*pb.FileDownloadEvent) error) error) ([]*pb.FileDownloadEvent, error) {
+	var events []*pb.FileDownloadEvent
+	err := call(func(event *pb.FileDownloadEvent) error {
+		events = append(events, event)
+		return nil
+	})
+	return events, err
 }
 
 func TestGetMessages_Success(t *testing.T) {
@@ -200,26 +247,34 @@ func TestGetMessageFile_Success(t *testing.T) {
 
 	// Arrange
 	facadeMock := mocks.NewFacadeService(t)
-	facadeMock.EXPECT().GetMessageFile(mock.Anything, int64(100), int64(1)).
-		Return(&client.File{
-			Id:    42,
-			Size:  1024,
-			Local: &client.LocalFile{IsDownloadingCompleted: true, Path: "/x/y.bin"},
-		}, "application/octet-stream", nil)
+	facadeMock.EXPECT().GetMessageFile(mock.Anything, int64(100), int64(1), mock.Anything).
+		Run(func(_ context.Context, _ int64, _ int64, emit func(facade.FileDownloadEvent) error) {
+			require.NoError(t, emit(facade.FileDownloadEvent{Metadata: &facade.FileDownloadMetadata{
+				FileID:    42,
+				MIMEType:  "application/octet-stream",
+				Size:      1024,
+				SizeKnown: true,
+			}}))
+			require.NoError(t, emit(facade.FileDownloadEvent{Chunk: &facade.FileDownloadChunk{Offset: 0, Data: []byte("abc")}}))
+			require.NoError(t, emit(facade.FileDownloadEvent{Complete: &facade.FileDownloadComplete{Size: 3}}))
+		}).Return(nil)
 	tr := New(facadeMock)
 
 	// Act
-	resp, err := tr.GetMessageFile(context.Background(), &pb.GetMessageFileRequest{ChatId: 100, MessageId: 1})
+	events, err := collectDownloadEvents(func(emit func(*pb.FileDownloadEvent) error) error {
+		return tr.GetMessageFile(&pb.GetMessageFileRequest{ChatId: 100, MessageId: 1}, fakeEventStream{emit: emit, ctx: t.Context()})
+	})
 
 	// Assert
 	require.NoError(t, err)
-	assert.Equal(t, "/x/y.bin", resp.GetFilePath())
-	assert.Equal(t, int64(1024), resp.GetSize())
-	assert.Equal(t, int64(42), resp.GetFileId())
-	assert.Equal(t, "application/octet-stream", resp.GetMimeType())
+	require.Len(t, events, 3)
+	assert.Equal(t, int64(42), events[0].GetMetadata().GetFileId())
+	assert.Equal(t, "application/octet-stream", events[0].GetMetadata().GetMimeType())
+	assert.Equal(t, []byte("abc"), events[1].GetChunk().GetData())
+	assert.Equal(t, int64(3), events[2].GetComplete().GetSize())
 }
 
-func TestGetMessageFile_ErrorMapping(t *testing.T) {
+func TestGetMessageFile_ErrorMappingAndStreamContext(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -237,6 +292,12 @@ func TestGetMessageFile_ErrorMapping(t *testing.T) {
 			err:  &facade.FileDownloadFailedError{FileID: 42, Err: errors.New("boom")},
 			code: codes.Internal,
 		},
+		{
+			name: "flood wait retains resource exhausted",
+			err:  &telegram.FloodWaitError{Delay: 2 * time.Second},
+			code: codes.ResourceExhausted,
+		},
+		{name: "deadline exceeded", err: context.DeadlineExceeded, code: codes.DeadlineExceeded},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -244,11 +305,11 @@ func TestGetMessageFile_ErrorMapping(t *testing.T) {
 
 			// Arrange
 			facadeMock := mocks.NewFacadeService(t)
-			facadeMock.EXPECT().GetMessageFile(mock.Anything, int64(100), int64(1)).Return(nil, "", tt.err)
+			facadeMock.EXPECT().GetMessageFile(mock.Anything, int64(100), int64(1), mock.Anything).Return(tt.err)
 			tr := New(facadeMock)
 
 			// Act
-			_, err := tr.GetMessageFile(context.Background(), &pb.GetMessageFileRequest{ChatId: 100, MessageId: 1})
+			err := tr.GetMessageFile(&pb.GetMessageFileRequest{ChatId: 100, MessageId: 1}, fakeEventStream{})
 
 			// Assert
 			require.Error(t, err)
@@ -257,26 +318,44 @@ func TestGetMessageFile_ErrorMapping(t *testing.T) {
 	}
 }
 
+func TestGetMessageFile_StreamContext(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		facadeMock := mocks.NewFacadeService(t)
+		facadeMock.EXPECT().GetMessageFile(mock.Anything, int64(-100), int64(1), mock.Anything).
+			RunAndReturn(func(callCtx context.Context, _ int64, _ int64, _ func(facade.FileDownloadEvent) error) error {
+				assert.Equal(t, ctx, callCtx)
+				return context.Canceled
+			})
+		err := New(facadeMock).GetMessageFile(&pb.GetMessageFileRequest{ChatId: -100, MessageId: 1}, fakeEventStream{ctx: ctx})
+		require.Error(t, err)
+		assert.Equal(t, codes.Canceled, status.Code(err))
+	})
+}
+
 func TestDownloadFile_Success(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	facadeMock := mocks.NewFacadeService(t)
-	facadeMock.EXPECT().DownloadFile(mock.Anything, int32(42)).
-		Return(&client.File{
-			Id:    42,
-			Size:  2048,
-			Local: &client.LocalFile{IsDownloadingCompleted: true, Path: "/x/full.bin"},
-		}, nil)
+	facadeMock.EXPECT().DownloadFile(mock.Anything, int32(42), mock.Anything).
+		Run(func(_ context.Context, _ int32, emit func(facade.FileDownloadEvent) error) {
+			require.NoError(t, emit(facade.FileDownloadEvent{Metadata: &facade.FileDownloadMetadata{FileID: 42}}))
+			require.NoError(t, emit(facade.FileDownloadEvent{Complete: &facade.FileDownloadComplete{Size: 2048}}))
+		}).Return(nil)
 	tr := New(facadeMock)
 
 	// Act
-	resp, err := tr.DownloadFile(context.Background(), &pb.DownloadFileRequest{FileId: 42})
+	events, err := collectDownloadEvents(func(emit func(*pb.FileDownloadEvent) error) error {
+		return tr.DownloadFile(&pb.DownloadFileRequest{FileId: 42}, fakeEventStream{emit: emit})
+	})
 
 	// Assert
 	require.NoError(t, err)
-	assert.Equal(t, "/x/full.bin", resp.GetFilePath())
-	assert.Equal(t, int64(2048), resp.GetSize())
+	require.Len(t, events, 2)
+	assert.Equal(t, int64(42), events[0].GetMetadata().GetFileId())
+	assert.Equal(t, int64(2048), events[1].GetComplete().GetSize())
 }
 
 func TestDownloadFile_InvalidFileID(t *testing.T) {
@@ -298,7 +377,7 @@ func TestDownloadFile_InvalidFileID(t *testing.T) {
 			tr := New(mocks.NewFacadeService(t))
 
 			// Act
-			_, err := tr.DownloadFile(context.Background(), &pb.DownloadFileRequest{FileId: tt.fileID})
+			err := tr.DownloadFile(&pb.DownloadFileRequest{FileId: tt.fileID}, fakeEventStream{})
 
 			// Assert
 			require.Error(t, err)
@@ -325,7 +404,13 @@ func TestDownloadFile_ErrorMapping(t *testing.T) {
 			err:  &facade.FileDownloadFailedError{FileID: 42, Err: errors.New("boom")},
 			code: codes.Internal,
 		},
+		{
+			name: "flood wait retains resource exhausted",
+			err:  &telegram.FloodWaitError{Delay: 2 * time.Second},
+			code: codes.ResourceExhausted,
+		},
 		{name: "plain error", err: errors.New("boom"), code: codes.Internal},
+		{name: "deadline exceeded", err: context.DeadlineExceeded, code: codes.DeadlineExceeded},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -333,11 +418,11 @@ func TestDownloadFile_ErrorMapping(t *testing.T) {
 
 			// Arrange
 			facadeMock := mocks.NewFacadeService(t)
-			facadeMock.EXPECT().DownloadFile(mock.Anything, int32(42)).Return(nil, tt.err)
+			facadeMock.EXPECT().DownloadFile(mock.Anything, int32(42), mock.Anything).Return(tt.err)
 			tr := New(facadeMock)
 
 			// Act
-			_, err := tr.DownloadFile(context.Background(), &pb.DownloadFileRequest{FileId: 42})
+			err := tr.DownloadFile(&pb.DownloadFileRequest{FileId: 42}, fakeEventStream{})
 
 			// Assert
 			require.Error(t, err)

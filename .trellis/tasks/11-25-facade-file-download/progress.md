@@ -376,3 +376,29 @@
   planning-only commit before implementation; source not yet changed.
   Reuse configured Implementer in bounded phases (production chain, then
   complete acceptance/validation artifacts) with the same locked design.
+- Planning-only baseline committed as 8faac1bf45319b917936d2e1f923f5af28b0582c.
+  Phase A produced progressive production files and partial tests/mocks.
+  Orchestrator static check found concrete handler/callback compile defects,
+  nil-media/error/context gaps; sent them to Implementer with Phase B1
+  acceptance coverage. No runtime or review gate claimed.
+- Orchestrator added standalone cgo-free acceptance client, guide, Linux
+  red/green script and one existing-ci-test invocation. Windows client build
+  and twelve loopback fake-server cases succeeded; see
+  review/streaming-client-evidence.md. This is client-only simulated evidence,
+  not real TDLib/A1/Linux/live Telegram validation. Internal tests and
+  production fixes are still with Implementer; TEST-MATRIX final counts wait
+  for its completed test set.
+- B1 reported complete internal coverage, but direct inspection still found
+  compile mistakes and test fixtures that could never succeed or terminate.
+  Orchestrator repaired those in the existing scoped files; see
+  review/streaming-orchestrator-fixes.md. A1 now has a real causal completion
+  barrier, virtual deadline and cleanup, and exact-byte verification for both
+  RPCs. TEST-MATRIX updated (changed-package counts, pending Linux labels).
+  Locked design unchanged; independent code review is the next gate, followed
+  by authoritative Linux compilation/tests and executed mutation red/green.
+- Independent streaming code gate PASS round 1, no blockers; report in
+  review/streaming-findings.json. Addressed four nonblocking observations
+  through test/documentation/staging follow-up, with no production or ruler
+  changes (review/streaming-review-followup.md). Prepare the reviewed stream
+  commit and push to PR #16 for Linux vet/tests and A1 green/red/green.
+  No corrected image or live acceptance result is claimed yet.

@@ -21,8 +21,8 @@ service FacadeGRPC {
   rpc GetInlineMenu (GetInlineMenuRequest) returns (InlineMenuResponse);
   rpc ClickCallbackButton (ClickCallbackButtonRequest) returns (CallbackAnswerResponse);
   rpc SendBotCommand (SendBotCommandRequest) returns (EmptyResponse);
-  rpc GetMessageFile (GetMessageFileRequest) returns (MessageFileResponse);
-  rpc DownloadFile (DownloadFileRequest) returns (FileResponse);
+  rpc GetMessageFile (GetMessageFileRequest) returns (stream FileDownloadEvent);
+  rpc DownloadFile (DownloadFileRequest) returns (stream FileDownloadEvent);
 }
 
 message Message {
@@ -207,20 +207,33 @@ message GetMessageFileRequest {
   int64 message_id = 2;
 }
 
-message MessageFileResponse {
-  string file_path = 1;
-  int64 size = 2;
-  int64 file_id = 3;
-  string mime_type = 4;
-}
-
 message DownloadFileRequest {
   int64 file_id = 1;
 }
 
-message FileResponse {
-  string file_path = 1;
-  int64 size = 2;
+message FileDownloadMetadata {
+  int64 file_id = 1;
+  string mime_type = 2;
+  int64 size = 3;
+  bool size_known = 4;
+}
+
+message FileDownloadChunk {
+  int64 offset = 1;
+  bytes data = 2;
+  bool upstream_complete = 3;
+}
+
+message FileDownloadComplete {
+  int64 size = 1;
+}
+
+message FileDownloadEvent {
+  oneof event {
+    FileDownloadMetadata metadata = 1;
+    FileDownloadChunk chunk = 2;
+    FileDownloadComplete complete = 3;
+  }
 }
 
 message EmptyResponse {}
