@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/backend/telegram-tdlib-guidelines.md", "reason": "adapter layering + error model compliance for new passthroughs"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "test quality bar: red-path proof, no weakened assertions, mock discipline"}
-{"file": ".trellis/tasks/11-25-facade-file-download/research/progressive-download-facts.md", "reason": "Verified progressive SDK/native API facts"}
-{"file": ".trellis/tasks/11-25-facade-file-download/review/streaming-code-brief.md", "reason": "Current review baseline, report ownership, and progressive contract; historical brief superseded"}
