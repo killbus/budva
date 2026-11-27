@@ -402,3 +402,37 @@
   changes (review/streaming-review-followup.md). Prepare the reviewed stream
   commit and push to PR #16 for Linux vet/tests and A1 green/red/green.
   No corrected image or live acceptance result is claimed yet.
+- Progressive implementation committed/pushed as 2af222b66fee16ed9b4c0eca3f80d10b4d3bcaf4.
+  PR #16 now describes byte streaming. Linux run 45733805744 SUCCESS:
+  real pinned TDLib cache, go vet, full internal tests and both-RPC A1
+  green/red/green passed. The synchronous mutant failed on the intended
+  pre-completion payload assertion, then restored source passed again.
+  See review/streaming-ci-evidence.md. Dispatched the existing image workflow
+  on the exact validated head; publication and live Telegram acceptance
+  remain pending. Script mode verified 100755 in the implementation commit.
+- Image run 45734082328 (#23) is building native amd64 and arm64, expected
+  version dev-run23-2af222b. Existing profile agent 826b402f-ce49-4157-a577-8ae930ff59c8
+  received a bounded read-only verification assignment for this run only:
+  inspect status, completed logs and registry identity; no writes/retries/
+  publication/merge/schedules. It returns a completion notification so the
+  orchestrator can record the verified image evidence and deliver acceptance.
+- The delegated monitor returned an intermediate statement without a final
+  run result. Direct lookup confirmed both native image builds still in
+  progress. Replaced the incomplete handoff with bounded read-only heartbeat
+  42f00328 (every 3 minutes, max 15 checks / 45 minutes, only run 45734082328).
+  It may inspect status/logs/registry identity and report, then deletes itself
+  on completion/access failure; no edits, publication actions or retries.
+- Image publication SUCCESS in run 45734082328 (2026-11-26T01:46:04Z):
+  both native architecture smokes passed, manifest tag published. Verified
+  GHCR index bytes SHA256 9e4cd5de3f3cacde1110b304921ebf31f0d5d9bec4843d9c9910b6ac4e2221ac
+  and index/child source/version annotations match 2af222b/dev-run23-2af222b.
+  Initial annotation check misread a PowerShell byte[] HTTP response; UTF-8
+  decoding resolved it, with publication log corroboration. Heartbeat
+  42f00328 deleted. After owner asked how to test/proto status, finalized
+  streaming-acceptance.md with pinned compose image, canonical proto URL,
+  GetMessageLinkInfo lookup, client and grpcurl examples. No live acceptance
+  or merge yet.
+- Live Telegram acceptance completed 2026-11-27: owner verified the final
+  dispatch-test image dev-run24-d52d683 (source d52d683, all three file RPCs)
+  and confirmed the flows. PR #16 title/body updated for the final scope.
+  Merge remains the owner's explicit gate.

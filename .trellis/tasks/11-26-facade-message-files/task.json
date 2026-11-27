@@ -19,7 +19,7 @@
   ],
   "scope": "Implement the approved additive ListMessageFiles RPC, media grouping, file variants, compatibility and tests within design section 10; independent review and validation",
   "meta": {
-    "authorization": "Owner requested design, then replied 确认 to the reviewed proposal on 2026-11-26. Implementation, native Linux validation, and independent review are authorized; commit, push, PR update, CI trigger, image publication, and merge require explicit owner confirmation.",
+    "authorization": "Owner requested design, then replied 确认 to the reviewed proposal on 2026-11-26. Implementation, native Linux validation, independent review, commit/push to PR #16, GitHub CI, the dispatch-test image (dev-run24-d52d683) and live Telegram acceptance (2026-11-27) are authorized and completed. Merge requires explicit owner confirmation.",
     "workflow": "Trellis approved design -> Paseo Implementer -> native validation -> independent Reviewer -> reviewable delivery",
     "design_gate": "PASS",
     "design_gate_round": 1,
@@ -32,7 +32,7 @@
     "design_reviewer_profile": "Design Reviewer",
     "reviewed_draft_sha256": "6f99747c01261442760108e8377199410eea48e535980a8918e74b41b1849059",
     "prd_sha256": "8d0dd16fa2a12420d635cd044c8b21c8a2bdf31a4051693d8eaaa062bb5068a7",
-    "implementation": "complete_reviewed_and_validated",
+    "implementation": "complete_reviewed_validated_delivered_pr16",
     "code_reviewer_agent": "542fe521-65ff-434d-b9e8-8cd8bdaa8bff",
     "source_manifest_sha256": "16af0463d22c707a438034e7fe4cb4867c0223260f16c4218cc8fd6d53329e3b",
     "implementer_agent": "5349c03c-47ca-40e8-ba15-07a1a05ae205",
@@ -52,6 +52,8 @@
     "app_test_sha256": "faa16561f4736fa5898dd700f23ec7be6ae7cd2c5b464eea1f196f759dd8981b",
     "transport_test_sha256": "55b3a23c09641010c52edaf23e9d654fae6baaa3128318988ae3531486f9dfef",
     "test_matrix_sha256": "bf7178b13538a2cf13088ee5f9d56438c22bd659878debe7e766de3cdd3b0069",
-    "post_review_delta": "test_and_docs_only_zero_production_changes_revalidated_on_linux"
+    "post_review_delta": "test_and_docs_only_zero_production_changes_revalidated_on_linux",
+    "delivery_commit": "d52d683c81cbc34c2a85aeda332a1ce281a460cf",
+    "live_acceptance": "PASS_2026-11-27_owner_dispatch-test_dev-run24-d52d683"
   }
 }

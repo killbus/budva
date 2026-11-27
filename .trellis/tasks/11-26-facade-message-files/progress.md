@@ -53,3 +53,10 @@
 - Re-ran full native Linux validation in `/tmp/budva-message-files-aQCDMb` on exact 230-file manifest `16af0463d22c707a438034e7fe4cb4867c0223260f16c4218cc8fd6d53329e3b` (archive `fdb13804a739743bfc06621e8165aa808dd447158fbf29d1d182ca9e052ec0aa`): focused app/transport tests, `go vet -p 1 ./...`, `go test -p 1 -count=1 ./internal/...` (all 23 testable packages), `bash scripts/verify-facade-streaming.sh`, selection-flow synchronous mutation red/green, enumeration omission mutation red/green, and post-mutation 230-file checksum check all passed. All logs pulled into `review/runtime/`.
 - Updated `docs/TEST-MATRIX.md` (`internal/app/facade` 52, `internal/transport/grpc` 71, 21 displayed inventory rows sum 551, manifest `16af0463...`) and synced all Trellis closeout artifacts.
 - Delivery is ready for owner review. Commit, push, PR #16 update, GitHub CI run, new `dispatch-test` image build, and live Telegram acceptance remain explicitly awaiting owner confirmation.
+- Owner live Telegram acceptance PASS on 2026-11-27 against dispatch-test
+  dev-run24-d52d683 (source d52d683c81cbc34c2a85aeda332a1ce281a460cf, index
+  digest sha256:73f962f8ce570152c2a0b6dd4e3e9172d5df0d96bb35636ee58fd847d04f7278):
+  ListMessageFiles -> descriptor selection -> DownloadFile verified on real Telegram.
+- Delivery commit d52d683c81cbc34c2a85aeda332a1ce281a460cf pushed to
+  origin/feat/facade-file-download (PR #16); PR title/body updated for the
+  final scope. Merge remains the owner's explicit gate.

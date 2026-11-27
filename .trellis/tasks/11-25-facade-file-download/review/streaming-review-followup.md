@@ -12,9 +12,10 @@ address its four nonblocking observations without changing production code:
   typed FloodWaitError and retry-delay assertions.
 - NB-3: Added DeadlineExceeded-to-DeadlineExceeded cases to both streaming
   RPC error tables.
-- NB-4: Stage verify-facade-streaming.sh with mode 100755 and verify before
-  publication; the existing CI bash invocation stays unchanged.
+- NB-4: verify-facade-streaming.sh was staged and committed with mode 100755,
+  verified before publication; the existing CI bash invocation stays unchanged.
 
 These are test/documentation follow-ups to the independent static PASS.
-Linux vet/tests, A1 green/red/green, image publication and live Telegram
+Linux vet/tests and A1 green/red/green passed at source 2af222b in run
+45733805744; see streaming-ci-evidence.md. Image publication and live Telegram
 acceptance remain pending. Historical path-only results do not satisfy them.
