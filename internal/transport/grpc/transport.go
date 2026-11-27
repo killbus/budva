@@ -59,6 +59,14 @@ func mapFacadeError(err error) error {
 	if errors.As(err, &targetNotBot) {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	}
+	var messageFileNotFound *facade.MessageFileNotFoundError
+	if errors.As(err, &messageFileNotFound) {
+		return status.Error(codes.NotFound, err.Error())
+	}
+	var fileDownloadFailed *facade.FileDownloadFailedError
+	if errors.As(err, &fileDownloadFailed) {
+		return status.Error(codes.Internal, err.Error())
+	}
 	var callbackError *telegram.CallbackAnswerError
 	if errors.As(err, &callbackError) {
 		if callbackError.Code == 502 {
@@ -102,6 +110,9 @@ type facadeService interface {
 	GetInlineMenu(ctx context.Context, chatID int64, messageID int64) (*client.Message, error)
 	ClickCallbackButton(ctx context.Context, chatID int64, messageID int64, callbackData []byte) (*client.CallbackQueryAnswer, error)
 	SendBotCommand(ctx context.Context, chatID int64, command string, botUserID int64, parameter string) error
+	GetMessageFile(ctx context.Context, chatID int64, messageID int64, emit func(facade.FileDownloadEvent) error) error
+	DownloadFile(ctx context.Context, fileID int32, emit func(facade.FileDownloadEvent) error) error
+	ListMessageFiles(ctx context.Context, chatID int64, messageID int64) (*facade.MessageFiles, error)
 }
 
 // Transport реализует gRPC-сервер FacadeGRPC.

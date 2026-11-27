@@ -130,8 +130,12 @@ cmake --build . --parallel 2 --target install
 - **Runner-only deviations from the Dockerfile recipe**: `sudo` on the
   cmake install target and the tarball extract (`/usr/local` is
   root-owned on hosted runners; the Dockerfile runs as root and needs
-  neither). The build recipe itself (pin, `--parallel 2`,
-  `prepare_cross_compiling`, `SplitSource.php`) is verbatim Dockerfile.
+  neither); `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` on the configure command
+  allows current hosted CMake to configure the pinned TDLib source, which
+  declares compatibility older than CMake now accepts. This is a policy
+  override for the runner, not a dependency upgrade. Keep the pin,
+  `--parallel 2`, `prepare_cross_compiling`, and `SplitSource.php` aligned
+  with the Dockerfile.
 - **The tarball stores the INSTALLED tree** (`include/td/` + `lib/libtd*`
   only, ~34 MB zstd) — never the ~15 GB build dir. Tar the tree with
   `cd /usr/local && tar ... lib/libtd*`: the glob expands against the
@@ -149,6 +153,7 @@ cmake --build . --parallel 2 --target install
 | Cache miss on a red run | tarball still saved (save runs before vet) |
 | vet error or failing test | job fails — the gate is real (proven by a deliberate vet error on a scratch branch via dispatch) |
 | Dockerfile TDLib pin changes without a cache-key change | go-tdlib compiles against a stale TDLib — key lockstep is a spec contract |
+| Cold build fails at `cmake_minimum_required`: compatibility with CMake < 3.5 removed | Configure pinned TDLib with `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`; see PR #16 run 45613676314. Later missing-header/archive errors are consequences of configuration failure, not independent causes. Vet/tests were skipped; the fix needs a fresh Linux run. |
 
 ### 5. Good/Base/Bad Cases
 

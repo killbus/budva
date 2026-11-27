@@ -850,3 +850,80 @@ func TestSendMessageAndWaitOnce_NonFloodErrorReturnsZeroWait(t *testing.T) {
 	assert.Nil(t, msg)
 	assert.Equal(t, time.Duration(0), wait)
 }
+
+func TestFileOpsAreChatLessWrappers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("download file wraps flood wait", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange
+		floodErr := client.ResponseError{Err: &client.Error{Code: 429, Message: "Too Many Requests: retry after 7"}}
+		m := mocks.NewClientAdapter(t)
+		m.EXPECT().DownloadFile(&client.DownloadFileRequest{FileId: 42, Priority: 16, Synchronous: true}).
+			Return(nil, floodErr).Once()
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
+		r.clientAdapter = m
+
+		// Act
+		got, err := r.DownloadFile(&client.DownloadFileRequest{FileId: 42, Priority: 16, Synchronous: true})
+
+		// Assert
+		assert.Nil(t, got)
+		var flood *FloodWaitError
+		require.ErrorAs(t, err, &flood)
+		assert.Equal(t, 7*time.Second+500*time.Millisecond, flood.Delay)
+	})
+
+	t.Run("file passthroughs preserve successful results", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange
+		file := &client.File{Id: 42, Local: &client.LocalFile{IsDownloadingActive: true}}
+		prefix := &client.FileDownloadedPrefixSize{Size: 128}
+		part := &client.FilePart{Data: []byte("abc")}
+		m := mocks.NewClientAdapter(t)
+		m.EXPECT().GetFile(&client.GetFileRequest{FileId: 42}).Return(file, nil).Once()
+		m.EXPECT().GetFileDownloadedPrefixSize(&client.GetFileDownloadedPrefixSizeRequest{FileId: 42, Offset: 0}).Return(prefix, nil).Once()
+		m.EXPECT().ReadFilePart(&client.ReadFilePartRequest{FileId: 42, Offset: 0, Count: 128}).Return(part, nil).Once()
+		r := New(config.TelegramConfig{}, NoBusinessUpdates)
+		r.clientAdapter = m
+
+		// Act
+		gotFile, err := r.GetFile(&client.GetFileRequest{FileId: 42})
+		require.NoError(t, err)
+		gotPrefix, err := r.GetFileDownloadedPrefixSize(&client.GetFileDownloadedPrefixSizeRequest{FileId: 42, Offset: 0})
+		require.NoError(t, err)
+		gotPart, err := r.ReadFilePart(&client.ReadFilePartRequest{FileId: 42, Offset: 0, Count: 128})
+		require.NoError(t, err)
+
+		// Assert
+		assert.Same(t, file, gotFile)
+		assert.Same(t, prefix, gotPrefix)
+		assert.Same(t, part, gotPart)
+	})
+
+	t.Run("file passthroughs wrap flood wait", func(t *testing.T) {
+		t.Parallel()
+
+		floodErr := client.ResponseError{Err: &client.Error{Code: 429, Message: "Too Many Requests: retry after 7"}}
+		adapter := mocks.NewClientAdapter(t)
+		adapter.EXPECT().GetFile(&client.GetFileRequest{FileId: 42}).Return(nil, floodErr).Once()
+		adapter.EXPECT().GetFileDownloadedPrefixSize(&client.GetFileDownloadedPrefixSizeRequest{FileId: 42, Offset: 0}).Return(nil, floodErr).Once()
+		adapter.EXPECT().ReadFilePart(&client.ReadFilePartRequest{FileId: 42, Offset: 0, Count: 128}).Return(nil, floodErr).Once()
+		repo := New(config.TelegramConfig{}, NoBusinessUpdates)
+		repo.clientAdapter = adapter
+
+		file, fileErr := repo.GetFile(&client.GetFileRequest{FileId: 42})
+		prefix, prefixErr := repo.GetFileDownloadedPrefixSize(&client.GetFileDownloadedPrefixSizeRequest{FileId: 42, Offset: 0})
+		part, partErr := repo.ReadFilePart(&client.ReadFilePartRequest{FileId: 42, Offset: 0, Count: 128})
+		assert.Nil(t, file)
+		assert.Nil(t, prefix)
+		assert.Nil(t, part)
+		for _, operationErr := range []error{fileErr, prefixErr, partErr} {
+			var flood *FloodWaitError
+			require.ErrorAs(t, operationErr, &flood)
+			assert.Equal(t, 7*time.Second+500*time.Millisecond, flood.Delay)
+		}
+	})
+}

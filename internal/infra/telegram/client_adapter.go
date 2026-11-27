@@ -54,6 +54,10 @@ type clientAdapter interface {
 	DeleteChat(*client.DeleteChatRequest) (*client.Ok, error)
 
 	// Системные операции и авторизация.
+	DownloadFile(*client.DownloadFileRequest) (*client.File, error)
+	GetFile(*client.GetFileRequest) (*client.File, error)
+	GetFileDownloadedPrefixSize(*client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error)
+	ReadFilePart(*client.ReadFilePartRequest) (*client.FilePart, error)
 	GetUser(*client.GetUserRequest) (*client.User, error)
 	GetUserFullInfo(*client.GetUserFullInfoRequest) (*client.UserFullInfo, error)
 	GetMe() (*client.User, error)
@@ -362,6 +366,43 @@ func (r *Repo) DeleteChat(req *client.DeleteChatRequest) (*client.Ok, error) {
 }
 
 // --- Системные операции ---
+
+// DownloadFile загружает файл синхронно или асинхронно в зависимости
+// от запроса (не привязан к чату).
+func (r *Repo) DownloadFile(req *client.DownloadFileRequest) (*client.File, error) {
+	file, err := r.clientAdapter.DownloadFile(req)
+	if err != nil {
+		return nil, FloodWaitFromError(err)
+	}
+	return file, nil
+}
+
+// GetFile возвращает текущее состояние файла (не привязан к чату).
+func (r *Repo) GetFile(req *client.GetFileRequest) (*client.File, error) {
+	file, err := r.clientAdapter.GetFile(req)
+	if err != nil {
+		return nil, FloodWaitFromError(err)
+	}
+	return file, nil
+}
+
+// GetFileDownloadedPrefixSize возвращает готовый для чтения префикс файла.
+func (r *Repo) GetFileDownloadedPrefixSize(req *client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error) {
+	prefix, err := r.clientAdapter.GetFileDownloadedPrefixSize(req)
+	if err != nil {
+		return nil, FloodWaitFromError(err)
+	}
+	return prefix, nil
+}
+
+// ReadFilePart читает готовый диапазон файла.
+func (r *Repo) ReadFilePart(req *client.ReadFilePartRequest) (*client.FilePart, error) {
+	part, err := r.clientAdapter.ReadFilePart(req)
+	if err != nil {
+		return nil, FloodWaitFromError(err)
+	}
+	return part, nil
+}
 
 // GetMe возвращает информацию о текущем пользователе.
 func (r *Repo) GetMe() (*client.User, error) {

@@ -21,6 +21,9 @@ service FacadeGRPC {
   rpc GetInlineMenu (GetInlineMenuRequest) returns (InlineMenuResponse);
   rpc ClickCallbackButton (ClickCallbackButtonRequest) returns (CallbackAnswerResponse);
   rpc SendBotCommand (SendBotCommandRequest) returns (EmptyResponse);
+  rpc GetMessageFile (GetMessageFileRequest) returns (stream FileDownloadEvent);
+  rpc DownloadFile (DownloadFileRequest) returns (stream FileDownloadEvent);
+  rpc ListMessageFiles (ListMessageFilesRequest) returns (ListMessageFilesResponse);
 }
 
 message Message {
@@ -198,6 +201,109 @@ message SendBotCommandRequest {
   string command = 2;
   int64 bot_user_id = 3;
   string parameter = 4;
+}
+
+message GetMessageFileRequest {
+  int64 chat_id = 1;
+  int64 message_id = 2;
+}
+
+message DownloadFileRequest {
+  int64 file_id = 1;
+}
+
+message ListMessageFilesRequest {
+  int64 chat_id = 1;
+  int64 message_id = 2;
+}
+
+message ListMessageFilesResponse {
+  int64 chat_id = 1;
+  int64 message_id = 2;
+  int64 media_album_id = 3;
+  bool content_supported = 4;
+  repeated MessageMediaItem items = 5;
+  int64 default_file_id = 6;
+}
+
+message MessageMediaItem {
+  int32 item_index = 1;
+  MessageMediaKind kind = 2;
+  MessageMediaState state = 3;
+  repeated MessageFileDescriptor files = 4;
+}
+
+message MessageFileDescriptor {
+  int64 file_id = 1;
+  MessageFileRole role = 2;
+  int32 source_index = 3;
+  string file_name = 4;
+  string mime_type = 5;
+  int64 size = 6;
+  bool size_known = 7;
+  int32 width = 8;
+  int32 height = 9;
+  string codec = 10;
+  string photo_size_type = 11;
+}
+
+enum MessageMediaKind {
+  MESSAGE_MEDIA_KIND_UNSPECIFIED = 0;
+  MESSAGE_MEDIA_KIND_PHOTO = 1;
+  MESSAGE_MEDIA_KIND_VIDEO = 2;
+  MESSAGE_MEDIA_KIND_DOCUMENT = 3;
+  MESSAGE_MEDIA_KIND_AUDIO = 4;
+  MESSAGE_MEDIA_KIND_VOICE_NOTE = 5;
+  MESSAGE_MEDIA_KIND_ANIMATION = 6;
+  MESSAGE_MEDIA_KIND_VIDEO_NOTE = 7;
+  MESSAGE_MEDIA_KIND_STICKER = 8;
+  MESSAGE_MEDIA_KIND_PREVIEW = 9;
+  MESSAGE_MEDIA_KIND_UNSUPPORTED = 10;
+}
+
+enum MessageMediaState {
+  MESSAGE_MEDIA_STATE_UNSPECIFIED = 0;
+  MESSAGE_MEDIA_STATE_FILES_PRESENT = 1;
+  MESSAGE_MEDIA_STATE_LOCKED = 2;
+  MESSAGE_MEDIA_STATE_UNSUPPORTED = 3;
+  MESSAGE_MEDIA_STATE_NO_FILES = 4;
+}
+
+enum MessageFileRole {
+  MESSAGE_FILE_ROLE_UNSPECIFIED = 0;
+  MESSAGE_FILE_ROLE_MAIN = 1;
+  MESSAGE_FILE_ROLE_PHOTO_SIZE = 2;
+  MESSAGE_FILE_ROLE_ALTERNATIVE_VIDEO = 3;
+  MESSAGE_FILE_ROLE_HLS_PLAYLIST = 4;
+  MESSAGE_FILE_ROLE_THUMBNAIL = 5;
+  MESSAGE_FILE_ROLE_ALBUM_COVER = 6;
+  MESSAGE_FILE_ROLE_EXTERNAL_ALBUM_COVER = 7;
+  MESSAGE_FILE_ROLE_PREMIUM_ANIMATION = 8;
+}
+
+message FileDownloadMetadata {
+  int64 file_id = 1;
+  string mime_type = 2;
+  int64 size = 3;
+  bool size_known = 4;
+}
+
+message FileDownloadChunk {
+  int64 offset = 1;
+  bytes data = 2;
+  bool upstream_complete = 3;
+}
+
+message FileDownloadComplete {
+  int64 size = 1;
+}
+
+message FileDownloadEvent {
+  oneof event {
+    FileDownloadMetadata metadata = 1;
+    FileDownloadChunk chunk = 2;
+    FileDownloadComplete complete = 3;
+  }
 }
 
 message EmptyResponse {}

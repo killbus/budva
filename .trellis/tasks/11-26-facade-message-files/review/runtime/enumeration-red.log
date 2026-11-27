@@ -1,0 +1,19 @@
+--- FAIL: TestService_ListMessageFiles_PhotoSizesMetadataOnly (0.00s)
+    message_files_test.go:48: 
+        	Error Trace:	/tmp/budva-message-files-aQCDMb/source/internal/app/facade/message_files_test.go:48
+        	Error:      	Not equal: 
+        	            	expected: 103
+        	            	actual  : 0
+        	Test:       	TestService_ListMessageFiles_PhotoSizesMetadataOnly
+    message_files_test.go:49: 
+        	Error Trace:	/tmp/budva-message-files-aQCDMb/source/internal/app/facade/message_files_test.go:49
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestService_ListMessageFiles_PhotoSizesMetadataOnly
+--- FAIL: TestService_ListMessageFiles_PhotoMutationBindsExtraction (0.00s)
+    message_files_test.go:85: 
+        	Error Trace:	/tmp/budva-message-files-aQCDMb/source/internal/app/facade/message_files_test.go:85
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestService_ListMessageFiles_PhotoMutationBindsExtraction
+FAIL
+FAIL	github.com/pure-golang/budva-claude/internal/app/facade	0.027s
+FAIL

@@ -34,6 +34,9 @@ const (
 	FacadeGRPC_GetInlineMenu_FullMethodName       = "/pb.FacadeGRPC/GetInlineMenu"
 	FacadeGRPC_ClickCallbackButton_FullMethodName = "/pb.FacadeGRPC/ClickCallbackButton"
 	FacadeGRPC_SendBotCommand_FullMethodName      = "/pb.FacadeGRPC/SendBotCommand"
+	FacadeGRPC_GetMessageFile_FullMethodName      = "/pb.FacadeGRPC/GetMessageFile"
+	FacadeGRPC_DownloadFile_FullMethodName        = "/pb.FacadeGRPC/DownloadFile"
+	FacadeGRPC_ListMessageFiles_FullMethodName    = "/pb.FacadeGRPC/ListMessageFiles"
 )
 
 // FacadeGRPCClient is the client API for FacadeGRPC service.
@@ -57,6 +60,9 @@ type FacadeGRPCClient interface {
 	GetInlineMenu(ctx context.Context, in *GetInlineMenuRequest, opts ...grpc.CallOption) (*InlineMenuResponse, error)
 	ClickCallbackButton(ctx context.Context, in *ClickCallbackButtonRequest, opts ...grpc.CallOption) (*CallbackAnswerResponse, error)
 	SendBotCommand(ctx context.Context, in *SendBotCommandRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	GetMessageFile(ctx context.Context, in *GetMessageFileRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FileDownloadEvent], error)
+	DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FileDownloadEvent], error)
+	ListMessageFiles(ctx context.Context, in *ListMessageFilesRequest, opts ...grpc.CallOption) (*ListMessageFilesResponse, error)
 }
 
 type facadeGRPCClient struct {
@@ -217,6 +223,54 @@ func (c *facadeGRPCClient) SendBotCommand(ctx context.Context, in *SendBotComman
 	return out, nil
 }
 
+func (c *facadeGRPCClient) GetMessageFile(ctx context.Context, in *GetMessageFileRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FileDownloadEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &FacadeGRPC_ServiceDesc.Streams[0], FacadeGRPC_GetMessageFile_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[GetMessageFileRequest, FileDownloadEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FacadeGRPC_GetMessageFileClient = grpc.ServerStreamingClient[FileDownloadEvent]
+
+func (c *facadeGRPCClient) DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FileDownloadEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &FacadeGRPC_ServiceDesc.Streams[1], FacadeGRPC_DownloadFile_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[DownloadFileRequest, FileDownloadEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FacadeGRPC_DownloadFileClient = grpc.ServerStreamingClient[FileDownloadEvent]
+
+func (c *facadeGRPCClient) ListMessageFiles(ctx context.Context, in *ListMessageFilesRequest, opts ...grpc.CallOption) (*ListMessageFilesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMessageFilesResponse)
+	err := c.cc.Invoke(ctx, FacadeGRPC_ListMessageFiles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FacadeGRPCServer is the server API for FacadeGRPC service.
 // All implementations must embed UnimplementedFacadeGRPCServer
 // for forward compatibility.
@@ -238,6 +292,9 @@ type FacadeGRPCServer interface {
 	GetInlineMenu(context.Context, *GetInlineMenuRequest) (*InlineMenuResponse, error)
 	ClickCallbackButton(context.Context, *ClickCallbackButtonRequest) (*CallbackAnswerResponse, error)
 	SendBotCommand(context.Context, *SendBotCommandRequest) (*EmptyResponse, error)
+	GetMessageFile(*GetMessageFileRequest, grpc.ServerStreamingServer[FileDownloadEvent]) error
+	DownloadFile(*DownloadFileRequest, grpc.ServerStreamingServer[FileDownloadEvent]) error
+	ListMessageFiles(context.Context, *ListMessageFilesRequest) (*ListMessageFilesResponse, error)
 	mustEmbedUnimplementedFacadeGRPCServer()
 }
 
@@ -292,6 +349,15 @@ func (UnimplementedFacadeGRPCServer) ClickCallbackButton(context.Context, *Click
 }
 func (UnimplementedFacadeGRPCServer) SendBotCommand(context.Context, *SendBotCommandRequest) (*EmptyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendBotCommand not implemented")
+}
+func (UnimplementedFacadeGRPCServer) GetMessageFile(*GetMessageFileRequest, grpc.ServerStreamingServer[FileDownloadEvent]) error {
+	return status.Errorf(codes.Unimplemented, "method GetMessageFile not implemented")
+}
+func (UnimplementedFacadeGRPCServer) DownloadFile(*DownloadFileRequest, grpc.ServerStreamingServer[FileDownloadEvent]) error {
+	return status.Errorf(codes.Unimplemented, "method DownloadFile not implemented")
+}
+func (UnimplementedFacadeGRPCServer) ListMessageFiles(context.Context, *ListMessageFilesRequest) (*ListMessageFilesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListMessageFiles not implemented")
 }
 func (UnimplementedFacadeGRPCServer) mustEmbedUnimplementedFacadeGRPCServer() {}
 func (UnimplementedFacadeGRPCServer) testEmbeddedByValue()                    {}
@@ -584,6 +650,46 @@ func _FacadeGRPC_SendBotCommand_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FacadeGRPC_GetMessageFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetMessageFileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FacadeGRPCServer).GetMessageFile(m, &grpc.GenericServerStream[GetMessageFileRequest, FileDownloadEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FacadeGRPC_GetMessageFileServer = grpc.ServerStreamingServer[FileDownloadEvent]
+
+func _FacadeGRPC_DownloadFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DownloadFileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FacadeGRPCServer).DownloadFile(m, &grpc.GenericServerStream[DownloadFileRequest, FileDownloadEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FacadeGRPC_DownloadFileServer = grpc.ServerStreamingServer[FileDownloadEvent]
+
+func _FacadeGRPC_ListMessageFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMessageFilesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FacadeGRPCServer).ListMessageFiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FacadeGRPC_ListMessageFiles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FacadeGRPCServer).ListMessageFiles(ctx, req.(*ListMessageFilesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FacadeGRPC_ServiceDesc is the grpc.ServiceDesc for FacadeGRPC service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -651,7 +757,22 @@ var FacadeGRPC_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "SendBotCommand",
 			Handler:    _FacadeGRPC_SendBotCommand_Handler,
 		},
+		{
+			MethodName: "ListMessageFiles",
+			Handler:    _FacadeGRPC_ListMessageFiles_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetMessageFile",
+			Handler:       _FacadeGRPC_GetMessageFile_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "DownloadFile",
+			Handler:       _FacadeGRPC_DownloadFile_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "internal/transport/grpc/pb/facade.proto",
 }

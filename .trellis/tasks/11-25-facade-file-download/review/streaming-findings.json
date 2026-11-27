@@ -1,0 +1,386 @@
+{
+  "done": true,
+  "verdict": "PASS",
+  "verdict_scope": "Static architecture/code review only. This is not Linux runtime acceptance; A7/A8 and the A1 mutation red/green remain pending.",
+  "round": 1,
+  "gate": "11-25 progressive streaming code gate",
+  "review_baseline": "8faac1bf45319b917936d2e1f923f5af28b0582c",
+  "reviewed_head": "8faac1bf45319b917936d2e1f923f5af28b0582c",
+  "public_compatibility_baseline": "fbc22cc",
+  "design_sha256": "FF408BB8AE45F9155468A271AC285AC2BF5578F53D08BF010D1010E2D475147D",
+  "design_hash_matches_approval": true,
+  "prd_sha256": "6D0055F5F8E05ACBB7C3F3A8983940B1AC4381126BD791C3DA4DF4386DE9A57D",
+  "prd_hash_matches_approval": true,
+  "ruler_drift": "none: git diff --name-only 8faac1b -- design.md prd.md .trellis/spec api/proto/facade.proto is empty",
+  "scope": {
+    "modified_worktree_files": [
+      ".github/workflows/ci-test.yml",
+      ".trellis/tasks/11-25-facade-file-download/progress.md",
+      ".trellis/tasks/11-25-facade-file-download/task.json",
+      "docs/TEST-MATRIX.md",
+      "internal/app/facade/mocks/telegram_repo.go",
+      "internal/app/facade/service.go",
+      "internal/app/facade/service_test.go",
+      "internal/infra/telegram/client_adapter.go",
+      "internal/infra/telegram/mocks/client_adapter.go",
+      "internal/infra/telegram/repo_test.go",
+      "internal/transport/grpc/mocks/facade_service.go",
+      "internal/transport/grpc/pb/facade.pb.go",
+      "internal/transport/grpc/pb/facade.proto",
+      "internal/transport/grpc/pb/facade_grpc.pb.go",
+      "internal/transport/grpc/transport.go",
+      "internal/transport/grpc/transport_test.go"
+    ],
+    "new_untracked_files": [
+      ".trellis/tasks/11-25-facade-file-download/review/streaming-acceptance.md",
+      ".trellis/tasks/11-25-facade-file-download/review/streaming-client-evidence.md",
+      ".trellis/tasks/11-25-facade-file-download/review/streaming-orchestrator-fixes.md",
+      ".trellis/tasks/11-25-facade-file-download/review/streaming-responses.json",
+      "cmd/facade-file-download-client/main.go",
+      "internal/app/facade/file_download.go",
+      "internal/app/facade/file_download_test.go",
+      "internal/transport/grpc/file_download.go",
+      "internal/transport/grpc/file_download_test.go",
+      "scripts/verify-facade-streaming.sh"
+    ],
+    "reviewed": "All modified and untracked source, tests, client, script, workflow, TEST-MATRIX, guide/evidence, mocks, proto and contract files were read. Historical findings.json, ci-findings.json and path-only reports were preserved and not used as rulers."
+  },
+  "prechecks": [
+    {
+      "name": "worktree/HEAD",
+      "result": "pass",
+      "evidence": "pwd = D:/Users/ying/.paseo/worktrees/1fum0qdo/feat-facade-file-download; git rev-parse --short HEAD = 8faac1b; streaming-findings.json absent before this artifact."
+    },
+    {
+      "name": "design lock",
+      "result": "pass",
+      "evidence": "design.md SHA256 = FF408BB8AE45F9155468A271AC285AC2BF5578F53D08BF010D1010E2D475147D; review/approval.md records the same hash. PRD SHA256 matches approval.md."
+    },
+    {
+      "name": "blocked/spec-gap/open-questions",
+      "result": "pass",
+      "evidence": "No blocked.md, spec-gap.md or open-questions.md in the task directory."
+    },
+    {
+      "name": "ruler drift",
+      "result": "pass",
+      "evidence": "git diff --name-only 8faac1b -- design.md prd.md .trellis/spec api/proto/facade.proto is empty. The planning changes are inside the supplied baseline, not implementation-time ruler edits."
+    },
+    {
+      "name": "proto symlink",
+      "result": "pass",
+      "evidence": "api/proto/facade.proto remains git mode 120000 (git ls-files -s) and has no git status/diff entry."
+    },
+    {
+      "name": "round",
+      "result": "pass",
+      "evidence": "review/streaming-findings.json did not exist; this is fresh round 1 for the streaming code gate."
+    }
+  ],
+  "system_context": [
+    {
+      "file": "cmd/facade/main.go",
+      "lines": "80,94,110-111",
+      "fact": "Production entry creates telegram.New(cfg.Telegram, telegram.NoBusinessUpdates), facade.New(telegramRepo), tgrpc.New(facadeService) and pb.RegisterFacadeGRPCServer. The new streaming handlers are reachable through the existing singleton Repo/session and no new business-update consumer is introduced."
+    },
+    {
+      "file": "internal/app/facade/file_download.go",
+      "lines": "41-67,128-264,267-275",
+      "fact": "App owns app-local DTOs, message media resolution, the two public streaming methods and the private progressive core. The core starts DownloadFile asynchronously with Priority 16/Offset 0/Limit 0/Synchronous false, emits startup metadata, samples GetFile before every prefix query, caps reads at 256 KiB, emits synchronously, advances the cursor only after a successful emit, handles complete/unknown-size/empty/inactive/overflow cases and uses a context-aware 250 ms timer."
+    },
+    {
+      "file": "internal/transport/grpc/file_download.go",
+      "lines": "19-37,39-82,84-107,110-134",
+      "fact": "Transport owns request validation, one app-event-to-one-pb-event mapping, sequential Send, first-Send-error precedence, stable download-failure messages, flood-wait preservation, Canceled/DeadlineExceeded mapping and the generated server-stream handlers. The generated interface assertion is at line 37."
+    },
+    {
+      "file": "internal/infra/telegram/client_adapter.go",
+      "lines": "58-60,372-405",
+      "fact": "Infra exposes exactly the four raw file primitives with pinned SDK signatures. DownloadFile already existed; GetFile, GetFileDownloadedPrefixSize and ReadFilePart are added with FloodWaitFromError and no withChatReady, matching the chat-less file-operation policy. No GetFileMimeType or CancelDownloadFile is present."
+    },
+    {
+      "file": "internal/transport/grpc/pb/facade.proto",
+      "lines": "24-25,214-240",
+      "fact": "Both replacement RPCs are server streams returning FileDownloadEvent. The oneof has metadata/chunk/complete with the locked field numbers. All 15 fbc22cc RPC lines remain and the fbc22cc proto diff is additions-only (36 lines, no deletions)."
+    },
+    {
+      "file": "internal/transport/grpc/pb/facade_grpc.pb.go",
+      "lines": "62-63,283-284",
+      "fact": "Generated client and server interfaces use grpc.ServerStreamingClient/ServerStreamingServer for FileDownloadEvent, matching the app/transport signatures."
+    },
+    {
+      "file": "internal/transport/grpc/file_download_test.go",
+      "lines": "29,49-56,68-74,102-117,159-186,188-241",
+      "fact": "A1 uses real facade.Service + real Transport + generated client over bufconn, one synctest bubble per ordinary subtest, a 5 s virtual context deadline, an async fake that blocks only when Synchronous=true, a one-byte pre-completion prefix, a nonempty-payload-before-release assertion with PROGRESSIVE_PAYLOAD_BEFORE_COMPLETION, an async-request assertion, exact final bytes, and release/conn/server/listener cleanup."
+    },
+    {
+      "file": "internal/app/facade/file_download_test.go",
+      "lines": "67-130,132-164,166-185,187-313,374-514,516-569,571-710,712-755",
+      "fact": "App tests cover progressive prefix exposure and bounded reads, unknown-size remaining bytes, complete empty files, terminal failures, read errors, cancellation/deadline cases, callback backpressure, completion races and two concurrent readers of the same fake file."
+    },
+    {
+      "file": "scripts/verify-facade-streaming.sh",
+      "lines": "15,35-36,42-65,67-70",
+      "fact": "The script runs only TestProgressiveDownloadBeforeCompletion, requires exactly one Synchronous:false mutation, uses an EXIT restore trap, requires a nonzero red run with the named test failure and marker, rejects build/setup/panic/timeout/no-test red reasons and unrelated failures, verifies byte restoration, and requires a final green run."
+    },
+    {
+      "file": ".github/workflows/ci-test.yml",
+      "lines": "102,121-128",
+      "fact": "The only workflow change is one 'Progressive download red-green proof' step invoking bash scripts/verify-facade-streaming.sh after the existing go test ./internal/... step. The CMake policy override, pins, cache keys, parallel build, install/archive, triggers, permissions, go vet and go test remain present."
+    },
+    {
+      "file": "cmd/facade-file-download-client/main.go",
+      "lines": "23,49,58-84,103-197",
+      "fact": "The acceptance client is cgo-free (pb/grpc/std only), uses signal and timeout context, creates .part exclusively, writes bounded sequential chunks, hashes incrementally, rejects metadata/chunk/complete/EOF violations and non-OK status, preserves the partial file on error, and renames only after clean EOF plus optional digest verification."
+    }
+  ],
+  "spec_conformance_summary": {
+    "design_§3_§4_module_boundaries": "Met. Production flow is cmd/facade -> transport -> app -> infra -> pinned TDLib. App imports client raw types but no pb/gRPC/transport. Infra does not import app/pb. The acceptance client does not import TDLib. No producer goroutine, chunk queue, new session, cache manager or test-only production seam was introduced.",
+    "design_§5_wire_contract": "Met. Two server-stream RPCs, oneof metadata/chunk/complete, exact locked field numbers; one metadata, zero-or-more nonempty chunks, one complete, clean EOF is enforced by the app; transport maps one event to one frame and validates exactly one nonnil event.",
+    "design_§6_app_api_and_infra": "Met. App DTOs and public method signatures match §6. All eight media mappings, MIME rules, largest-photo/tie behavior, typed-nil handling and missing-media errors are implemented. The three new raw infra methods use the pinned SDK signatures and FloodWaitFromError without withChatReady.",
+    "design_§7_progressive_algorithm": "Met by static reading. Async start, immediate metadata, state-before-prefix ordering, safe-prefix cap, 256 KiB reads, exact part length, cursor-after-emit, complete/unknown-size/empty EOF, cursor/size consistency, overflow rejection, inactive failure, completion races and context checks are present. No artificial completion gate or wait after a chunk was found.",
+    "design_§8_errors_and_cancellation": "Met by static reading. Context and callback errors are returned directly; download failures are typed; transport preserves first Send error unchanged; flood waits retain ResourceExhausted; Canceled/DeadlineExceeded map before mapFacadeError; stable Internal messages hide raw paths; no CancelDownloadFile or upstream cancellation is invoked.",
+    "design_§9_acceptance_mapping": "All required test shapes are present by static reading. A1-A6 are covered in code/tests; A7 and A8 are explicitly pending and are not claimed as executed. The exact Linux compilation/test and red/green execution remain the next gate.",
+    "design_§10_generation_and_ci": "Met for static evidence. Pinned protoc 34.2 / protoc-gen-go 1.36.11 / protoc-gen-go-grpc 1.5.1 regenerate the tracked bindings byte-for-byte. The CI change is one existing-job step; build/cache/pins/CMake override/parallelism/triggers/permissions remain intact.",
+    "design_§11_acceptance_client": "Met by code reading and the orchestrator-owned client evidence, subject to the limitation that the 12 loopback cases were not independently rerun here and are not TDLib/live Telegram proof.",
+    "design_§12_scope": "The changed/new production paths match §12. No Dockerfile, docker-publish workflow, spec, design or PRD edits were made by this code phase. All untracked streaming files must be staged in the eventual reviewed commit.",
+    "public_compatibility": "15 fbc22cc RPC lines remain verbatim; current proto has 17 RPCs (the two replacements are streams). git diff fbc22cc -- internal/transport/grpc/pb/facade.proto is additions-only (36 lines, 0 deletions); old Message/upload fields are untouched."
+  },
+  "test_assertion_review": [
+    {
+      "criterion": "A1",
+      "status": "static-pass; Linux execution pending",
+      "evidence": [
+        "TestProgressiveDownloadBeforeCompletion at internal/transport/grpc/file_download_test.go:188 uses real facade.New and real New(service) with the generated pb client over bufconn.",
+        "Both message and file-id modes run in separate synctest bubbles with a 5 s virtual context deadline and a controllable progressiveFile barrier.",
+        "The fake exposes one byte before completion, blocks DownloadFile only when Synchronous is true, and records the actual request; assertDownloadRequests requires exactly one async request.",
+        "The client requires metadata, then a nonempty chunk with the PROGRESSIVE_PAYLOAD_BEFORE_COMPLETION diagnostic, upstream_complete=false and the release channel still closed before release.",
+        "Cleanup releases the fake waiter before closing the connection/server/listener; exact final bytes and the complete frame are checked after release.",
+        "The mutation script is the red-path mechanism for this assertion; it is statically consistent with the fake and the marker."
+      ],
+      "remaining": "The test has not been executed on Linux. Static review cannot prove synctest/gRPC scheduling or the mutation run; that is A7."
+    },
+    {
+      "criterion": "A2",
+      "status": "static-pass; Linux execution pending",
+      "evidence": [
+        "TestService_DownloadFile_ProgressiveBoundaries progressively exposes 70,000 bytes and then the full fixed source, validates offset/sequence, exact bytes, 256 KiB cap and three chunk boundaries.",
+        "The ReadFilePart fake rejects a count outside the safe prefix or above progressiveChunkSize; the emit callback asserts offset == bytes received so far.",
+        "TestService_DownloadFile_CallbackBackpressure blocks the chunk callback and confirms no second GetFile state call occurs until release; its fake returns an error if a read happens while blocked.",
+        "Cached/complete behavior is covered by progressive media tests, CompleteEmptyFile, CompletionRace and the complete-state fake models."
+      ],
+      "remaining": "No executed Linux result is claimed."
+    },
+    {
+      "criterion": "A3",
+      "status": "static-pass; Linux execution pending",
+      "evidence": [
+        "ContextSemantics covers already-cancelled, cancel in the empty-prefix timer, cancel after a chunk, cancel during an in-flight fake GetFile, cancel during prefix query, cancel after metadata, and deadline during prefix query.",
+        "TestService_DownloadFile_EmitErrorStopsReads and the transport Send-failure test cover callback and first-Send-error propagation.",
+        "TestService_DownloadFile_SharedFileConcurrentReaders uses two real Service requests over one concurrency-safe fake, cancels one, advances the prefix and requires the other to finish with exact bytes.",
+        "No production or infra CancelDownloadFile method exists; cancellation is consumer-only."
+      ],
+      "remaining": "Linux synctest execution remains pending; the shared-reader test's multiple timers are statically consistent but not executed."
+    },
+    {
+      "criterion": "A4",
+      "status": "static-pass; Linux execution pending",
+      "evidence": [
+        "UnknownSizeUsesRemainingBytes, CompleteEmptyFile, TerminalFailures (invalid start/invalid file/inactive incomplete/final size/prefix exceeds complete/nil and negative prefix/nil part/short and oversized part) and ReadError cover the required terminal cases.",
+        "CompletionRace covers a zero prefix obtained before completion and final data arriving between state and prefix samples.",
+        "Every failure fixture requires an error and a callback that fails if a Complete event is emitted."
+      ],
+      "remaining": "No Linux execution is claimed."
+    },
+    {
+      "criterion": "A5",
+      "status": "static-pass; Linux execution pending",
+      "evidence": [
+        "service_test.go covers all eight media types, MIME sources, empty MIME, largest middle photo, nil content, typed-nil wrappers, nil wrapper fields and missing media.",
+        "file_download_test.go adds photo tie and missing-message coverage.",
+        "Transport tests cover message/file-ID validation, flood-wait ResourceExhausted and Canceled. App tests cover DeadlineExceeded and upstream download failures."
+      ],
+      "remaining": "Transport does not have a direct DeadlineExceeded table case; see NB-3. This is nonblocking because mapFacadeError also handles DeadlineExceeded and the app path is tested."
+    },
+    {
+      "criterion": "A6",
+      "status": "static-pass",
+      "evidence": [
+        "Pinned scratch regeneration produced facade.pb.go SHA256 D87FB330D31172E5E6BBB8C8958A8131DE77254C8CDE87775FAEEB778ECE3739 and facade_grpc.pb.go SHA256 59CF658FCA5DA0F438AF02B4F23B37A1D1597910E3564298E982E7092B372B4F, identical to the tracked files.",
+        "fbc22cc has 15 RPC lines; current has 17; no fbc22cc line is missing. git diff fbc22cc -- proto is additions-only.",
+        "This ticket's obsolete path-only response messages are replaced by the locked streaming messages; no unrelated test assertions were removed."
+      ],
+      "remaining": "No old generated descriptor binary comparison was performed beyond the proto/line/byte-identity evidence; the proto diff is additions-only."
+    },
+    {
+      "criterion": "A7",
+      "status": "pending-linux; not claimed as pass",
+      "evidence": [
+        "The Linux workflow and script are present and statically consistent; go vet/go test commands are preserved and one script step is added.",
+        "The script would require the named A1 failure and marker on the synchronous mutant, reject compile/setup/panic/timeout/no-test red reasons, restore bytes and require green."
+      ],
+      "remaining": "No Linux go vet, go test, or mutation red/green was executed on this Windows box; TDLib cgo cannot build here. This is the decisive next gate."
+    },
+    {
+      "criterion": "A8",
+      "status": "pending-live; client-only evidence",
+      "evidence": [
+        "cmd/facade-file-download-client implements the locked runnable consumer and preserves partial output on error.",
+        "review/streaming-client-evidence.md records a Windows CGO_ENABLED=0 build and twelve loopback checks; review/streaming-acceptance.md states live acceptance and image publication are pending."
+      ],
+      "remaining": "No TDLib/live Telegram first-payload or digest acceptance was executed; no image was published. The client evidence is not live proof."
+    }
+  ],
+  "blocking_findings": [],
+  "nonblocking_findings": [
+    {
+      "id": "NB-1",
+      "severity": "nonblocking",
+      "title": "TEST-MATRIX telegram inventory is inconsistent with the actual top-level test count",
+      "evidence": [
+        "docs/TEST-MATRIX.md:430 says internal/infra/telegram has 70 top-level tests; docs/TEST-MATRIX.md:444 says total 528.",
+        "A direct count of ^func Test across internal/infra/telegram/*_test.go gives 71: client_adapter_bot_test.go 5, errors_test.go 1, repo_test.go 26, source_opener_test.go 10, updates_test.go 5, warmup_test.go 24. The true displayed-row total is 529, not 528.",
+        "The earlier package table at docs/TEST-MATRIX.md:38,43,48 still says telegram 26, facade 18, grpc 45, contradicting the summary rows 70/36/65. The section at line 135 lists only repo_test.go although the package now documents 71 tests across six files.",
+        "The app/facade 36 and grpc 65 counts are correct."
+      ],
+      "reachability_proof": "Documentation/accounting only; no production, test, or runtime path depends on this number.",
+      "violated_clause": "implement.md Phase B1 step 5 says to update TEST-MATRIX from actual cases and verify the row sum; this is a planning/accounting requirement, not an architecture clause.",
+      "minimal_fix_direction": "Set the telegram summary row to 71 and the displayed total to 529 (or state a different explicitly defined counting basis); update or mark the stale top package table and list all six telegram test files.",
+      "verification": "Re-count ^func Test per package on the reviewed tree; the counts above are statically reproducible."
+    },
+    {
+      "id": "NB-2",
+      "severity": "nonblocking",
+      "title": "Infra flood-wait test name claims behavior that the new subtest does not exercise",
+      "evidence": [
+        "internal/infra/telegram/repo_test.go:878-904 'file passthroughs wrap flood wait' only returns success values for GetFile, GetFileDownloadedPrefixSize and ReadFilePart.",
+        "The only infra flood-wait assertion is the older DownloadFile subtest at repo_test.go:857-876. Removing FloodWaitFromError from any of the three new methods would not fail the new test."
+      ],
+      "reachability_proof": "The production wrappers do call FloodWaitFromError (client_adapter.go:381-405); this is a test-coverage/naming gap, not a production behavior defect observed on a reachable path.",
+      "violated_clause": "design.md §6 requires the new primitives to follow FloodWaitFromError conventions; quality-guidelines F1/F2 require a test name/assertion to bind to the behavior it claims.",
+      "minimal_fix_direction": "Add table-driven error cases returning client.ResponseError{429...} from each new adapter method and assert *telegram.FloodWaitError with the expected delay, or rename the subtest to make it success-passthrough-only.",
+      "verification": "Linux run of go test ./internal/infra/telegram; not executed here."
+    },
+    {
+      "id": "NB-3",
+      "severity": "nonblocking",
+      "title": "Transport-level DeadlineExceeded mapping lacks a direct table assertion",
+      "evidence": [
+        "internal/transport/grpc/file_download.go:22-25 maps errors.Is(err, context.DeadlineExceeded) to codes.DeadlineExceeded before mapFacadeError.",
+        "The transport error tables at transport_test.go:276-315 and 390-425 cover MessageFileNotFound, FileDownloadFailed, flood wait and plain errors; TestGetMessageFile_StreamContext covers context.Canceled only.",
+        "The app DeadlineExceeded path is covered in file_download_test.go, and mapFacadeError also has a DeadlineExceeded branch, so this is a coverage gap rather than an observed behavior failure."
+      ],
+      "reachability_proof": "The branch is reachable through a real stream context cancellation, but the static transport test table does not bind it directly.",
+      "violated_clause": "design.md §8 requires checking Canceled and DeadlineExceeded before mapFacadeError; the code does, but A5's context-mapping evidence should include the deadline case.",
+      "minimal_fix_direction": "Add context.DeadlineExceeded -> codes.DeadlineExceeded to the transport error table (or to the stream-context test) in addition to the existing Canceled case.",
+      "verification": "Linux run of go test ./internal/transport/grpc; not executed here."
+    },
+    {
+      "id": "NB-4",
+      "severity": "nonblocking",
+      "title": "New shell script is untracked and has no committed exec mode",
+      "evidence": [
+        "scripts/verify-facade-streaming.sh is an untracked file in git status; git ls-files -s cannot show a mode until it is staged.",
+        "The file is LF-only (76 LF, 0 CRLF) and .gitattributes has *.sh text eol=lf.",
+        "ci-test.yml:128 invokes it as bash scripts/verify-facade-streaming.sh, so a 100644 mode would not cause the docker-ci-guidelines Permission denied failure today.",
+        ".trellis/spec/backend/docker-ci-guidelines.md nevertheless requires scripts added from a Windows checkout to be staged as 100755 before pushing."
+      ],
+      "reachability_proof": "CI currently executes through bash, so this is commit-hygiene/spec conformance, not a current runtime failure.",
+      "violated_clause": ".trellis/spec/backend/docker-ci-guidelines.md 'Executable scripts from a Windows checkout must set the git mode bit' and 'verify git ls-files -s <script> shows 100755 before pushing'.",
+      "minimal_fix_direction": "When staging the reviewed commit, run git update-index --chmod=+x scripts/verify-facade-streaming.sh and verify 100755, or keep the explicit bash invocation and document the intentional 100644 exception.",
+      "verification": "git ls-files -s scripts/verify-facade-streaming.sh after staging; no commit was made by this review."
+    }
+  ],
+  "resolved_previous": [],
+  "prior_work_verified": {
+    "streaming_design_gate": "review/streaming-design-findings.json records PASS round 1, D1-D8 met, against the unchanged design hash. This code gate did not re-open design questions.",
+    "B1_and_orchestrator_fixes": "The concrete Phase A/B1 defects described in review/streaming-orchestrator-fixes.md were re-checked against current source: the generated stream signatures, app/transport callback split, first-Send-error precedence, success nil handling, flood-wait-first mapping, typed-nil media handling, context checks, A1 barrier and exact-byte assertions are present. No unresolved prior code-review finding was found."
+  },
+  "withdrawn": [],
+  "discarded_count": 4,
+  "discarded": [
+    {
+      "id": "D-1",
+      "reason": "cmd/facade-file-download-client/main.go has both defer partial.Close() and an explicit Close on success. The second close is harmless and its error is intentionally ignored; no user-visible or architecture impact."
+    },
+    {
+      "id": "D-2",
+      "reason": "internal/app/facade/errors.go:46 still says 'local-complete oracle', a path-only-era phrase. The error type and Unwrap behavior are correct for the streaming design; this is a stale comment with no behavioral reachability."
+    },
+    {
+      "id": "D-3",
+      "reason": "git diff --check reports trailing whitespace in .trellis/tasks/11-25-facade-file-download/task.json, an orchestrator-owned status record, not reviewed source. It does not affect code or runtime."
+    },
+    {
+      "id": "D-4",
+      "reason": "GetMessageFile calls telegramRepo.GetMessage directly rather than the thin Service.GetMessage proxy. The existing proxy has no additional behavior or context handling, so this is not a layer or behavior violation."
+    }
+  ],
+  "follow_ups": [
+    "Run the Linux gate on the reviewed head: go vet ./..., go test ./internal/..., then bash scripts/verify-facade-streaming.sh; record the exact head, run URL, and A1 red/green evidence. Static PASS does not substitute.",
+    "After Linux green and owner authorization, run live Telegram acceptance with a large uncached normal document and record first-payload/integrity evidence; publish the acceptance image only through the existing gated workflow.",
+    "Correct the TEST-MATRIX telegram count/total and the stale top package table per NB-1.",
+    "Add the infra flood-wait error cases and the transport DeadlineExceeded table case per NB-2/NB-3.",
+    "Stage every untracked streaming file (client, app/transport files, tests, script) and set the script mode per NB-4 before the reviewed commit."
+  ],
+  "executed_evidence": [
+    {
+      "command": "pwsh -Command 'Get-FileHash design.md/prd.md -Algorithm SHA256'",
+      "result": "design FF408BB8AE45F9155468A271AC285AC2BF5578F53D08BF010D1010E2D475147D; prd 6D0055F5F8E05ACBB7C3F3A8983940B1AC4381126BD791C3DA4DF4386DE9A57D; both match review/approval.md."
+    },
+    {
+      "command": "git diff --name-only 8faac1b -- .trellis/tasks/11-25-facade-file-download/design.md .trellis/tasks/11-25-facade-file-download/prd.md .trellis/spec api/proto/facade.proto",
+      "result": "empty; no ruler or symlink drift."
+    },
+    {
+      "command": "git diff fbc22cc -- internal/transport/grpc/pb/facade.proto",
+      "result": "36 insertions, 0 deletions; the two streaming RPCs/messages are added and all 15 fbc22cc RPC lines and existing messages remain."
+    },
+    {
+      "command": "gofmt -l <all changed/new Go files>",
+      "result": "no output; formatting is clean."
+    },
+    {
+      "command": "protoc libprotoc 34.2 --go_out=<scratch> --go-grpc_out=<scratch> with plugins protoc-gen-go v1.36.11 and protoc-gen-go-grpc 1.5.1, source_relative",
+      "result": "scratch facade.pb.go SHA256 D87FB330D31172E5E6BBB8C8958A8131DE77254C8CDE87775FAEEB778ECE3739 and facade_grpc.pb.go SHA256 59CF658FCA5DA0F438AF02B4F23B37A1D1597910E3564298E982E7092B372B4F; identical to tracked files. Scratch was under D:/Repositories/budva/.trellis/.runtime/, never in the repo."
+    },
+    {
+      "command": "Select-String '^func Test' across changed package tests",
+      "result": "internal/infra/telegram 71; internal/app/facade 36; internal/transport/grpc 65. This independently exposes NB-1."
+    },
+    {
+      "command": "git ls-files -s api/proto/facade.proto and git status --porcelain -- api/proto/facade.proto",
+      "result": "mode 120000; no status entry; symlink untouched."
+    },
+    {
+      "command": "rg 'CancelDownloadFile|GetFileMimeType' internal cmd scripts",
+      "result": "no matches; only the intended raw primitives exist."
+    },
+    {
+      "command": "rg 'Synchronous:\\s*(false|true)' internal/app internal/infra internal/transport",
+      "result": "one production Synchronous:false at internal/app/facade/file_download.go:137; the other true literals are in the pre-existing infra DownloadFile test."
+    },
+    {
+      "command": "rg 'go func|make\\(chan' internal/app/facade/file_download.go internal/transport/grpc/file_download.go",
+      "result": "no matches; no producer goroutine or queue in the streaming production files."
+    },
+    {
+      "command": "git diff --check",
+      "result": "one task.json trailing-whitespace diagnostic (orchestrator metadata), no source diagnostics."
+    },
+    {
+      "command": "byte/line-ending inspection of scripts/verify-facade-streaming.sh",
+      "result": "76 LF, 0 CRLF; .gitattributes contains '*.sh text eol=lf'."
+    }
+  ],
+  "limitations": [
+    "No Linux go vet or go test was run; touched packages require Linux/Darwin cgo TDLib, and this Windows box cannot build it. Absence of a local build is not evidence either way.",
+    "A1 and the synchronous-starter mutation red/green were not executed. The script and test are statically consistent, but the decisive causal timing proof remains A7.",
+    "The client build and twelve loopback checks are orchestrator-recorded Windows evidence, not independently rerun here, and are not TDLib/live Telegram proof.",
+    "No live Telegram acceptance, image build, image smoke, digest/manifest publication, merge, commit or push was performed or claimed.",
+    "Static reading and gofmt cannot prove compilation/type-check success for the TDLib-dependent packages; generated byte identity and field/signature inspection are the available static evidence.",
+    "TEST-MATRIX counts are hand-counted from test source because no Linux test execution was available; the documentation discrepancy in NB-1 is exactly why the count is not treated as runtime evidence.",
+    "The reviewed tree is a working tree with untracked implementation files; the eventual commit must stage all of them (and set the script mode per NB-4) for CI to see the reviewed code."
+  ],
+  "escalation_reason": ""
+}

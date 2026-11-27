@@ -711,6 +711,68 @@ func (_c *TelegramRepo_SendMessage_Call) RunAndReturn(run func(sendMessageReques
 	return _c
 }
 
+// DownloadFile provides a mock function for the type TelegramRepo
+func (_mock *TelegramRepo) DownloadFile(downloadFileRequest *client.DownloadFileRequest) (*client.File, error) {
+	ret := _mock.Called(downloadFileRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DownloadFile")
+	}
+
+	var r0 *client.File
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.DownloadFileRequest) (*client.File, error)); ok {
+		return returnFunc(downloadFileRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.DownloadFileRequest) *client.File); ok {
+		r0 = returnFunc(downloadFileRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.File)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.DownloadFileRequest) error); ok {
+		r1 = returnFunc(downloadFileRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// TelegramRepo_DownloadFile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DownloadFile'
+type TelegramRepo_DownloadFile_Call struct {
+	*mock.Call
+}
+
+// DownloadFile is a helper method to define mock.On call
+//   - downloadFileRequest *client.DownloadFileRequest
+func (_e *TelegramRepo_Expecter) DownloadFile(downloadFileRequest interface{}) *TelegramRepo_DownloadFile_Call {
+	return &TelegramRepo_DownloadFile_Call{Call: _e.mock.On("DownloadFile", downloadFileRequest)}
+}
+
+func (_c *TelegramRepo_DownloadFile_Call) Run(run func(downloadFileRequest *client.DownloadFileRequest)) *TelegramRepo_DownloadFile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.DownloadFileRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.DownloadFileRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *TelegramRepo_DownloadFile_Call) Return(file *client.File, err error) *TelegramRepo_DownloadFile_Call {
+	_c.Call.Return(file, err)
+	return _c
+}
+
+func (_c *TelegramRepo_DownloadFile_Call) RunAndReturn(run func(downloadFileRequest *client.DownloadFileRequest) (*client.File, error)) *TelegramRepo_DownloadFile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendMessageAlbum provides a mock function for the type TelegramRepo
 func (_mock *TelegramRepo) SendMessageAlbum(sendMessageAlbumRequest *client.SendMessageAlbumRequest) (*client.Messages, error) {
 	ret := _mock.Called(sendMessageAlbumRequest)
@@ -1017,6 +1079,192 @@ func (_c *TelegramRepo_GetCallbackQueryAnswer_Call) Return(callbackQueryAnswer *
 }
 
 func (_c *TelegramRepo_GetCallbackQueryAnswer_Call) RunAndReturn(run func(getCallbackQueryAnswerRequest *client.GetCallbackQueryAnswerRequest) (*client.CallbackQueryAnswer, error)) *TelegramRepo_GetCallbackQueryAnswer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetFile provides a mock function for the type TelegramRepo
+func (_mock *TelegramRepo) GetFile(getFileRequest *client.GetFileRequest) (*client.File, error) {
+	ret := _mock.Called(getFileRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFile")
+	}
+
+	var r0 *client.File
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.GetFileRequest) (*client.File, error)); ok {
+		return returnFunc(getFileRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.GetFileRequest) *client.File); ok {
+		r0 = returnFunc(getFileRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.File)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.GetFileRequest) error); ok {
+		r1 = returnFunc(getFileRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// TelegramRepo_GetFile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFile'
+type TelegramRepo_GetFile_Call struct {
+	*mock.Call
+}
+
+// GetFile is a helper method to define mock.On call
+//   - getFileRequest *client.GetFileRequest
+func (_e *TelegramRepo_Expecter) GetFile(getFileRequest interface{}) *TelegramRepo_GetFile_Call {
+	return &TelegramRepo_GetFile_Call{Call: _e.mock.On("GetFile", getFileRequest)}
+}
+
+func (_c *TelegramRepo_GetFile_Call) Run(run func(getFileRequest *client.GetFileRequest)) *TelegramRepo_GetFile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.GetFileRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.GetFileRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *TelegramRepo_GetFile_Call) Return(file *client.File, err error) *TelegramRepo_GetFile_Call {
+	_c.Call.Return(file, err)
+	return _c
+}
+
+func (_c *TelegramRepo_GetFile_Call) RunAndReturn(run func(getFileRequest *client.GetFileRequest) (*client.File, error)) *TelegramRepo_GetFile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetFileDownloadedPrefixSize provides a mock function for the type TelegramRepo
+func (_mock *TelegramRepo) GetFileDownloadedPrefixSize(getFileDownloadedPrefixSizeRequest *client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error) {
+	ret := _mock.Called(getFileDownloadedPrefixSizeRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFileDownloadedPrefixSize")
+	}
+
+	var r0 *client.FileDownloadedPrefixSize
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error)); ok {
+		return returnFunc(getFileDownloadedPrefixSizeRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.GetFileDownloadedPrefixSizeRequest) *client.FileDownloadedPrefixSize); ok {
+		r0 = returnFunc(getFileDownloadedPrefixSizeRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.FileDownloadedPrefixSize)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.GetFileDownloadedPrefixSizeRequest) error); ok {
+		r1 = returnFunc(getFileDownloadedPrefixSizeRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// TelegramRepo_GetFileDownloadedPrefixSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFileDownloadedPrefixSize'
+type TelegramRepo_GetFileDownloadedPrefixSize_Call struct {
+	*mock.Call
+}
+
+// GetFileDownloadedPrefixSize is a helper method to define mock.On call
+//   - getFileDownloadedPrefixSizeRequest *client.GetFileDownloadedPrefixSizeRequest
+func (_e *TelegramRepo_Expecter) GetFileDownloadedPrefixSize(getFileDownloadedPrefixSizeRequest interface{}) *TelegramRepo_GetFileDownloadedPrefixSize_Call {
+	return &TelegramRepo_GetFileDownloadedPrefixSize_Call{Call: _e.mock.On("GetFileDownloadedPrefixSize", getFileDownloadedPrefixSizeRequest)}
+}
+
+func (_c *TelegramRepo_GetFileDownloadedPrefixSize_Call) Run(run func(getFileDownloadedPrefixSizeRequest *client.GetFileDownloadedPrefixSizeRequest)) *TelegramRepo_GetFileDownloadedPrefixSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.GetFileDownloadedPrefixSizeRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.GetFileDownloadedPrefixSizeRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *TelegramRepo_GetFileDownloadedPrefixSize_Call) Return(fileDownloadedPrefixSize *client.FileDownloadedPrefixSize, err error) *TelegramRepo_GetFileDownloadedPrefixSize_Call {
+	_c.Call.Return(fileDownloadedPrefixSize, err)
+	return _c
+}
+
+func (_c *TelegramRepo_GetFileDownloadedPrefixSize_Call) RunAndReturn(run func(getFileDownloadedPrefixSizeRequest *client.GetFileDownloadedPrefixSizeRequest) (*client.FileDownloadedPrefixSize, error)) *TelegramRepo_GetFileDownloadedPrefixSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReadFilePart provides a mock function for the type TelegramRepo
+func (_mock *TelegramRepo) ReadFilePart(readFilePartRequest *client.ReadFilePartRequest) (*client.FilePart, error) {
+	ret := _mock.Called(readFilePartRequest)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReadFilePart")
+	}
+
+	var r0 *client.FilePart
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*client.ReadFilePartRequest) (*client.FilePart, error)); ok {
+		return returnFunc(readFilePartRequest)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*client.ReadFilePartRequest) *client.FilePart); ok {
+		r0 = returnFunc(readFilePartRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.FilePart)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*client.ReadFilePartRequest) error); ok {
+		r1 = returnFunc(readFilePartRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// TelegramRepo_ReadFilePart_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReadFilePart'
+type TelegramRepo_ReadFilePart_Call struct {
+	*mock.Call
+}
+
+// ReadFilePart is a helper method to define mock.On call
+//   - readFilePartRequest *client.ReadFilePartRequest
+func (_e *TelegramRepo_Expecter) ReadFilePart(readFilePartRequest interface{}) *TelegramRepo_ReadFilePart_Call {
+	return &TelegramRepo_ReadFilePart_Call{Call: _e.mock.On("ReadFilePart", readFilePartRequest)}
+}
+
+func (_c *TelegramRepo_ReadFilePart_Call) Run(run func(readFilePartRequest *client.ReadFilePartRequest)) *TelegramRepo_ReadFilePart_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *client.ReadFilePartRequest
+		if args[0] != nil {
+			arg0 = args[0].(*client.ReadFilePartRequest)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *TelegramRepo_ReadFilePart_Call) Return(filePart *client.FilePart, err error) *TelegramRepo_ReadFilePart_Call {
+	_c.Call.Return(filePart, err)
+	return _c
+}
+
+func (_c *TelegramRepo_ReadFilePart_Call) RunAndReturn(run func(readFilePartRequest *client.ReadFilePartRequest) (*client.FilePart, error)) *TelegramRepo_ReadFilePart_Call {
 	_c.Call.Return(run)
 	return _c
 }
