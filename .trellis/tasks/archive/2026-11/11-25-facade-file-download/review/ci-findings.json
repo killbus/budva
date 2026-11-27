@@ -1,0 +1,126 @@
+{
+  "verdict": "PASS",
+  "round": 1,
+  "gate": "P3 independent review - owner-approved CI extension (PR #16 CMake policy repair)",
+  "extension_baseline": "3ba0cd6f78b3881fdc0db00c850794d1900a2a2b",
+  "scope_ruler": "review/ci-scope-addendum.md (owner-approved; supersedes design §11 only for the listed CI files)",
+  "facade_design_lock": {
+    "sha256": "e6f3d19ff4edf88df1138e56fa0c86533281359670cf8775393311b3b4b90c75",
+    "status": "unchanged - no diff to design.md, prd.md, api/proto/facade.proto, or any application/proto/test file"
+  },
+  "previous_gate_preserved": {
+    "facade_p3_findings": "review/findings.json is byte-unchanged against 3ba0cd6 (git diff --stat empty)",
+    "verdict": "the original facade PASS stands; this review covers only the CI extension"
+  },
+  "scope_verification": {
+    "authorized_files": [
+      ".github/workflows/ci-test.yml",
+      ".trellis/spec/backend/docker-ci-guidelines.md",
+      ".trellis/tasks/11-25-facade-file-download/{progress.md,closeout.md,task.json}",
+      ".trellis/tasks/11-25-facade-file-download/review/{ci-scope-addendum.md,ci-evidence.md,ci-responses.json}"
+    ],
+    "observed_changes": "tracked: .github/workflows/ci-test.yml (+11/-10), .trellis/spec/backend/docker-ci-guidelines.md (+7/-2), progress.md (+45/-1), review/closeout.md (+27/-12), task.json (+15/-4); untracked: review/ci-evidence.md, review/ci-responses.json, review/ci-scope-addendum.md",
+    "unauthorized_changes": "none - no Dockerfile, docker-publish workflow, Go source, proto, generated binding, test, design, prd, or TEST-MATRIX change",
+    "spec_edit_is_authorized": "yes - ci-scope-addendum.md §3 explicitly authorizes .trellis/spec/backend/docker-ci-guidelines.md for this extension"
+  },
+  "blocking_findings": [],
+  "nonblocking_findings": [
+    {
+      "id": "CI-N1",
+      "severity": "nit-comment",
+      "anchor": ".github/workflows/ci-test.yml:24-28 (file-header comment)",
+      "observation": "The rewritten header groups the new CMake policy override under the parenthetical '(container runs as root, runner does not)', which is the reason for the two sudo deviations only. The policy override is driven by the hosted image's CMake >= 4.0 rejecting the pinned TDLib's pre-3.5 cmake_minimum_required, not by root ownership. The step-level comment (:94-97) and docker-ci-guidelines.md are accurate; only the header's grouping is loose.",
+      "suggested_minimal_fix": "Runner-only deviations the Dockerfile never needs: the hosted CMake 4 policy override (bookworm's CMake is older), plus `sudo` on the install target and the tarball extract - /usr/local is root-owned on a hosted runner (the container runs as root).",
+      "why_non_blocking": "Comment-only wording; no instruction, step, condition, command, or contract changes. The addendum explicitly permits correcting these comments and requires no new inline comments."
+    },
+    {
+      "id": "CI-N2",
+      "severity": "informational",
+      "anchor": ".trellis/tasks/11-25-facade-file-download/task.json",
+      "observation": "task.json is a uniformly CRLF file (59 CR / 59 LF in the worktree) and was already CRLF at the baseline: git's own diff with core.autocrlf=false and no text/eol attribute reports only 15 added / 4 removed lines for a 59-line file, which is only possible if the base blob is CRLF too. `git diff --check` therefore flags the 15 added task.json lines as trailing whitespace. The workflow and spec edits are LF-only (0 CR bytes) and pass `git diff --check` cleanly.",
+      "action": "none - the extension preserved the file's existing convention; the task-record checker already recognises CRLF (progress.md: 'recognize CRLF for task-record checks'). Recorded so a later reviewer does not read this as an extension-introduced whitespace defect."
+    }
+  ],
+  "acceptance_checks": [
+    {
+      "item": "Actual CI path is the edited path",
+      "result": "PASS",
+      "evidence": "The failure occurred in the 'Build TDLib (cold cache)' step of .github/workflows/ci-test.yml (if: steps.tdlib.outputs.cache-hit != 'true'), which is the only step this change touches. The failed run restored no cache, so the cold path executed. Downstream symptoms are consistent with bash semantics: the configure failure short-circuits the `&&` chain (set -e exempts non-final commands of an AND-OR list), so the later standalone `cd /usr/local && tar ...` line still runs and fails on the never-installed headers - one root cause, not two."
+    },
+    {
+      "item": "Observed CMake diagnostic is the resolution target",
+      "result": "PASS",
+      "evidence": "The quoted text ('Compatibility with CMake < 3.5 has been removed from CMake ... Or, add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 to try configuring anyway') at CMakeLists.txt:1 is CMake 4.0's verbatim diagnostic; its presence in the log also proves the runner resolved CMake >= 4.0 despite apt installing the distro cmake (the image's preinstalled /usr/local/bin cmake wins PATH order). The Docker path is unaffected: debian:bookworm ships CMake 3.25, which accepts the pin's declaration - so leaving Dockerfile untouched (a non-goal) is consistent."
+    },
+    {
+      "item": "Exactly one policy flag, on the configure command",
+      "result": "PASS",
+      "evidence": "-DCMAKE_POLICY_VERSION_MINIMUM=3.5 occurs exactly once in the workflow, on the `cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..` line (yq-extracted run block of the cold-cache step). It is not on prepare_cross_compiling or install."
+    },
+    {
+      "item": "Candidate patch fidelity",
+      "result": "PASS",
+      "evidence": "The applied configure line is byte-identical to the hunk in D:/Repositories/budva/.trellis/.runtime/facade-ci-cmake-policy.patch, as claimed in ci-responses.json."
+    },
+    {
+      "item": "Preserved contracts (pin, cache, parallelism, source split, install, archive, triggers, permissions, vet, tests)",
+      "result": "PASS",
+      "evidence": "token counts in the edited workflow: 'git checkout 22d49d5' 1; 'key: tdlib-22d49d5-amd64' 2 (restore + save); '--parallel 2' 4 (prepare_cross_compiling, install, two doc mentions); 'SplitSource.php' 1; 'sudo cmake --build . --parallel 2 --target install' 1; 'cd /usr/local && tar' 1; 'contents: read' 1; 'workflow_dispatch' 1; 'branches: [main]' 2; 'go vet ./...' 1; 'go test ./internal/...' 1. Step order unchanged (Checkout, Set up Go, Install TDLib build deps, Restore, Unpack, Build cold, Save, go vet, go test). No cache key moved (correct: the pin did not move, and the policy flag does not change the library)."
+    },
+    {
+      "item": "YAML and whitespace validity",
+      "result": "PASS",
+      "evidence": "yq eval '.' .github/workflows/ci-test.yml -> rc 0; `git diff 3ba0cd6 --check -- .github/workflows/ci-test.yml` -> no output, rc 0; workflow and spec contain 0 CR bytes. Only 21 workflow lines changed (11 added / 10 removed), all accounted for by two comment blocks plus the configure line."
+    },
+    {
+      "item": "Comment corrections are justified",
+      "result": "PASS",
+      "evidence": "The previous text claimed 'the Dockerfile's exact recipe' / 'Verbatim Dockerfile recipe ... with the one runner-only deviation'. After adding a third runner-only deviation both claims were false; rewriting them to 'follows the Dockerfile recipe' and listing the deviations is required for accuracy. No 'verbatim'/'exact recipe' claim remains in the workflow or the CI spec."
+    },
+    {
+      "item": "Spec change accuracy and contract preservation",
+      "result": "PASS",
+      "evidence": "docker-ci-guidelines.md §3 now names the policy override as runner-only, states it is 'not a dependency upgrade', and replaces 'verbatim Dockerfile' with 'Keep the pin, --parallel 2, prepare_cross_compiling, and SplitSource.php aligned with the Dockerfile' - the substance of the pin/parallelism/source-splitting contract is retained. §4 adds one error-matrix row naming the observed diagnostic, run 45613676314, the fix, and the fact that later header/archive errors are consequences and that vet/tests were skipped. The cache-key lockstep contract row is untouched."
+    },
+    {
+      "item": "Records do not overclaim CI success",
+      "result": "PASS",
+      "evidence": "task.json ci_status='failure_tdlib_cmake_before_go_checks', ci_repair_status='implemented_review_pending', publication_status='pr_open'; progress.md records the failure, the skipped vet/test, and the pending Linux run; closeout.md states CI 'ran but failed during TDLib configuration; both go vet and go test were skipped' and keeps the 'record a successful Linux CI run' gate. No PASS claim for CI anywhere."
+    },
+    {
+      "item": "Scope non-goals honored",
+      "result": "PASS",
+      "evidence": "No dependency/TDLib pin change, no Dockerfile or docker-publish change, no application/proto/test change, no parallelism or cache change, no test skip, no permission expansion, no merge. HEAD (3ba0cd6) still equals the published head recorded by the local upstream ref."
+    }
+  ],
+  "evidence_commands": [
+    {"cmd": "pwd && git log --oneline -3 && git status --short", "observed": "worktree D:\\Users\\ying\\.paseo\\worktrees\\1fum0qdo\\feat-facade-file-download; HEAD=3ba0cd6; 5 tracked edits + 3 untracked review records, all in scope"},
+    {"cmd": "git diff --stat 3ba0cd6 && git diff 3ba0cd6 -- .github/workflows/ci-test.yml", "observed": "5 files; workflow +11/-10 limited to two comment blocks and the configure line"},
+    {"cmd": "git diff 3ba0cd6 -- .trellis/spec/backend/docker-ci-guidelines.md", "observed": "+7/-2: runner-only bullet rewritten, one error-matrix row added"},
+    {"cmd": "yq eval '.' .github/workflows/ci-test.yml", "observed": "rc=0"},
+    {"cmd": "yq '.jobs.test.steps[].name // .jobs.test.steps[].uses' .github/workflows/ci-test.yml", "observed": "9 steps in original order; only the cold-cache run block contains the new flag"},
+    {"cmd": "git diff 3ba0cd6 --check -- .github/workflows/ci-test.yml ; git diff 3ba0cd6 --check -- .trellis/spec/backend/docker-ci-guidelines.md", "observed": "both rc=0, no output; 0 CR bytes in either file"},
+    {"cmd": "Select-String -count of preserved tokens in ci-test.yml", "observed": "pin 1, cache key 2, --parallel 2 4, SplitSource 1, install 1, archive 1, contents: read 1, dispatch 1, branches[main] 2, vet 1, test 1"},
+    {"cmd": "git diff 3ba0cd6 --name-only ; git ls-files --others --exclude-standard", "observed": "no Dockerfile/app/proto/test file; only authorized workflow/spec/task files"},
+    {"cmd": "git diff --stat 3ba0cd6 -- .trellis/tasks/11-25-facade-file-download/review/findings.json", "observed": "empty - original facade review preserved"},
+    {"cmd": "git rev-parse HEAD ; git rev-parse --abbrev-ref '@{u}' ; git log -1 --oneline origin/feat/facade-file-download", "observed": "3ba0cd6 == origin/feat/facade-file-download"},
+    {"cmd": "Get-Content D:/Repositories/budva/.trellis/.runtime/facade-ci-cmake-policy.patch", "observed": "single hunk identical to the applied configure-line change"}
+  ],
+  "limitations": [
+    "No Linux CI run was performed in this review, so static inspection cannot prove that CMake configures, TDLib builds/installs, and go vet/go test pass. The addendum's acceptance item 4 remains open until a run on the new head SHA reports those steps.",
+    "No local go build/vet/test: go-tdlib is cgo-only (linux/darwin) and remains unbuildable on this Windows worktree - unchanged constraint, not evidence either way.",
+    "The run log was reviewed via the orchestrator-captured excerpt in ci-evidence.md; this review did not re-fetch the GitHub run page (no credentialed network use). The excerpt's wording is CMake 4.0's verbatim diagnostic, which corroborates authenticity, and its head SHA 3ba0cd6 matches the checked-out HEAD.",
+    "Residual technical risk: -DCMAKE_POLICY_VERSION_MINIMUM=3.5 restores pre-3.5 policy behaviour but cannot fix a project that actually depends on removed pre-3.5 behaviour. If the cold build still fails after configuration, the addendum §4.5 governs: continue only within the same narrow compatibility repair, and stop for a new scope decision if a dependency/version/cache contract would have to change.",
+    "Backward compatibility of the flag is safe: on CMake < 4.0 it is an unused variable (warning only), so the change cannot regress a runner still on CMake 3.x; and the Docker build (bookworm CMake 3.25) never sees it."
+  ],
+  "required_next_gate": {
+    "steps": [
+      "Create the approved separate commit 'fix(ci): support current CMake for pinned TDLib' containing the workflow + spec + task records (no source changes).",
+      "Push to PR #16 and let ci-test run on the new head SHA.",
+      "Confirm from the log that 'Build TDLib (cold cache)' executed (cache-hit != true) and that configure, prepare_cross_compiling, SplitSource, and install all succeed, then that 'go vet ./...' and 'go test ./internal/...' both complete.",
+      "Record the run URL and head SHA in ci-evidence.md / progress.md / task.json; merge stays an owner gate."
+    ],
+    "note": "Because the cache key is intentionally unchanged and no earlier run populated it (the failing run never reached Save TDLib), the next run should exercise the fixed cold path; if a cache hit occurs instead, the fix has not been validated."
+  },
+  "escalation_reason": null
+}

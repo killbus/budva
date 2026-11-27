@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/telegram-tdlib-guidelines.md","reason":"Raw SDK/repo boundaries, existing GetMessage readiness and no business subscriber"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Strict mocks, falsifiable assertions, red mechanism and virtual-time rules"}
+{"file":".trellis/tasks/11-26-facade-message-files/prd.md","reason":"Authorized intent and proposed scope; current phase is design only"}
+{"file":".trellis/tasks/11-26-facade-message-files/design.md","reason":"Exact additive schema, extraction table, snapshot/error semantics and file-set boundary"}
+{"file":".trellis/tasks/11-26-facade-message-files/research/tdlib-message-files.md","reason":"Pinned actual SDK fields and published streaming baseline"}
+{"file":"internal/app/facade/file_download.go","reason":"Read-only main resolver and existing progressive contract"}
+{"file":"internal/transport/grpc/pb/facade.proto","reason":"17 baseline RPCs and additive compatibility"}

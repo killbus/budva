@@ -432,7 +432,3 @@
   streaming-acceptance.md with pinned compose image, canonical proto URL,
   GetMessageLinkInfo lookup, client and grpcurl examples. No live acceptance
   or merge yet.
-- Live Telegram acceptance completed 2026-11-27: owner verified the final
-  dispatch-test image dev-run24-d52d683 (source d52d683, all three file RPCs)
-  and confirmed the flows. PR #16 title/body updated for the final scope.
-  Merge remains the owner's explicit gate.
