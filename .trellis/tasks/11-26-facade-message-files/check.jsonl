@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/telegram-tdlib-guidelines.md","reason":"Verify boundaries and absence of new repository/update ownership mechanisms"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Review test assertions and recorded red mechanisms"}
+{"file":".trellis/tasks/11-26-facade-message-files/prd.md","reason":"Scope and falsifiable A1-A7 acceptance criteria"}
+{"file":".trellis/tasks/11-26-facade-message-files/design.md","reason":"Only approved technical ruler after design lock"}
+{"file":".trellis/tasks/11-26-facade-message-files/research/tdlib-message-files.md","reason":"Actual SDK file fields, metadata limits and baseline anchors"}

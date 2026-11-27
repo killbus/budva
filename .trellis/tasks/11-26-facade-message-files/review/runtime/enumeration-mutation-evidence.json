@@ -1,0 +1,22 @@
+{
+  "source_sha256": "a7fb0c334a020566120711e7751817c39e719952bd184f643541a2a630eb0015",
+  "mutation": "omit enumerated items after real extraction",
+  "command": [
+    "go",
+    "test",
+    "-p",
+    "1",
+    "-count=1",
+    "-timeout=60s",
+    "./internal/app/facade",
+    "-run",
+    "^TestService_ListMessageFiles_(PhotoMutationBindsExtraction|PhotoSizesMetadataOnly)$"
+  ],
+  "red_exit": 1,
+  "failed_tests": [
+    "TestService_ListMessageFiles_PhotoMutationBindsExtraction",
+    "TestService_ListMessageFiles_PhotoSizesMetadataOnly"
+  ],
+  "restored_sha256": "a7fb0c334a020566120711e7751817c39e719952bd184f643541a2a630eb0015",
+  "restored_green_exit": 0
+}

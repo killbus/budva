@@ -40,12 +40,12 @@
 | `internal/service/album` | 22 | 40 scenario instances | — |
 | `internal/app/auth` | 20 | — | — |
 | `internal/service/dedup` | 10 | 1 scenario instance | — |
-| `internal/app/facade` | 36 | — | — |
+| `internal/app/facade` | 52 | — | — |
 | `internal/service/filters` | 8 | 161 scenario instances | — |
 | `internal/service/limiter` | 14 | 1 scenario instance | — |
 | `internal/service/message` | 40 | — | — |
 | `internal/service/transform` | 51 | 105 scenario instances | — |
-| `internal/transport/grpc` | 65 | — | — |
+| `internal/transport/grpc` | 71 | — | — |
 | `internal/transport/http` | 14 | — | — |
 | `internal/transport/http/resolvers` | 2 | — | — |
 | `internal/transport/term` | 23 | — | — |
@@ -187,6 +187,7 @@
 | SVC-U-004 | `service_test.go` | 18 tests: facade proxy methods, album/file routing, status, build version helper, message file/MIME resolution and progressive download | streaming changes: Linux pending |
 | FACADE-U-STREAM | `file_download_test.go` | 13 tests: nil media, photo tie, bounded prefixes, unknown/empty EOF, terminal failures, cancellation/deadline, callback backpressure, completion race, independent same-file readers | Linux pending |
 | FACADE-U-BOT | `service_bot_test.go` | 5 existing bot-menu tests | unchanged |
+| FACADE-U-MF | `message_files_test.go` | 16 top-level tests (40 with table subtests): photo sizes/metadata-only, video alternatives+HLS (incl. nil primary), all supported types with thumbnail dimensions, paid media groups/locked/nil slots + GetMessageFile paid-media unsupported regression, duplicate IDs (across roles and across paid items), invalid refs, size/metadata unknowns, text vs supported-empty, album no-sibling, repeat snapshot, context/errors | Native Linux passed, 2026-11-27; evidence below |
 
 ---
 
@@ -241,6 +242,17 @@
 | GRPC-U-001 | `transport_test.go` | 46 tests: RPC wrappers, success/error paths, nil handling, proto conversion, streaming validation/mapping/context | streaming changes: Linux pending |
 | GRPC-U-002 | `transport_bot_test.go` | 17 existing bot menu mapping, validation and semantic error tests | unchanged |
 | GRPC-U-STREAM | `file_download_test.go` | 2 tests: real app/transport/generated-client bufconn payload before completion for both RPCs; validation, Send failure and stable errors | Linux pending |
+| GRPC-U-MF | `message_files_test.go` | 6 top-level tests (12 with table subtests): validation, proto mapping, error mapping with exact RetryDelay, raw ResponseError Internal status, real bufconn photo list→select-nondefault→download, real bufconn alternative-video list→select→download | Native Linux passed, 2026-11-27; evidence below |
+
+Enumeration follow-up native validation (2026-11-27): `go vet -p 1 ./...`,
+`go test -p 1 -count=1 ./internal/...`, the existing progressive green-red-green
+script, both new selection-flow synchronous mutants, and an enumeration
+omission mutant passed their expected checks. Source manifest:
+`16af0463d22c707a438034e7fe4cb4867c0223260f16c4218cc8fd6d53329e3b`.
+This also executes the unchanged streaming tests marked pending in the
+historical rows above. Detailed commands, restoration hashes and evidence limits:
+[native validation](../.trellis/tasks/11-26-facade-message-files/review/linux-validation.md).
+No new image/live Telegram acceptance is claimed.
 
 `scripts/verify-facade-streaming.sh` temporarily changes the sole async starter
 to synchronous, requires the A1 payload-before-completion failure, restores the
@@ -434,16 +446,16 @@ census. The total is the sum of these displayed rows, not executed coverage.
 | `internal/service/album` | 22 | 40 | — |
 | `internal/app/auth` | 20 | — | — |
 | `internal/service/dedup` | 10 | 1 | — |
-| `internal/app/facade` | 36 | — | — |
+| `internal/app/facade` | 52 | — | — |
 | `internal/service/filters` | 8 | 161 | — |
 | `internal/service/limiter` | 14 | 1 | — |
 | `internal/service/message` | 40 | — | — |
 | `internal/service/transform` | 51 | 105 | — |
-| `internal/transport/grpc` | 65 | — | — |
+| `internal/transport/grpc` | 71 | — | — |
 | `internal/transport/http` | 14 | — | — |
 | `internal/transport/http/resolvers` | 2 | — | — |
 | `internal/transport/term` | 23 | — | — |
-| **Итого** | **529** | **443** | **4** |
+| **Итого** | **551** | **443** | **4** |
 
 ---
 

@@ -1238,3 +1238,77 @@ func (_c *FacadeService_SendBotCommand_Call) RunAndReturn(run func(ctx context.C
 	_c.Call.Return(run)
 	return _c
 }
+
+// ListMessageFiles provides a mock function for the type FacadeService
+func (_mock *FacadeService) ListMessageFiles(ctx context.Context, chatID int64, messageID int64) (*facade.MessageFiles, error) {
+	ret := _mock.Called(ctx, chatID, messageID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListMessageFiles")
+	}
+
+	var r0 *facade.MessageFiles
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, int64) (*facade.MessageFiles, error)); ok {
+		return returnFunc(ctx, chatID, messageID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, int64) *facade.MessageFiles); ok {
+		r0 = returnFunc(ctx, chatID, messageID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*facade.MessageFiles)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, int64) error); ok {
+		r1 = returnFunc(ctx, chatID, messageID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// FacadeService_ListMessageFiles_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListMessageFiles'
+type FacadeService_ListMessageFiles_Call struct {
+	*mock.Call
+}
+
+// ListMessageFiles is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chatID int64
+//   - messageID int64
+func (_e *FacadeService_Expecter) ListMessageFiles(ctx interface{}, chatID interface{}, messageID interface{}) *FacadeService_ListMessageFiles_Call {
+	return &FacadeService_ListMessageFiles_Call{Call: _e.mock.On("ListMessageFiles", ctx, chatID, messageID)}
+}
+
+func (_c *FacadeService_ListMessageFiles_Call) Run(run func(ctx context.Context, chatID int64, messageID int64)) *FacadeService_ListMessageFiles_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *FacadeService_ListMessageFiles_Call) Return(messageFiles *facade.MessageFiles, err error) *FacadeService_ListMessageFiles_Call {
+	_c.Call.Return(messageFiles, err)
+	return _c
+}
+
+func (_c *FacadeService_ListMessageFiles_Call) RunAndReturn(run func(ctx context.Context, chatID int64, messageID int64) (*facade.MessageFiles, error)) *FacadeService_ListMessageFiles_Call {
+	_c.Call.Return(run)
+	return _c
+}

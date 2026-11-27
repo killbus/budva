@@ -73,6 +73,201 @@ func (MenuKind) EnumDescriptor() ([]byte, []int) {
 	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{0}
 }
 
+type MessageMediaKind int32
+
+const (
+	MessageMediaKind_MESSAGE_MEDIA_KIND_UNSPECIFIED MessageMediaKind = 0
+	MessageMediaKind_MESSAGE_MEDIA_KIND_PHOTO       MessageMediaKind = 1
+	MessageMediaKind_MESSAGE_MEDIA_KIND_VIDEO       MessageMediaKind = 2
+	MessageMediaKind_MESSAGE_MEDIA_KIND_DOCUMENT    MessageMediaKind = 3
+	MessageMediaKind_MESSAGE_MEDIA_KIND_AUDIO       MessageMediaKind = 4
+	MessageMediaKind_MESSAGE_MEDIA_KIND_VOICE_NOTE  MessageMediaKind = 5
+	MessageMediaKind_MESSAGE_MEDIA_KIND_ANIMATION   MessageMediaKind = 6
+	MessageMediaKind_MESSAGE_MEDIA_KIND_VIDEO_NOTE  MessageMediaKind = 7
+	MessageMediaKind_MESSAGE_MEDIA_KIND_STICKER     MessageMediaKind = 8
+	MessageMediaKind_MESSAGE_MEDIA_KIND_PREVIEW     MessageMediaKind = 9
+	MessageMediaKind_MESSAGE_MEDIA_KIND_UNSUPPORTED MessageMediaKind = 10
+)
+
+// Enum value maps for MessageMediaKind.
+var (
+	MessageMediaKind_name = map[int32]string{
+		0:  "MESSAGE_MEDIA_KIND_UNSPECIFIED",
+		1:  "MESSAGE_MEDIA_KIND_PHOTO",
+		2:  "MESSAGE_MEDIA_KIND_VIDEO",
+		3:  "MESSAGE_MEDIA_KIND_DOCUMENT",
+		4:  "MESSAGE_MEDIA_KIND_AUDIO",
+		5:  "MESSAGE_MEDIA_KIND_VOICE_NOTE",
+		6:  "MESSAGE_MEDIA_KIND_ANIMATION",
+		7:  "MESSAGE_MEDIA_KIND_VIDEO_NOTE",
+		8:  "MESSAGE_MEDIA_KIND_STICKER",
+		9:  "MESSAGE_MEDIA_KIND_PREVIEW",
+		10: "MESSAGE_MEDIA_KIND_UNSUPPORTED",
+	}
+	MessageMediaKind_value = map[string]int32{
+		"MESSAGE_MEDIA_KIND_UNSPECIFIED": 0,
+		"MESSAGE_MEDIA_KIND_PHOTO":       1,
+		"MESSAGE_MEDIA_KIND_VIDEO":       2,
+		"MESSAGE_MEDIA_KIND_DOCUMENT":    3,
+		"MESSAGE_MEDIA_KIND_AUDIO":       4,
+		"MESSAGE_MEDIA_KIND_VOICE_NOTE":  5,
+		"MESSAGE_MEDIA_KIND_ANIMATION":   6,
+		"MESSAGE_MEDIA_KIND_VIDEO_NOTE":  7,
+		"MESSAGE_MEDIA_KIND_STICKER":     8,
+		"MESSAGE_MEDIA_KIND_PREVIEW":     9,
+		"MESSAGE_MEDIA_KIND_UNSUPPORTED": 10,
+	}
+)
+
+func (x MessageMediaKind) Enum() *MessageMediaKind {
+	p := new(MessageMediaKind)
+	*p = x
+	return p
+}
+
+func (x MessageMediaKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MessageMediaKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_internal_transport_grpc_pb_facade_proto_enumTypes[1].Descriptor()
+}
+
+func (MessageMediaKind) Type() protoreflect.EnumType {
+	return &file_internal_transport_grpc_pb_facade_proto_enumTypes[1]
+}
+
+func (x MessageMediaKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MessageMediaKind.Descriptor instead.
+func (MessageMediaKind) EnumDescriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{1}
+}
+
+type MessageMediaState int32
+
+const (
+	MessageMediaState_MESSAGE_MEDIA_STATE_UNSPECIFIED   MessageMediaState = 0
+	MessageMediaState_MESSAGE_MEDIA_STATE_FILES_PRESENT MessageMediaState = 1
+	MessageMediaState_MESSAGE_MEDIA_STATE_LOCKED        MessageMediaState = 2
+	MessageMediaState_MESSAGE_MEDIA_STATE_UNSUPPORTED   MessageMediaState = 3
+	MessageMediaState_MESSAGE_MEDIA_STATE_NO_FILES      MessageMediaState = 4
+)
+
+// Enum value maps for MessageMediaState.
+var (
+	MessageMediaState_name = map[int32]string{
+		0: "MESSAGE_MEDIA_STATE_UNSPECIFIED",
+		1: "MESSAGE_MEDIA_STATE_FILES_PRESENT",
+		2: "MESSAGE_MEDIA_STATE_LOCKED",
+		3: "MESSAGE_MEDIA_STATE_UNSUPPORTED",
+		4: "MESSAGE_MEDIA_STATE_NO_FILES",
+	}
+	MessageMediaState_value = map[string]int32{
+		"MESSAGE_MEDIA_STATE_UNSPECIFIED":   0,
+		"MESSAGE_MEDIA_STATE_FILES_PRESENT": 1,
+		"MESSAGE_MEDIA_STATE_LOCKED":        2,
+		"MESSAGE_MEDIA_STATE_UNSUPPORTED":   3,
+		"MESSAGE_MEDIA_STATE_NO_FILES":      4,
+	}
+)
+
+func (x MessageMediaState) Enum() *MessageMediaState {
+	p := new(MessageMediaState)
+	*p = x
+	return p
+}
+
+func (x MessageMediaState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MessageMediaState) Descriptor() protoreflect.EnumDescriptor {
+	return file_internal_transport_grpc_pb_facade_proto_enumTypes[2].Descriptor()
+}
+
+func (MessageMediaState) Type() protoreflect.EnumType {
+	return &file_internal_transport_grpc_pb_facade_proto_enumTypes[2]
+}
+
+func (x MessageMediaState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MessageMediaState.Descriptor instead.
+func (MessageMediaState) EnumDescriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{2}
+}
+
+type MessageFileRole int32
+
+const (
+	MessageFileRole_MESSAGE_FILE_ROLE_UNSPECIFIED          MessageFileRole = 0
+	MessageFileRole_MESSAGE_FILE_ROLE_MAIN                 MessageFileRole = 1
+	MessageFileRole_MESSAGE_FILE_ROLE_PHOTO_SIZE           MessageFileRole = 2
+	MessageFileRole_MESSAGE_FILE_ROLE_ALTERNATIVE_VIDEO    MessageFileRole = 3
+	MessageFileRole_MESSAGE_FILE_ROLE_HLS_PLAYLIST         MessageFileRole = 4
+	MessageFileRole_MESSAGE_FILE_ROLE_THUMBNAIL            MessageFileRole = 5
+	MessageFileRole_MESSAGE_FILE_ROLE_ALBUM_COVER          MessageFileRole = 6
+	MessageFileRole_MESSAGE_FILE_ROLE_EXTERNAL_ALBUM_COVER MessageFileRole = 7
+	MessageFileRole_MESSAGE_FILE_ROLE_PREMIUM_ANIMATION    MessageFileRole = 8
+)
+
+// Enum value maps for MessageFileRole.
+var (
+	MessageFileRole_name = map[int32]string{
+		0: "MESSAGE_FILE_ROLE_UNSPECIFIED",
+		1: "MESSAGE_FILE_ROLE_MAIN",
+		2: "MESSAGE_FILE_ROLE_PHOTO_SIZE",
+		3: "MESSAGE_FILE_ROLE_ALTERNATIVE_VIDEO",
+		4: "MESSAGE_FILE_ROLE_HLS_PLAYLIST",
+		5: "MESSAGE_FILE_ROLE_THUMBNAIL",
+		6: "MESSAGE_FILE_ROLE_ALBUM_COVER",
+		7: "MESSAGE_FILE_ROLE_EXTERNAL_ALBUM_COVER",
+		8: "MESSAGE_FILE_ROLE_PREMIUM_ANIMATION",
+	}
+	MessageFileRole_value = map[string]int32{
+		"MESSAGE_FILE_ROLE_UNSPECIFIED":          0,
+		"MESSAGE_FILE_ROLE_MAIN":                 1,
+		"MESSAGE_FILE_ROLE_PHOTO_SIZE":           2,
+		"MESSAGE_FILE_ROLE_ALTERNATIVE_VIDEO":    3,
+		"MESSAGE_FILE_ROLE_HLS_PLAYLIST":         4,
+		"MESSAGE_FILE_ROLE_THUMBNAIL":            5,
+		"MESSAGE_FILE_ROLE_ALBUM_COVER":          6,
+		"MESSAGE_FILE_ROLE_EXTERNAL_ALBUM_COVER": 7,
+		"MESSAGE_FILE_ROLE_PREMIUM_ANIMATION":    8,
+	}
+)
+
+func (x MessageFileRole) Enum() *MessageFileRole {
+	p := new(MessageFileRole)
+	*p = x
+	return p
+}
+
+func (x MessageFileRole) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MessageFileRole) Descriptor() protoreflect.EnumDescriptor {
+	return file_internal_transport_grpc_pb_facade_proto_enumTypes[3].Descriptor()
+}
+
+func (MessageFileRole) Type() protoreflect.EnumType {
+	return &file_internal_transport_grpc_pb_facade_proto_enumTypes[3]
+}
+
+func (x MessageFileRole) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MessageFileRole.Descriptor instead.
+func (MessageFileRole) EnumDescriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{3}
+}
+
 type Message struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1931,6 +2126,334 @@ func (x *DownloadFileRequest) GetFileId() int64 {
 	return 0
 }
 
+type ListMessageFilesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ChatId        int64                  `protobuf:"varint,1,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
+	MessageId     int64                  `protobuf:"varint,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMessageFilesRequest) Reset() {
+	*x = ListMessageFilesRequest{}
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMessageFilesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMessageFilesRequest) ProtoMessage() {}
+
+func (x *ListMessageFilesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMessageFilesRequest.ProtoReflect.Descriptor instead.
+func (*ListMessageFilesRequest) Descriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *ListMessageFilesRequest) GetChatId() int64 {
+	if x != nil {
+		return x.ChatId
+	}
+	return 0
+}
+
+func (x *ListMessageFilesRequest) GetMessageId() int64 {
+	if x != nil {
+		return x.MessageId
+	}
+	return 0
+}
+
+type ListMessageFilesResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	ChatId           int64                  `protobuf:"varint,1,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
+	MessageId        int64                  `protobuf:"varint,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	MediaAlbumId     int64                  `protobuf:"varint,3,opt,name=media_album_id,json=mediaAlbumId,proto3" json:"media_album_id,omitempty"`
+	ContentSupported bool                   `protobuf:"varint,4,opt,name=content_supported,json=contentSupported,proto3" json:"content_supported,omitempty"`
+	Items            []*MessageMediaItem    `protobuf:"bytes,5,rep,name=items,proto3" json:"items,omitempty"`
+	DefaultFileId    int64                  `protobuf:"varint,6,opt,name=default_file_id,json=defaultFileId,proto3" json:"default_file_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ListMessageFilesResponse) Reset() {
+	*x = ListMessageFilesResponse{}
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMessageFilesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMessageFilesResponse) ProtoMessage() {}
+
+func (x *ListMessageFilesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMessageFilesResponse.ProtoReflect.Descriptor instead.
+func (*ListMessageFilesResponse) Descriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *ListMessageFilesResponse) GetChatId() int64 {
+	if x != nil {
+		return x.ChatId
+	}
+	return 0
+}
+
+func (x *ListMessageFilesResponse) GetMessageId() int64 {
+	if x != nil {
+		return x.MessageId
+	}
+	return 0
+}
+
+func (x *ListMessageFilesResponse) GetMediaAlbumId() int64 {
+	if x != nil {
+		return x.MediaAlbumId
+	}
+	return 0
+}
+
+func (x *ListMessageFilesResponse) GetContentSupported() bool {
+	if x != nil {
+		return x.ContentSupported
+	}
+	return false
+}
+
+func (x *ListMessageFilesResponse) GetItems() []*MessageMediaItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListMessageFilesResponse) GetDefaultFileId() int64 {
+	if x != nil {
+		return x.DefaultFileId
+	}
+	return 0
+}
+
+type MessageMediaItem struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	ItemIndex     int32                    `protobuf:"varint,1,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	Kind          MessageMediaKind         `protobuf:"varint,2,opt,name=kind,proto3,enum=pb.MessageMediaKind" json:"kind,omitempty"`
+	State         MessageMediaState        `protobuf:"varint,3,opt,name=state,proto3,enum=pb.MessageMediaState" json:"state,omitempty"`
+	Files         []*MessageFileDescriptor `protobuf:"bytes,4,rep,name=files,proto3" json:"files,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MessageMediaItem) Reset() {
+	*x = MessageMediaItem{}
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageMediaItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageMediaItem) ProtoMessage() {}
+
+func (x *MessageMediaItem) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MessageMediaItem.ProtoReflect.Descriptor instead.
+func (*MessageMediaItem) Descriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *MessageMediaItem) GetItemIndex() int32 {
+	if x != nil {
+		return x.ItemIndex
+	}
+	return 0
+}
+
+func (x *MessageMediaItem) GetKind() MessageMediaKind {
+	if x != nil {
+		return x.Kind
+	}
+	return MessageMediaKind_MESSAGE_MEDIA_KIND_UNSPECIFIED
+}
+
+func (x *MessageMediaItem) GetState() MessageMediaState {
+	if x != nil {
+		return x.State
+	}
+	return MessageMediaState_MESSAGE_MEDIA_STATE_UNSPECIFIED
+}
+
+func (x *MessageMediaItem) GetFiles() []*MessageFileDescriptor {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+type MessageFileDescriptor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FileId        int64                  `protobuf:"varint,1,opt,name=file_id,json=fileId,proto3" json:"file_id,omitempty"`
+	Role          MessageFileRole        `protobuf:"varint,2,opt,name=role,proto3,enum=pb.MessageFileRole" json:"role,omitempty"`
+	SourceIndex   int32                  `protobuf:"varint,3,opt,name=source_index,json=sourceIndex,proto3" json:"source_index,omitempty"`
+	FileName      string                 `protobuf:"bytes,4,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`
+	MimeType      string                 `protobuf:"bytes,5,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	Size          int64                  `protobuf:"varint,6,opt,name=size,proto3" json:"size,omitempty"`
+	SizeKnown     bool                   `protobuf:"varint,7,opt,name=size_known,json=sizeKnown,proto3" json:"size_known,omitempty"`
+	Width         int32                  `protobuf:"varint,8,opt,name=width,proto3" json:"width,omitempty"`
+	Height        int32                  `protobuf:"varint,9,opt,name=height,proto3" json:"height,omitempty"`
+	Codec         string                 `protobuf:"bytes,10,opt,name=codec,proto3" json:"codec,omitempty"`
+	PhotoSizeType string                 `protobuf:"bytes,11,opt,name=photo_size_type,json=photoSizeType,proto3" json:"photo_size_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MessageFileDescriptor) Reset() {
+	*x = MessageFileDescriptor{}
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageFileDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageFileDescriptor) ProtoMessage() {}
+
+func (x *MessageFileDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MessageFileDescriptor.ProtoReflect.Descriptor instead.
+func (*MessageFileDescriptor) Descriptor() ([]byte, []int) {
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *MessageFileDescriptor) GetFileId() int64 {
+	if x != nil {
+		return x.FileId
+	}
+	return 0
+}
+
+func (x *MessageFileDescriptor) GetRole() MessageFileRole {
+	if x != nil {
+		return x.Role
+	}
+	return MessageFileRole_MESSAGE_FILE_ROLE_UNSPECIFIED
+}
+
+func (x *MessageFileDescriptor) GetSourceIndex() int32 {
+	if x != nil {
+		return x.SourceIndex
+	}
+	return 0
+}
+
+func (x *MessageFileDescriptor) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+func (x *MessageFileDescriptor) GetMimeType() string {
+	if x != nil {
+		return x.MimeType
+	}
+	return ""
+}
+
+func (x *MessageFileDescriptor) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *MessageFileDescriptor) GetSizeKnown() bool {
+	if x != nil {
+		return x.SizeKnown
+	}
+	return false
+}
+
+func (x *MessageFileDescriptor) GetWidth() int32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *MessageFileDescriptor) GetHeight() int32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *MessageFileDescriptor) GetCodec() string {
+	if x != nil {
+		return x.Codec
+	}
+	return ""
+}
+
+func (x *MessageFileDescriptor) GetPhotoSizeType() string {
+	if x != nil {
+		return x.PhotoSizeType
+	}
+	return ""
+}
+
 type FileDownloadMetadata struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FileId        int64                  `protobuf:"varint,1,opt,name=file_id,json=fileId,proto3" json:"file_id,omitempty"`
@@ -1943,7 +2466,7 @@ type FileDownloadMetadata struct {
 
 func (x *FileDownloadMetadata) Reset() {
 	*x = FileDownloadMetadata{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[33]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1955,7 +2478,7 @@ func (x *FileDownloadMetadata) String() string {
 func (*FileDownloadMetadata) ProtoMessage() {}
 
 func (x *FileDownloadMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[33]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1968,7 +2491,7 @@ func (x *FileDownloadMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDownloadMetadata.ProtoReflect.Descriptor instead.
 func (*FileDownloadMetadata) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{33}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *FileDownloadMetadata) GetFileId() int64 {
@@ -2010,7 +2533,7 @@ type FileDownloadChunk struct {
 
 func (x *FileDownloadChunk) Reset() {
 	*x = FileDownloadChunk{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[34]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2022,7 +2545,7 @@ func (x *FileDownloadChunk) String() string {
 func (*FileDownloadChunk) ProtoMessage() {}
 
 func (x *FileDownloadChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[34]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2035,7 +2558,7 @@ func (x *FileDownloadChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDownloadChunk.ProtoReflect.Descriptor instead.
 func (*FileDownloadChunk) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{34}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *FileDownloadChunk) GetOffset() int64 {
@@ -2068,7 +2591,7 @@ type FileDownloadComplete struct {
 
 func (x *FileDownloadComplete) Reset() {
 	*x = FileDownloadComplete{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[35]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2080,7 +2603,7 @@ func (x *FileDownloadComplete) String() string {
 func (*FileDownloadComplete) ProtoMessage() {}
 
 func (x *FileDownloadComplete) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[35]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2093,7 +2616,7 @@ func (x *FileDownloadComplete) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDownloadComplete.ProtoReflect.Descriptor instead.
 func (*FileDownloadComplete) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{35}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *FileDownloadComplete) GetSize() int64 {
@@ -2117,7 +2640,7 @@ type FileDownloadEvent struct {
 
 func (x *FileDownloadEvent) Reset() {
 	*x = FileDownloadEvent{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[36]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2129,7 +2652,7 @@ func (x *FileDownloadEvent) String() string {
 func (*FileDownloadEvent) ProtoMessage() {}
 
 func (x *FileDownloadEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[36]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2142,7 +2665,7 @@ func (x *FileDownloadEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDownloadEvent.ProtoReflect.Descriptor instead.
 func (*FileDownloadEvent) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{36}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *FileDownloadEvent) GetEvent() isFileDownloadEvent_Event {
@@ -2209,7 +2732,7 @@ type EmptyResponse struct {
 
 func (x *EmptyResponse) Reset() {
 	*x = EmptyResponse{}
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[37]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2221,7 +2744,7 @@ func (x *EmptyResponse) String() string {
 func (*EmptyResponse) ProtoMessage() {}
 
 func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[37]
+	mi := &file_internal_transport_grpc_pb_facade_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2234,7 +2757,7 @@ func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmptyResponse.ProtoReflect.Descriptor instead.
 func (*EmptyResponse) Descriptor() ([]byte, []int) {
-	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{37}
+	return file_internal_transport_grpc_pb_facade_proto_rawDescGZIP(), []int{41}
 }
 
 var File_internal_transport_grpc_pb_facade_proto protoreflect.FileDescriptor
@@ -2368,7 +2891,39 @@ const file_internal_transport_grpc_pb_facade_proto_rawDesc = "" +
 	"\n" +
 	"message_id\x18\x02 \x01(\x03R\tmessageId\".\n" +
 	"\x13DownloadFileRequest\x12\x17\n" +
-	"\afile_id\x18\x01 \x01(\x03R\x06fileId\"\x7f\n" +
+	"\afile_id\x18\x01 \x01(\x03R\x06fileId\"Q\n" +
+	"\x17ListMessageFilesRequest\x12\x17\n" +
+	"\achat_id\x18\x01 \x01(\x03R\x06chatId\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x02 \x01(\x03R\tmessageId\"\xf9\x01\n" +
+	"\x18ListMessageFilesResponse\x12\x17\n" +
+	"\achat_id\x18\x01 \x01(\x03R\x06chatId\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x02 \x01(\x03R\tmessageId\x12$\n" +
+	"\x0emedia_album_id\x18\x03 \x01(\x03R\fmediaAlbumId\x12+\n" +
+	"\x11content_supported\x18\x04 \x01(\bR\x10contentSupported\x12*\n" +
+	"\x05items\x18\x05 \x03(\v2\x14.pb.MessageMediaItemR\x05items\x12&\n" +
+	"\x0fdefault_file_id\x18\x06 \x01(\x03R\rdefaultFileId\"\xb9\x01\n" +
+	"\x10MessageMediaItem\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x01 \x01(\x05R\titemIndex\x12(\n" +
+	"\x04kind\x18\x02 \x01(\x0e2\x14.pb.MessageMediaKindR\x04kind\x12+\n" +
+	"\x05state\x18\x03 \x01(\x0e2\x15.pb.MessageMediaStateR\x05state\x12/\n" +
+	"\x05files\x18\x04 \x03(\v2\x19.pb.MessageFileDescriptorR\x05files\"\xd5\x02\n" +
+	"\x15MessageFileDescriptor\x12\x17\n" +
+	"\afile_id\x18\x01 \x01(\x03R\x06fileId\x12'\n" +
+	"\x04role\x18\x02 \x01(\x0e2\x13.pb.MessageFileRoleR\x04role\x12!\n" +
+	"\fsource_index\x18\x03 \x01(\x05R\vsourceIndex\x12\x1b\n" +
+	"\tfile_name\x18\x04 \x01(\tR\bfileName\x12\x1b\n" +
+	"\tmime_type\x18\x05 \x01(\tR\bmimeType\x12\x12\n" +
+	"\x04size\x18\x06 \x01(\x03R\x04size\x12\x1d\n" +
+	"\n" +
+	"size_known\x18\a \x01(\bR\tsizeKnown\x12\x14\n" +
+	"\x05width\x18\b \x01(\x05R\x05width\x12\x16\n" +
+	"\x06height\x18\t \x01(\x05R\x06height\x12\x14\n" +
+	"\x05codec\x18\n" +
+	" \x01(\tR\x05codec\x12&\n" +
+	"\x0fphoto_size_type\x18\v \x01(\tR\rphotoSizeType\"\x7f\n" +
 	"\x14FileDownloadMetadata\x12\x17\n" +
 	"\afile_id\x18\x01 \x01(\x03R\x06fileId\x12\x1b\n" +
 	"\tmime_type\x18\x02 \x01(\tR\bmimeType\x12\x12\n" +
@@ -2391,7 +2946,36 @@ const file_internal_transport_grpc_pb_facade_proto_rawDesc = "" +
 	"\x15MENU_KIND_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eMENU_KIND_NONE\x10\x01\x12\x14\n" +
 	"\x10MENU_KIND_INLINE\x10\x02\x12\x13\n" +
-	"\x0fMENU_KIND_REPLY\x10\x032\xe7\b\n" +
+	"\x0fMENU_KIND_REPLY\x10\x03*\xfd\x02\n" +
+	"\x10MessageMediaKind\x12\"\n" +
+	"\x1eMESSAGE_MEDIA_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18MESSAGE_MEDIA_KIND_PHOTO\x10\x01\x12\x1c\n" +
+	"\x18MESSAGE_MEDIA_KIND_VIDEO\x10\x02\x12\x1f\n" +
+	"\x1bMESSAGE_MEDIA_KIND_DOCUMENT\x10\x03\x12\x1c\n" +
+	"\x18MESSAGE_MEDIA_KIND_AUDIO\x10\x04\x12!\n" +
+	"\x1dMESSAGE_MEDIA_KIND_VOICE_NOTE\x10\x05\x12 \n" +
+	"\x1cMESSAGE_MEDIA_KIND_ANIMATION\x10\x06\x12!\n" +
+	"\x1dMESSAGE_MEDIA_KIND_VIDEO_NOTE\x10\a\x12\x1e\n" +
+	"\x1aMESSAGE_MEDIA_KIND_STICKER\x10\b\x12\x1e\n" +
+	"\x1aMESSAGE_MEDIA_KIND_PREVIEW\x10\t\x12\"\n" +
+	"\x1eMESSAGE_MEDIA_KIND_UNSUPPORTED\x10\n" +
+	"*\xc6\x01\n" +
+	"\x11MessageMediaState\x12#\n" +
+	"\x1fMESSAGE_MEDIA_STATE_UNSPECIFIED\x10\x00\x12%\n" +
+	"!MESSAGE_MEDIA_STATE_FILES_PRESENT\x10\x01\x12\x1e\n" +
+	"\x1aMESSAGE_MEDIA_STATE_LOCKED\x10\x02\x12#\n" +
+	"\x1fMESSAGE_MEDIA_STATE_UNSUPPORTED\x10\x03\x12 \n" +
+	"\x1cMESSAGE_MEDIA_STATE_NO_FILES\x10\x04*\xd8\x02\n" +
+	"\x0fMessageFileRole\x12!\n" +
+	"\x1dMESSAGE_FILE_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16MESSAGE_FILE_ROLE_MAIN\x10\x01\x12 \n" +
+	"\x1cMESSAGE_FILE_ROLE_PHOTO_SIZE\x10\x02\x12'\n" +
+	"#MESSAGE_FILE_ROLE_ALTERNATIVE_VIDEO\x10\x03\x12\"\n" +
+	"\x1eMESSAGE_FILE_ROLE_HLS_PLAYLIST\x10\x04\x12\x1f\n" +
+	"\x1bMESSAGE_FILE_ROLE_THUMBNAIL\x10\x05\x12!\n" +
+	"\x1dMESSAGE_FILE_ROLE_ALBUM_COVER\x10\x06\x12*\n" +
+	"&MESSAGE_FILE_ROLE_EXTERNAL_ALBUM_COVER\x10\a\x12'\n" +
+	"#MESSAGE_FILE_ROLE_PREMIUM_ANIMATION\x10\b2\xb6\t\n" +
 	"\n" +
 	"FacadeGRPC\x12;\n" +
 	"\vGetMessages\x12\x16.pb.GetMessagesRequest\x1a\x14.pb.MessagesResponse\x12A\n" +
@@ -2413,7 +2997,8 @@ const file_internal_transport_grpc_pb_facade_proto_rawDesc = "" +
 	"\x13ClickCallbackButton\x12\x1e.pb.ClickCallbackButtonRequest\x1a\x1a.pb.CallbackAnswerResponse\x12>\n" +
 	"\x0eSendBotCommand\x12\x19.pb.SendBotCommandRequest\x1a\x11.pb.EmptyResponse\x12D\n" +
 	"\x0eGetMessageFile\x12\x19.pb.GetMessageFileRequest\x1a\x15.pb.FileDownloadEvent0\x01\x12@\n" +
-	"\fDownloadFile\x12\x17.pb.DownloadFileRequest\x1a\x15.pb.FileDownloadEvent0\x01B@Z>github.com/pure-golang/budva-claude/internal/transport/grpc/pbb\x06proto3"
+	"\fDownloadFile\x12\x17.pb.DownloadFileRequest\x1a\x15.pb.FileDownloadEvent0\x01\x12M\n" +
+	"\x10ListMessageFiles\x12\x1b.pb.ListMessageFilesRequest\x1a\x1c.pb.ListMessageFilesResponseB@Z>github.com/pure-golang/budva-claude/internal/transport/grpc/pbb\x06proto3"
 
 var (
 	file_internal_transport_grpc_pb_facade_proto_rawDescOnce sync.Once
@@ -2427,105 +3012,119 @@ func file_internal_transport_grpc_pb_facade_proto_rawDescGZIP() []byte {
 	return file_internal_transport_grpc_pb_facade_proto_rawDescData
 }
 
-var file_internal_transport_grpc_pb_facade_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_internal_transport_grpc_pb_facade_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_internal_transport_grpc_pb_facade_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_internal_transport_grpc_pb_facade_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_internal_transport_grpc_pb_facade_proto_goTypes = []any{
 	(MenuKind)(0),                      // 0: pb.MenuKind
-	(*Message)(nil),                    // 1: pb.Message
-	(*NewMessage)(nil),                 // 2: pb.NewMessage
-	(*GetMessagesRequest)(nil),         // 3: pb.GetMessagesRequest
-	(*GetChatHistoryRequest)(nil),      // 4: pb.GetChatHistoryRequest
-	(*SendMessageRequest)(nil),         // 5: pb.SendMessageRequest
-	(*SendMessageAlbumRequest)(nil),    // 6: pb.SendMessageAlbumRequest
-	(*ForwardMessageRequest)(nil),      // 7: pb.ForwardMessageRequest
-	(*GetMessageRequest)(nil),          // 8: pb.GetMessageRequest
-	(*UpdateMessageRequest)(nil),       // 9: pb.UpdateMessageRequest
-	(*DeleteMessagesRequest)(nil),      // 10: pb.DeleteMessagesRequest
-	(*GetMessageLinkRequest)(nil),      // 11: pb.GetMessageLinkRequest
-	(*GetMessageLinkInfoRequest)(nil),  // 12: pb.GetMessageLinkInfoRequest
-	(*MessagesResponse)(nil),           // 13: pb.MessagesResponse
-	(*MessageResponse)(nil),            // 14: pb.MessageResponse
-	(*MessageLinkResponse)(nil),        // 15: pb.MessageLinkResponse
-	(*ResolveBotRequest)(nil),          // 16: pb.ResolveBotRequest
-	(*ResolveBotResponse)(nil),         // 17: pb.ResolveBotResponse
-	(*BotCommand)(nil),                 // 18: pb.BotCommand
-	(*BotMenuButtonInfo)(nil),          // 19: pb.BotMenuButtonInfo
-	(*GetBotInfoRequest)(nil),          // 20: pb.GetBotInfoRequest
-	(*BotInfoResponse)(nil),            // 21: pb.BotInfoResponse
-	(*GetInlineMenuRequest)(nil),       // 22: pb.GetInlineMenuRequest
-	(*WebAppButtonInfo)(nil),           // 23: pb.WebAppButtonInfo
-	(*InlineButton)(nil),               // 24: pb.InlineButton
-	(*InlineButtonRow)(nil),            // 25: pb.InlineButtonRow
-	(*ReplyButton)(nil),                // 26: pb.ReplyButton
-	(*ReplyButtonRow)(nil),             // 27: pb.ReplyButtonRow
-	(*InlineMenuResponse)(nil),         // 28: pb.InlineMenuResponse
-	(*ClickCallbackButtonRequest)(nil), // 29: pb.ClickCallbackButtonRequest
-	(*CallbackAnswerResponse)(nil),     // 30: pb.CallbackAnswerResponse
-	(*SendBotCommandRequest)(nil),      // 31: pb.SendBotCommandRequest
-	(*GetMessageFileRequest)(nil),      // 32: pb.GetMessageFileRequest
-	(*DownloadFileRequest)(nil),        // 33: pb.DownloadFileRequest
-	(*FileDownloadMetadata)(nil),       // 34: pb.FileDownloadMetadata
-	(*FileDownloadChunk)(nil),          // 35: pb.FileDownloadChunk
-	(*FileDownloadComplete)(nil),       // 36: pb.FileDownloadComplete
-	(*FileDownloadEvent)(nil),          // 37: pb.FileDownloadEvent
-	(*EmptyResponse)(nil),              // 38: pb.EmptyResponse
+	(MessageMediaKind)(0),              // 1: pb.MessageMediaKind
+	(MessageMediaState)(0),             // 2: pb.MessageMediaState
+	(MessageFileRole)(0),               // 3: pb.MessageFileRole
+	(*Message)(nil),                    // 4: pb.Message
+	(*NewMessage)(nil),                 // 5: pb.NewMessage
+	(*GetMessagesRequest)(nil),         // 6: pb.GetMessagesRequest
+	(*GetChatHistoryRequest)(nil),      // 7: pb.GetChatHistoryRequest
+	(*SendMessageRequest)(nil),         // 8: pb.SendMessageRequest
+	(*SendMessageAlbumRequest)(nil),    // 9: pb.SendMessageAlbumRequest
+	(*ForwardMessageRequest)(nil),      // 10: pb.ForwardMessageRequest
+	(*GetMessageRequest)(nil),          // 11: pb.GetMessageRequest
+	(*UpdateMessageRequest)(nil),       // 12: pb.UpdateMessageRequest
+	(*DeleteMessagesRequest)(nil),      // 13: pb.DeleteMessagesRequest
+	(*GetMessageLinkRequest)(nil),      // 14: pb.GetMessageLinkRequest
+	(*GetMessageLinkInfoRequest)(nil),  // 15: pb.GetMessageLinkInfoRequest
+	(*MessagesResponse)(nil),           // 16: pb.MessagesResponse
+	(*MessageResponse)(nil),            // 17: pb.MessageResponse
+	(*MessageLinkResponse)(nil),        // 18: pb.MessageLinkResponse
+	(*ResolveBotRequest)(nil),          // 19: pb.ResolveBotRequest
+	(*ResolveBotResponse)(nil),         // 20: pb.ResolveBotResponse
+	(*BotCommand)(nil),                 // 21: pb.BotCommand
+	(*BotMenuButtonInfo)(nil),          // 22: pb.BotMenuButtonInfo
+	(*GetBotInfoRequest)(nil),          // 23: pb.GetBotInfoRequest
+	(*BotInfoResponse)(nil),            // 24: pb.BotInfoResponse
+	(*GetInlineMenuRequest)(nil),       // 25: pb.GetInlineMenuRequest
+	(*WebAppButtonInfo)(nil),           // 26: pb.WebAppButtonInfo
+	(*InlineButton)(nil),               // 27: pb.InlineButton
+	(*InlineButtonRow)(nil),            // 28: pb.InlineButtonRow
+	(*ReplyButton)(nil),                // 29: pb.ReplyButton
+	(*ReplyButtonRow)(nil),             // 30: pb.ReplyButtonRow
+	(*InlineMenuResponse)(nil),         // 31: pb.InlineMenuResponse
+	(*ClickCallbackButtonRequest)(nil), // 32: pb.ClickCallbackButtonRequest
+	(*CallbackAnswerResponse)(nil),     // 33: pb.CallbackAnswerResponse
+	(*SendBotCommandRequest)(nil),      // 34: pb.SendBotCommandRequest
+	(*GetMessageFileRequest)(nil),      // 35: pb.GetMessageFileRequest
+	(*DownloadFileRequest)(nil),        // 36: pb.DownloadFileRequest
+	(*ListMessageFilesRequest)(nil),    // 37: pb.ListMessageFilesRequest
+	(*ListMessageFilesResponse)(nil),   // 38: pb.ListMessageFilesResponse
+	(*MessageMediaItem)(nil),           // 39: pb.MessageMediaItem
+	(*MessageFileDescriptor)(nil),      // 40: pb.MessageFileDescriptor
+	(*FileDownloadMetadata)(nil),       // 41: pb.FileDownloadMetadata
+	(*FileDownloadChunk)(nil),          // 42: pb.FileDownloadChunk
+	(*FileDownloadComplete)(nil),       // 43: pb.FileDownloadComplete
+	(*FileDownloadEvent)(nil),          // 44: pb.FileDownloadEvent
+	(*EmptyResponse)(nil),              // 45: pb.EmptyResponse
 }
 var file_internal_transport_grpc_pb_facade_proto_depIdxs = []int32{
-	2,  // 0: pb.SendMessageRequest.message:type_name -> pb.NewMessage
-	2,  // 1: pb.SendMessageAlbumRequest.messages:type_name -> pb.NewMessage
-	1,  // 2: pb.UpdateMessageRequest.message:type_name -> pb.Message
-	1,  // 3: pb.MessagesResponse.messages:type_name -> pb.Message
-	1,  // 4: pb.MessageResponse.message:type_name -> pb.Message
-	18, // 5: pb.BotInfoResponse.commands:type_name -> pb.BotCommand
-	19, // 6: pb.BotInfoResponse.menu_button:type_name -> pb.BotMenuButtonInfo
-	23, // 7: pb.InlineButton.web_app:type_name -> pb.WebAppButtonInfo
-	24, // 8: pb.InlineButtonRow.buttons:type_name -> pb.InlineButton
-	26, // 9: pb.ReplyButtonRow.buttons:type_name -> pb.ReplyButton
-	25, // 10: pb.InlineMenuResponse.rows:type_name -> pb.InlineButtonRow
+	5,  // 0: pb.SendMessageRequest.message:type_name -> pb.NewMessage
+	5,  // 1: pb.SendMessageAlbumRequest.messages:type_name -> pb.NewMessage
+	4,  // 2: pb.UpdateMessageRequest.message:type_name -> pb.Message
+	4,  // 3: pb.MessagesResponse.messages:type_name -> pb.Message
+	4,  // 4: pb.MessageResponse.message:type_name -> pb.Message
+	21, // 5: pb.BotInfoResponse.commands:type_name -> pb.BotCommand
+	22, // 6: pb.BotInfoResponse.menu_button:type_name -> pb.BotMenuButtonInfo
+	26, // 7: pb.InlineButton.web_app:type_name -> pb.WebAppButtonInfo
+	27, // 8: pb.InlineButtonRow.buttons:type_name -> pb.InlineButton
+	29, // 9: pb.ReplyButtonRow.buttons:type_name -> pb.ReplyButton
+	28, // 10: pb.InlineMenuResponse.rows:type_name -> pb.InlineButtonRow
 	0,  // 11: pb.InlineMenuResponse.menu_kind:type_name -> pb.MenuKind
-	27, // 12: pb.InlineMenuResponse.reply_rows:type_name -> pb.ReplyButtonRow
-	34, // 13: pb.FileDownloadEvent.metadata:type_name -> pb.FileDownloadMetadata
-	35, // 14: pb.FileDownloadEvent.chunk:type_name -> pb.FileDownloadChunk
-	36, // 15: pb.FileDownloadEvent.complete:type_name -> pb.FileDownloadComplete
-	3,  // 16: pb.FacadeGRPC.GetMessages:input_type -> pb.GetMessagesRequest
-	4,  // 17: pb.FacadeGRPC.GetChatHistory:input_type -> pb.GetChatHistoryRequest
-	5,  // 18: pb.FacadeGRPC.SendMessage:input_type -> pb.SendMessageRequest
-	6,  // 19: pb.FacadeGRPC.SendMessageAlbum:input_type -> pb.SendMessageAlbumRequest
-	7,  // 20: pb.FacadeGRPC.ForwardMessage:input_type -> pb.ForwardMessageRequest
-	8,  // 21: pb.FacadeGRPC.GetMessage:input_type -> pb.GetMessageRequest
-	9,  // 22: pb.FacadeGRPC.UpdateMessage:input_type -> pb.UpdateMessageRequest
-	10, // 23: pb.FacadeGRPC.DeleteMessages:input_type -> pb.DeleteMessagesRequest
-	11, // 24: pb.FacadeGRPC.GetMessageLink:input_type -> pb.GetMessageLinkRequest
-	12, // 25: pb.FacadeGRPC.GetMessageLinkInfo:input_type -> pb.GetMessageLinkInfoRequest
-	16, // 26: pb.FacadeGRPC.ResolveBot:input_type -> pb.ResolveBotRequest
-	20, // 27: pb.FacadeGRPC.GetBotInfo:input_type -> pb.GetBotInfoRequest
-	22, // 28: pb.FacadeGRPC.GetInlineMenu:input_type -> pb.GetInlineMenuRequest
-	29, // 29: pb.FacadeGRPC.ClickCallbackButton:input_type -> pb.ClickCallbackButtonRequest
-	31, // 30: pb.FacadeGRPC.SendBotCommand:input_type -> pb.SendBotCommandRequest
-	32, // 31: pb.FacadeGRPC.GetMessageFile:input_type -> pb.GetMessageFileRequest
-	33, // 32: pb.FacadeGRPC.DownloadFile:input_type -> pb.DownloadFileRequest
-	13, // 33: pb.FacadeGRPC.GetMessages:output_type -> pb.MessagesResponse
-	13, // 34: pb.FacadeGRPC.GetChatHistory:output_type -> pb.MessagesResponse
-	38, // 35: pb.FacadeGRPC.SendMessage:output_type -> pb.EmptyResponse
-	38, // 36: pb.FacadeGRPC.SendMessageAlbum:output_type -> pb.EmptyResponse
-	38, // 37: pb.FacadeGRPC.ForwardMessage:output_type -> pb.EmptyResponse
-	14, // 38: pb.FacadeGRPC.GetMessage:output_type -> pb.MessageResponse
-	38, // 39: pb.FacadeGRPC.UpdateMessage:output_type -> pb.EmptyResponse
-	38, // 40: pb.FacadeGRPC.DeleteMessages:output_type -> pb.EmptyResponse
-	15, // 41: pb.FacadeGRPC.GetMessageLink:output_type -> pb.MessageLinkResponse
-	14, // 42: pb.FacadeGRPC.GetMessageLinkInfo:output_type -> pb.MessageResponse
-	17, // 43: pb.FacadeGRPC.ResolveBot:output_type -> pb.ResolveBotResponse
-	21, // 44: pb.FacadeGRPC.GetBotInfo:output_type -> pb.BotInfoResponse
-	28, // 45: pb.FacadeGRPC.GetInlineMenu:output_type -> pb.InlineMenuResponse
-	30, // 46: pb.FacadeGRPC.ClickCallbackButton:output_type -> pb.CallbackAnswerResponse
-	38, // 47: pb.FacadeGRPC.SendBotCommand:output_type -> pb.EmptyResponse
-	37, // 48: pb.FacadeGRPC.GetMessageFile:output_type -> pb.FileDownloadEvent
-	37, // 49: pb.FacadeGRPC.DownloadFile:output_type -> pb.FileDownloadEvent
-	33, // [33:50] is the sub-list for method output_type
-	16, // [16:33] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	30, // 12: pb.InlineMenuResponse.reply_rows:type_name -> pb.ReplyButtonRow
+	39, // 13: pb.ListMessageFilesResponse.items:type_name -> pb.MessageMediaItem
+	1,  // 14: pb.MessageMediaItem.kind:type_name -> pb.MessageMediaKind
+	2,  // 15: pb.MessageMediaItem.state:type_name -> pb.MessageMediaState
+	40, // 16: pb.MessageMediaItem.files:type_name -> pb.MessageFileDescriptor
+	3,  // 17: pb.MessageFileDescriptor.role:type_name -> pb.MessageFileRole
+	41, // 18: pb.FileDownloadEvent.metadata:type_name -> pb.FileDownloadMetadata
+	42, // 19: pb.FileDownloadEvent.chunk:type_name -> pb.FileDownloadChunk
+	43, // 20: pb.FileDownloadEvent.complete:type_name -> pb.FileDownloadComplete
+	6,  // 21: pb.FacadeGRPC.GetMessages:input_type -> pb.GetMessagesRequest
+	7,  // 22: pb.FacadeGRPC.GetChatHistory:input_type -> pb.GetChatHistoryRequest
+	8,  // 23: pb.FacadeGRPC.SendMessage:input_type -> pb.SendMessageRequest
+	9,  // 24: pb.FacadeGRPC.SendMessageAlbum:input_type -> pb.SendMessageAlbumRequest
+	10, // 25: pb.FacadeGRPC.ForwardMessage:input_type -> pb.ForwardMessageRequest
+	11, // 26: pb.FacadeGRPC.GetMessage:input_type -> pb.GetMessageRequest
+	12, // 27: pb.FacadeGRPC.UpdateMessage:input_type -> pb.UpdateMessageRequest
+	13, // 28: pb.FacadeGRPC.DeleteMessages:input_type -> pb.DeleteMessagesRequest
+	14, // 29: pb.FacadeGRPC.GetMessageLink:input_type -> pb.GetMessageLinkRequest
+	15, // 30: pb.FacadeGRPC.GetMessageLinkInfo:input_type -> pb.GetMessageLinkInfoRequest
+	19, // 31: pb.FacadeGRPC.ResolveBot:input_type -> pb.ResolveBotRequest
+	23, // 32: pb.FacadeGRPC.GetBotInfo:input_type -> pb.GetBotInfoRequest
+	25, // 33: pb.FacadeGRPC.GetInlineMenu:input_type -> pb.GetInlineMenuRequest
+	32, // 34: pb.FacadeGRPC.ClickCallbackButton:input_type -> pb.ClickCallbackButtonRequest
+	34, // 35: pb.FacadeGRPC.SendBotCommand:input_type -> pb.SendBotCommandRequest
+	35, // 36: pb.FacadeGRPC.GetMessageFile:input_type -> pb.GetMessageFileRequest
+	36, // 37: pb.FacadeGRPC.DownloadFile:input_type -> pb.DownloadFileRequest
+	37, // 38: pb.FacadeGRPC.ListMessageFiles:input_type -> pb.ListMessageFilesRequest
+	16, // 39: pb.FacadeGRPC.GetMessages:output_type -> pb.MessagesResponse
+	16, // 40: pb.FacadeGRPC.GetChatHistory:output_type -> pb.MessagesResponse
+	45, // 41: pb.FacadeGRPC.SendMessage:output_type -> pb.EmptyResponse
+	45, // 42: pb.FacadeGRPC.SendMessageAlbum:output_type -> pb.EmptyResponse
+	45, // 43: pb.FacadeGRPC.ForwardMessage:output_type -> pb.EmptyResponse
+	17, // 44: pb.FacadeGRPC.GetMessage:output_type -> pb.MessageResponse
+	45, // 45: pb.FacadeGRPC.UpdateMessage:output_type -> pb.EmptyResponse
+	45, // 46: pb.FacadeGRPC.DeleteMessages:output_type -> pb.EmptyResponse
+	18, // 47: pb.FacadeGRPC.GetMessageLink:output_type -> pb.MessageLinkResponse
+	17, // 48: pb.FacadeGRPC.GetMessageLinkInfo:output_type -> pb.MessageResponse
+	20, // 49: pb.FacadeGRPC.ResolveBot:output_type -> pb.ResolveBotResponse
+	24, // 50: pb.FacadeGRPC.GetBotInfo:output_type -> pb.BotInfoResponse
+	31, // 51: pb.FacadeGRPC.GetInlineMenu:output_type -> pb.InlineMenuResponse
+	33, // 52: pb.FacadeGRPC.ClickCallbackButton:output_type -> pb.CallbackAnswerResponse
+	45, // 53: pb.FacadeGRPC.SendBotCommand:output_type -> pb.EmptyResponse
+	44, // 54: pb.FacadeGRPC.GetMessageFile:output_type -> pb.FileDownloadEvent
+	44, // 55: pb.FacadeGRPC.DownloadFile:output_type -> pb.FileDownloadEvent
+	38, // 56: pb.FacadeGRPC.ListMessageFiles:output_type -> pb.ListMessageFilesResponse
+	39, // [39:57] is the sub-list for method output_type
+	21, // [21:39] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_internal_transport_grpc_pb_facade_proto_init() }
@@ -2539,7 +3138,7 @@ func file_internal_transport_grpc_pb_facade_proto_init() {
 		(*InlineButton_WebApp)(nil),
 		(*InlineButton_OtherType)(nil),
 	}
-	file_internal_transport_grpc_pb_facade_proto_msgTypes[36].OneofWrappers = []any{
+	file_internal_transport_grpc_pb_facade_proto_msgTypes[40].OneofWrappers = []any{
 		(*FileDownloadEvent_Metadata)(nil),
 		(*FileDownloadEvent_Chunk)(nil),
 		(*FileDownloadEvent_Complete)(nil),
@@ -2549,8 +3148,8 @@ func file_internal_transport_grpc_pb_facade_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_transport_grpc_pb_facade_proto_rawDesc), len(file_internal_transport_grpc_pb_facade_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   38,
+			NumEnums:      4,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

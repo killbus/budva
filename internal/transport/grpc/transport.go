@@ -112,6 +112,7 @@ type facadeService interface {
 	SendBotCommand(ctx context.Context, chatID int64, command string, botUserID int64, parameter string) error
 	GetMessageFile(ctx context.Context, chatID int64, messageID int64, emit func(facade.FileDownloadEvent) error) error
 	DownloadFile(ctx context.Context, fileID int32, emit func(facade.FileDownloadEvent) error) error
+	ListMessageFiles(ctx context.Context, chatID int64, messageID int64) (*facade.MessageFiles, error)
 }
 
 // Transport реализует gRPC-сервер FacadeGRPC.
